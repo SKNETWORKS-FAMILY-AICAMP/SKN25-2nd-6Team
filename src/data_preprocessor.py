@@ -1,6 +1,6 @@
 import pandas as pd
 
-def preprocess_medical_appointment_data(input_file='KaggleV2-May-2016.csv'):
+def preprocess_data(input_file='KaggleV2-May-2016.csv'):
     """
     의료 예약 데이터를 전처리 및 3개 테이블로 분할
     input_file (str): 입력 CSV 파일 경로
@@ -10,9 +10,19 @@ def preprocess_medical_appointment_data(input_file='KaggleV2-May-2016.csv'):
 
     df = pd.read_csv(input_file)
     
+    # 이상 데이터 제거
+    invalid_appt_ids = [5642903, 5642503, 5642549, 5642828, 5642494]
+    invalid_neighbourhoods = ['PARQUE INDUSTRIAL']
+    
+    df = df[~df['AppointmentID'].isin(invalid_appt_ids)]
+    df = df[~df['Neighbourhood'].isin(invalid_neighbourhoods)]
+    
     df['ScheduledDay'] = pd.to_datetime(df['ScheduledDay'])
     df['AppointmentDay'] = pd.to_datetime(df['AppointmentDay'])
-    df['lead_time_days'] = (df['AppointmentDay'] - df['ScheduledDay']).dt.days
+    
+    # scheduled_time과 lead_time_days 계산
+    df['scheduled_time'] = df['ScheduledDay'].dt.strftime('%H:%M')
+    df['lead_time_days'] = (df['AppointmentDay'].dt.date - df['ScheduledDay'].dt.date).apply(lambda x: x.days)
     
     # No-show (Yes=0, No=1)
     df['is_noshow'] = df['No-show'].map({'Yes': 0, 'No': 1})
@@ -60,10 +70,10 @@ def preprocess_medical_appointment_data(input_file='KaggleV2-May-2016.csv'):
     
     # 4. Appointment Table
     appointment_df = df[['AppointmentID', 'PatientId', 'nhood_id', 'ScheduledDay', 
-                         'AppointmentDay', 'is_noshow', 'SMS_received', 'lead_time_days']].copy()
+                         'AppointmentDay', 'scheduled_time', 'is_noshow', 'SMS_received', 'lead_time_days']].copy()
     
     appointment_df.columns = ['appt_id', 'patient_id', 'nhood_id', 'scheduled_at', 
-                              'appt_date', 'is_noshow', 'sms_received', 'lead_time_days']
+                              'appt_date', 'scheduled_time', 'is_noshow', 'sms_received', 'lead_time_days']
     
     return neighbourhood_df, patients_df, appointment_df
 
@@ -107,7 +117,7 @@ def check_data_consistency(df):
 
 def main():    
     try:
-        neighbourhood_df, patients_df, appointment_df = preprocess_medical_appointment_data()
+        neighbourhood_df, patients_df, appointment_df = preprocess_data()
         
         save_tables_to_csv(neighbourhood_df, patients_df, appointment_df)
         
