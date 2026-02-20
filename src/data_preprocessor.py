@@ -22,7 +22,9 @@ def preprocess_data(input_file='KaggleV2-May-2016.csv'):
     
     # scheduled_time과 lead_time_days 계산
     df['scheduled_time'] = df['ScheduledDay'].dt.strftime('%H:%M')
-    df['lead_time_days'] = (df['AppointmentDay'].dt.date - df['ScheduledDay'].dt.date).apply(lambda x: x.days)
+    df['scheduled_date'] = df['ScheduledDay'].dt.date
+    df['appt_date'] = df['AppointmentDay'].dt.date
+    df['lead_time_days'] = (df['appt_date'] - df['scheduled_date']).apply(lambda x: x.days)
     
     # No-show (Yes=0, No=1)
     df['is_noshow'] = df['No-show'].map({'Yes': 0, 'No': 1})
@@ -69,11 +71,11 @@ def preprocess_data(input_file='KaggleV2-May-2016.csv'):
                            'noshow_rate', 'last_visit_date', 'first_visit_date']
     
     # 4. Appointment Table
-    appointment_df = df[['AppointmentID', 'PatientId', 'nhood_id', 'ScheduledDay', 
-                         'AppointmentDay', 'scheduled_time', 'is_noshow', 'SMS_received', 'lead_time_days']].copy()
+    appointment_df = df[['AppointmentID', 'PatientId', 'nhood_id', 'scheduled_date', 
+                         'scheduled_time', 'appt_date', 'is_noshow', 'SMS_received', 'lead_time_days']].copy()
     
     appointment_df.columns = ['appt_id', 'patient_id', 'nhood_id', 'scheduled_at', 
-                              'appt_date', 'scheduled_time', 'is_noshow', 'sms_received', 'lead_time_days']
+                              'scheduled_time', 'appt_date', 'is_noshow', 'sms_received', 'lead_time_days']
     
     return neighbourhood_df, patients_df, appointment_df
 
@@ -113,7 +115,6 @@ def check_data_consistency(df):
             print()
     else:
         print("모든 환자의 Handicap 값이 일관적이다.")
-
 
 def main():    
     try:
