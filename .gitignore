@@ -4,3 +4,4 @@ mlartifacts/
 mlflow.db
 *.db
 app/
+.vscode/
