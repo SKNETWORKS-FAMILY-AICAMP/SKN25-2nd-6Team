@@ -91,7 +91,8 @@ def main(args):
         mlflow.log_metric("noshow_f1_test",        noshow_f1)
 
         report_df = pd.DataFrame(report_dict).T
-        report_path = "classification_report_test.csv"
+        os.makedirs("results/artifacts", exist_ok=True)
+        report_path = os.path.join("results", "artifacts", "classification_report_test.csv")
         report_df.to_csv(report_path, index=True)
         mlflow.log_artifact(report_path)
 
