@@ -3,3 +3,4 @@ mlruns/
 mlartifacts/
 mlflow.db
 *.db
+app/
