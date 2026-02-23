@@ -1,27 +1,33 @@
-"""
-CatBoost 노쇼 예측 모델 학습 파이프라인
-- 공통 데이터 파이프라인 사용 (data_pipeline.py)
-- CatBoost 학습 + Threshold 튜닝
-"""
-
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+import joblib
 from catboost import CatBoostClassifier
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, ConfusionMatrixDisplay,
 )
 
-from data_pipeline import load_and_split, evaluate
+from data_pipeline import load_and_split, evaluate, step_log
+import time
 
-# ── 한글 폰트 설정 (macOS) ──
+"""
+CatBoost no-show prediction model training pipeline
+- Uses shared data pipeline (data_pipeline.py)
+- CatBoost training + Threshold tuning
+"""
+
+# Korean font settings (macOS)
 mpl.rcParams["font.family"] = "AppleGothic"
 mpl.rcParams["axes.unicode_minus"] = False
 
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "img", "catboost")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 def train(X_train, y_train, X_valid, y_valid):
-    """CatBoost 모델 학습 후 모델 반환"""
+    """Train a CatBoost model and return it."""
     model = CatBoostClassifier(
         iterations=1000,
         learning_rate=0.05,
@@ -35,10 +41,17 @@ def train(X_train, y_train, X_valid, y_valid):
     return model
 
 def evaluate_all(model, X_train, y_train, X_valid, y_valid, X_test, y_test):
-    """Train / Validation / Test 평가 + Confusion Matrix"""
+    """Evaluate on Train / Validation / Test + Confusion Matrix."""
     train_r = evaluate(model, X_train, y_train, "Train")
     valid_r = evaluate(model, X_valid, y_valid, "Validation")
     test_r  = evaluate(model, X_test,  y_test,  "Test")
+
+    # save metrics text
+    with open(os.path.join(OUTPUT_DIR, "catboost_metrics.txt"), "w", encoding="utf-8") as f:
+        f.write("CatBoost 모델 평가 결과\n")
+        f.write("=" * 60 + "\n\n")
+        for r in [train_r, valid_r, test_r]:
+            f.write(r["text"] + "\n\n")
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     for ax, (X, y, title) in zip(axes, [
@@ -52,13 +65,14 @@ def evaluate_all(model, X_train, y_train, X_valid, y_valid, X_test, y_test):
         )
         ax.set_title(f"{title} Confusion Matrix", fontsize=13)
     plt.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR, "catboost_confusion_matrix.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
     return train_r, valid_r, test_r
 
-# Threshold 튜닝
+# Threshold tuning
 def tune_threshold(model, X_valid, y_valid, X_test, y_test):
-    """Validation F1 기준 최적 Threshold 탐색 → Test 비교"""
+    """Search for the optimal threshold (max F1 on Validation) → compare on Test."""
     y_valid_prob = model.predict_proba(X_valid)[:, 1]
 
     records = []
@@ -75,9 +89,6 @@ def tune_threshold(model, X_valid, y_valid, X_test, y_test):
     best_row = res_df.loc[res_df["f1"].idxmax()]
     best_th = best_row["threshold"]
 
-    print(f"\n🎯 CatBoost 최적 Threshold = {best_th:.2f}")
-    print(f"   F1={best_row['f1']:.4f}  Precision={best_row['precision']:.4f}  Recall={best_row['recall']:.4f}")
-
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(res_df["threshold"], res_df["f1"], label="F1-Score", linewidth=2)
     ax.plot(res_df["threshold"], res_df["precision"], label="Precision", linestyle="--")
@@ -90,24 +101,37 @@ def tune_threshold(model, X_valid, y_valid, X_test, y_test):
     ax.legend()
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR, "catboost_threshold_tuning.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
-    # ── Test: 기본 vs 최적 비교 ──
+    # ── Test: default vs optimal comparison ──
     y_test_prob = model.predict_proba(X_test)[:, 1]
     y_test_opt = (y_test_prob >= best_th).astype(int)
     y_test_def = model.predict(X_test)
 
-    print(f"\n📊 CatBoost Test 성능: 기본(0.50) vs 최적({best_th:.2f})")
-    print(f"{'='*55}")
-    print(f"{'지표':<12} {'기본(0.50)':>10} {'최적':>10} {'변화':>10}")
-    print(f"{'-'*55}")
     for name, func in [("Accuracy", accuracy_score), ("Precision", precision_score),
                         ("Recall", recall_score), ("F1-Score", f1_score)]:
         v_def = func(y_test, y_test_def)
         v_opt = func(y_test, y_test_opt)
         print(f"{name:<12} {v_def:>10.4f} {v_opt:>10.4f} {v_opt - v_def:>+10.4f}")
     auc_val = roc_auc_score(y_test, y_test_prob)
-    print(f"{'ROC-AUC':<12} {auc_val:>10.4f} {auc_val:>10.4f} {'(확률기반)':>10}")
+
+    # save Threshold comparison results text (임시)
+    with open(os.path.join(OUTPUT_DIR, "catboost_threshold_comparison.txt"), "w", encoding="utf-8") as f:
+        f.write(f"CatBoost Threshold 비교 결과\n")
+        f.write(f"{'='*55}\n")
+        f.write(f"최적 Threshold = {best_th:.2f}\n")
+        f.write(f"   F1={best_row['f1']:.4f}  Precision={best_row['precision']:.4f}  Recall={best_row['recall']:.4f}\n\n")
+        f.write(f"Test 성능 비교: 기본(0.50) vs 최적({best_th:.2f})\n")
+        f.write(f"{'='*55}\n")
+        f.write(f"{'지표':<12} {'기본(0.50)':>10} {'최적':>10} {'변화':>10}\n")
+        f.write(f"{'-'*55}\n")
+        for name, func in [("Accuracy", accuracy_score), ("Precision", precision_score),
+                            ("Recall", recall_score), ("F1-Score", f1_score)]:
+            v_def = func(y_test, y_test_def)
+            v_opt = func(y_test, y_test_opt)
+            f.write(f"{name:<12} {v_def:>10.4f} {v_opt:>10.4f} {v_opt - v_def:>+10.4f}\n")
+        f.write(f"{'ROC-AUC':<12} {auc_val:>10.4f} {auc_val:>10.4f} {'(확률기반)':>10}\n")
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     for ax, (yp, title) in zip(axes, [
@@ -121,13 +145,36 @@ def tune_threshold(model, X_valid, y_valid, X_test, y_test):
         ax.set_title(title, fontsize=13)
     plt.suptitle("CatBoost Test Set: Threshold 비교", fontsize=14, y=1.02)
     plt.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR, "catboost_threshold_comparison.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
     return best_th
 
 if __name__ == "__main__":
+    TOTAL = 4
+    t0 = time.time()
+
+    step_log(1, TOTAL, "Loading & splitting data...")
     X_train, y_train, X_valid, y_valid, X_test, y_test, FEATURES_FINAL = load_and_split()
 
+    step_log(2, TOTAL, "Training CatBoost...")
     model = train(X_train, y_train, X_valid, y_valid)
+
+    step_log(3, TOTAL, "Evaluating model...")
     evaluate_all(model, X_train, y_train, X_valid, y_valid, X_test, y_test)
+
+    step_log(4, TOTAL, "Threshold tuning...")
     best_th = tune_threshold(model, X_valid, y_valid, X_test, y_test)
+
+    # Save model
+    MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "results", "final_model")
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    model_path = os.path.join(MODEL_DIR, "catboost_model.joblib")
+    joblib.dump(model, model_path)
+    print(f"\n💾 Model saved: results/final_model/catboost_model.joblib")
+
+    elapsed = time.time() - t0
+    print(f"\n{'='*50}")
+    print(f"🏁 CatBoost pipeline complete ({elapsed:.1f}s)")
+    print(f"   Best threshold: {best_th:.2f}")
+    print(f"{'='*50}")

@@ -1,20 +1,37 @@
-"""
-    from data_pipeline import load_and_split
-    X_train, y_train, X_valid, y_valid, X_test, y_test, FEATURES_FINAL = load_and_split()
-"""
-
 import pandas as pd
 import numpy as np
+import sys
+import time
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, classification_report,
 )
 
+"""
+    from data_pipeline import load_and_split
+    X_train, y_train, X_valid, y_valid, X_test, y_test, FEATURES_FINAL = load_and_split()
+"""
+
 DATA_PATH = "../../data/Train_table_full.csv"
 TARGET = "y_noshow"
 
+# ── Progress bar utility ──
+def progress_bar(current, total, prefix="", bar_len=40):
+    """Print a single-line progress bar to stdout."""
+    frac = current / total
+    filled = int(bar_len * frac)
+    bar = "█" * filled + "░" * (bar_len - filled)
+    sys.stdout.write(f"\r  {prefix} |{bar}| {current}/{total} ({frac*100:.0f}%)")
+    sys.stdout.flush()
+    if current == total:
+        print()
+
+def step_log(step, total, msg):
+    """Print a step header with step counter."""
+    print(f"\n[{step}/{total}] ▶ {msg}")
+
 def compute_patient_stats(history_df, target_col):
-    """완료된 기간의 환자별 통계 집계"""
+    """Compute per-patient statistics from historical data."""
     stats = history_df.groupby("patient_id").agg(
         patient_appt_count=(target_col, "count"),
         patient_noshow_count=(target_col, "sum"),
@@ -23,7 +40,7 @@ def compute_patient_stats(history_df, target_col):
     return stats
 
 def apply_patient_features(target_df, stats, global_rate):
-    """환자 통계를 대상 DataFrame에 매핑 (미등장 환자 = 전체 평균)"""
+    """Map patient statistics to target DataFrame (first-visit patients → global mean)."""
     target_df["patient_appt_count"] = target_df["patient_id"].map(stats["patient_appt_count"]).fillna(0).astype(int)
     target_df["patient_noshow_count"] = target_df["patient_id"].map(stats["patient_noshow_count"]).fillna(0).astype(int)
     target_df["patient_noshow_rate"] = target_df["patient_id"].map(stats["patient_noshow_rate"]).fillna(global_rate)
@@ -31,7 +48,7 @@ def apply_patient_features(target_df, stats, global_rate):
     return target_df
 
 def evaluate(model, X, y, label=""):
-    """분류 모델 평가 함수"""
+    """Evaluate a classification model and return metrics with printable text."""
     y_pred = model.predict(X)
     y_prob = model.predict_proba(X)[:, 1]
 
@@ -41,41 +58,53 @@ def evaluate(model, X, y, label=""):
     f1 = f1_score(y, y_pred)
     auc = roc_auc_score(y, y_prob)
 
-    print(f"\n{'='*50}")
-    print(f"📊 {label} 성능")
-    print(f"{'='*50}")
-    print(f"  Accuracy  : {acc:.4f}")
-    print(f"  Precision : {prec:.4f}")
-    print(f"  Recall    : {rec:.4f}")
-    print(f"  F1-Score  : {f1:.4f}")
-    print(f"  ROC-AUC   : {auc:.4f}")
-    print(f"\n{classification_report(y, y_pred, target_names=['방문(0)', '노쇼(1)'])}")
+    report = classification_report(y, y_pred, target_names=['Visit(0)', 'No-Show(1)'])
+    lines = [
+        f"{'='*50}",
+        f"📊 {label} performance",
+        f"{'='*50}",
+        f"  Accuracy  : {acc:.4f}",
+        f"  Precision : {prec:.4f}",
+        f"  Recall    : {rec:.4f}",
+        f"  F1-Score  : {f1:.4f}",
+        f"  ROC-AUC   : {auc:.4f}",
+        "",
+        report,
+    ]
+    text = "\n".join(lines)
+    print(text)
 
     return {"label": label, "accuracy": acc, "precision": prec,
-            "recall": rec, "f1": f1, "auc": auc, "y_pred": y_pred}
+            "recall": rec, "f1": f1, "auc": auc, "y_pred": y_pred, "text": text}
 
 
-# 메인 파이프라인
+# main pipeline function
 def load_and_split(data_path=DATA_PATH):
     """
-    데이터 로딩 → 전처리 → 피처 엔지니어링 → 시간 기반 분할
+    Load data → preprocess → feature engineering → time-based split.
 
     Returns:
         X_train, y_train, X_valid, y_valid, X_test, y_test, FEATURES_FINAL
     """
+    TOTAL = 5
+    t0 = time.time()
 
+    step_log(1, TOTAL, "Loading data...")
     df = pd.read_csv(data_path)
     df = df.drop(columns=["scheduled_at"])
+    print(f"    ✓ shape: {df.shape}")
+
+    step_log(2, TOTAL, "Preprocessing (type conversion)...")
 
     # TARGET
     df["y_noshow"] = 1 - df["is_noshow"].astype(int)
-
     df["appt_date"] = pd.to_datetime(df["appt_date"])
     df["scheduled_date"] = pd.to_datetime(df["scheduled_date"])
     df["gender"] = (df["gender"] == "M").astype(int)
     df["scheduled_time"] = pd.to_datetime(df["scheduled_time"], format="%H:%M").dt.hour
 
     # features
+    step_log(3, TOTAL, "Feature selection...")
     DROP_COLS = [
         "appt_id", "patient_id", "nhood_id",
         "scheduled_date", "appt_date", "scheduled_time",
@@ -84,10 +113,11 @@ def load_and_split(data_path=DATA_PATH):
     ]
     FEATURES = [c for c in df.columns if c not in DROP_COLS]
 
-    # 같은 날 동일 환자 예약 건수
+    # Same-day appointment count per patient
     df["same_day_appts"] = df.groupby(["patient_id", "appt_date"])[TARGET].transform("count")
 
-    # 시간 순 분할 (70:15:15)
+    # Time-based split (70:15:15)
+    step_log(4, TOTAL, "Time-based split (70:15:15)...")
     df = df.sort_values("appt_date").reset_index(drop=True)
     n = len(df)
     train_end = int(n * 0.70)
@@ -97,8 +127,9 @@ def load_and_split(data_path=DATA_PATH):
     valid_df = df.iloc[train_end:valid_end].copy()
     test_df = df.iloc[valid_end:].copy()
 
-    # Feature engineering (누수 방지)
-    # 지역 기반 피처
+    # Feature engineering (leakage prevention)
+    step_log(5, TOTAL, "Feature engineering (leakage-safe)...")
+    # Neighbourhood-based feature
     nhood_noshow_rate = train_df.groupby("nhood_id")[TARGET].mean()
     global_noshow_rate = train_df[TARGET].mean()
 
@@ -106,8 +137,8 @@ def load_and_split(data_path=DATA_PATH):
     valid_df["nhood_noshow_rate"] = valid_df["nhood_id"].map(nhood_noshow_rate).fillna(global_noshow_rate)
     test_df["nhood_noshow_rate"] = test_df["nhood_id"].map(nhood_noshow_rate).fillna(global_noshow_rate)
 
-    # 환자 기반 피처
-    # Train: 내부 시간순 누적 (shift로 현재 행 제외)
+    # Patient-based features
+    # Train: cumulative stats in chronological order (shift to exclude current row)
     train_df = train_df.sort_values("appt_date").reset_index(drop=True)
     train_df["patient_noshow_count"] = (
         train_df.groupby("patient_id")[TARGET]
@@ -123,18 +154,18 @@ def load_and_split(data_path=DATA_PATH):
     )
     train_df["is_first_visit"] = (train_df["patient_appt_count"] == 0).astype(int)
 
-    # Valid: Train 전체 집계 → 매핑
+    # Valid: map aggregated stats from Train
     train_stats = compute_patient_stats(train_df, TARGET)
     valid_df = apply_patient_features(valid_df, train_stats, global_noshow_rate)
 
-    # Test: Train+Valid 전체 집계 → 매핑
+    # Test: map aggregated stats from Train+Valid
     train_valid_stats = compute_patient_stats(
         pd.concat([train_df[["patient_id", TARGET]], valid_df[["patient_id", TARGET]]]),
         TARGET,
     )
     test_df = apply_patient_features(test_df, train_valid_stats, global_noshow_rate)
 
-    # 최종 피처 리스트
+    # Final feature list
     POST_SPLIT_FEATURES = [
         "nhood_noshow_rate",
         "patient_appt_count", "patient_noshow_count",
@@ -146,5 +177,10 @@ def load_and_split(data_path=DATA_PATH):
     X_train, y_train = train_df[FEATURES_FINAL], train_df[TARGET]
     X_valid, y_valid = valid_df[FEATURES_FINAL], valid_df[TARGET]
     X_test, y_test = test_df[FEATURES_FINAL], test_df[TARGET]
+
+    elapsed = time.time() - t0
+    print(f"Data pipeline complete ({elapsed:.1f}s)")
+    print(f"Train: {len(X_train):,} | Valid: {len(X_valid):,} | Test: {len(X_test):,}")
+    print(f"Features: {len(FEATURES_FINAL)}")
 
     return X_train, y_train, X_valid, y_valid, X_test, y_test, FEATURES_FINAL

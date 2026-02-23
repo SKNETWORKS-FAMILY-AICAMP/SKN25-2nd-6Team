@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -9,13 +10,18 @@ from sklearn.metrics import (
     roc_auc_score, ConfusionMatrixDisplay,
 )
 
-from data_pipeline import load_and_split, evaluate
+from data_pipeline import load_and_split, evaluate, step_log
+import time
+import joblib
 
 mpl.rcParams["font.family"] = "AppleGothic"
 mpl.rcParams["axes.unicode_minus"] = False
 
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "img", "xgboost")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
 def train(X_train, y_train, X_valid, y_valid):
-    """XGBoost 모델 학습 후 모델 반환"""
+    """Train an XGBoost model and return it."""
     neg, pos = (y_train == 0).sum(), (y_train == 1).sum()
 
     model = xgb.XGBClassifier(
@@ -38,10 +44,17 @@ def train(X_train, y_train, X_valid, y_valid):
     return model
 
 def evaluate_all(model, X_train, y_train, X_valid, y_valid, X_test, y_test):
-    """Train / Validation / Test 평가 + Confusion Matrix"""
+    """Evaluate on Train / Validation / Test + Confusion Matrix."""
     train_r = evaluate(model, X_train, y_train, "Train")
     valid_r = evaluate(model, X_valid, y_valid, "Validation")
     test_r  = evaluate(model, X_test,  y_test,  "Test")
+
+    # save metrics text
+    with open(os.path.join(OUTPUT_DIR, "xgboost_metrics.txt"), "w", encoding="utf-8") as f:
+        f.write("XGBoost 모델 평가 결과\n")
+        f.write("=" * 60 + "\n\n")
+        for r in [train_r, valid_r, test_r]:
+            f.write(r["text"] + "\n\n")
 
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     for ax, (X, y, title) in zip(axes, [
@@ -55,13 +68,14 @@ def evaluate_all(model, X_train, y_train, X_valid, y_valid, X_test, y_test):
         )
         ax.set_title(f"{title} Confusion Matrix", fontsize=13)
     plt.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR, "xgboost_confusion_matrix.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
     return train_r, valid_r, test_r
 
-# Threshold 튜닝
+# Threshold tuning
 def tune_threshold(model, X_valid, y_valid, X_test, y_test):
-    """Validation F1 기준 최적 Threshold 탐색 → Test 비교"""
+    """Search for the optimal threshold (max F1 on Validation) → compare on Test."""
     y_valid_prob = model.predict_proba(X_valid)[:, 1]
 
     records = []
@@ -78,8 +92,13 @@ def tune_threshold(model, X_valid, y_valid, X_test, y_test):
     best_row = res_df.loc[res_df["f1"].idxmax()]
     best_th = best_row["threshold"]
 
-    print(f"\n🎯 최적 Threshold = {best_th:.2f}")
-    print(f"   F1={best_row['f1']:.4f}  Precision={best_row['precision']:.4f}  Recall={best_row['recall']:.4f}")
+    # save Threshold tuning results text
+    with open(os.path.join(OUTPUT_DIR, "xgboost_threshold_tuning.txt"),
+                "w", encoding="utf-8") as f:
+            f.write(f"XGBoost Threshold 튜닝 결과\n")
+            f.write(f"{'='*55}\n")
+            f.write(f"최적 Threshold = {best_th:.2f}\n")
+            f.write(f"   F1={best_row['f1']:.4f}  Precision={best_row['precision']:.4f}  Recall={best_row['recall']:.4f}\n")
 
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.plot(res_df["threshold"], res_df["f1"], label="F1-Score", linewidth=2)
@@ -89,28 +108,41 @@ def tune_threshold(model, X_valid, y_valid, X_test, y_test):
     ax.axvline(0.50, color="gray", linestyle=":", linewidth=1, alpha=0.5, label="Default = 0.50")
     ax.set_xlabel("Threshold")
     ax.set_ylabel("Score")
-    ax.set_title("XGBoost Threshold 튜닝 (Validation)")
+    ax.set_title("XGBoost Threshold tuning (Validation)")
     ax.legend()
     ax.grid(True, alpha=0.3)
     plt.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR, "xgboost_threshold_tuning.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
-    # Test 성능 비교
+    # Test comparison
     y_test_prob = model.predict_proba(X_test)[:, 1]
     y_test_opt = (y_test_prob >= best_th).astype(int)
     y_test_def = model.predict(X_test)
 
-    print(f"\n📊 Test 성능 비교: 기본(0.50) vs 최적({best_th:.2f})")
-    print(f"{'='*55}")
-    print(f"{'지표':<12} {'기본(0.50)':>10} {'최적':>10} {'변화':>10}")
-    print(f"{'-'*55}")
     for name, func in [("Accuracy", accuracy_score), ("Precision", precision_score),
                         ("Recall", recall_score), ("F1-Score", f1_score)]:
         v_def = func(y_test, y_test_def)
         v_opt = func(y_test, y_test_opt)
         print(f"{name:<12} {v_def:>10.4f} {v_opt:>10.4f} {v_opt - v_def:>+10.4f}")
     auc_val = roc_auc_score(y_test, y_test_prob)
-    print(f"{'ROC-AUC':<12} {auc_val:>10.4f} {auc_val:>10.4f} {'(확률기반)':>10}")
+
+    # save Threshold comparison results text
+    with open(os.path.join(OUTPUT_DIR, "xgboost_threshold_comparison.txt"), "w", encoding="utf-8") as f:
+        f.write(f"XGBoost Threshold 비교 결과\n")
+        f.write(f"{'='*55}\n")
+        f.write(f"최적 Threshold = {best_th:.2f}\n")
+        f.write(f"   F1={best_row['f1']:.4f}  Precision={best_row['precision']:.4f}  Recall={best_row['recall']:.4f}\n\n")
+        f.write(f"Test 성능 비교: 기본(0.50) vs 최적({best_th:.2f})\n")
+        f.write(f"{'='*55}\n")
+        f.write(f"{'지표':<12} {'기본(0.50)':>10} {'최적':>10} {'변화':>10}\n")
+        f.write(f"{'-'*55}\n")
+        for name, func in [("Accuracy", accuracy_score), ("Precision", precision_score),
+                            ("Recall", recall_score), ("F1-Score", f1_score)]:
+            v_def = func(y_test, y_test_def)
+            v_opt = func(y_test, y_test_opt)
+            f.write(f"{name:<12} {v_def:>10.4f} {v_opt:>10.4f} {v_opt - v_def:>+10.4f}\n")
+        f.write(f"{'ROC-AUC':<12} {auc_val:>10.4f} {auc_val:>10.4f} {'(확률기반)':>10}\n")
 
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     for ax, (yp, title) in zip(axes, [
@@ -124,12 +156,13 @@ def tune_threshold(model, X_valid, y_valid, X_test, y_test):
         ax.set_title(title, fontsize=13)
     plt.suptitle("XGBoost Test Set: Threshold 비교", fontsize=14, y=1.02)
     plt.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR, "xgboost_threshold_comparison.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
     return best_th
 
 def run_shap(model, X_test, features):
-    """SHAP 분석 7종 실행"""
+    """Run SHAP analysis (7 plot types)."""
     explainer = shap.TreeExplainer(model)
     shap_values = explainer.shap_values(X_test)
     mean_abs_shap = np.abs(shap_values).mean(axis=0)
@@ -139,6 +172,7 @@ def run_shap(model, X_test, features):
     shap.summary_plot(shap_values, X_test, plot_type="bar", show=False, max_display=len(features))
     plt.title("SHAP Feature Importance (XGBoost)", fontsize=16, pad=15)
     plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, "xgboost_shap_importance.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
     # 4-2. Beeswarm
@@ -146,6 +180,7 @@ def run_shap(model, X_test, features):
     shap.summary_plot(shap_values, X_test, show=False, max_display=len(features))
     plt.title("SHAP Beeswarm Plot (XGBoost)", fontsize=16, pad=15)
     plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, "xgboost_shap_beeswarm.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
     # 4-3. Dependence (Top 6)
@@ -158,41 +193,25 @@ def run_shap(model, X_test, features):
         ax.set_title(feat, fontsize=13, fontweight="bold")
     plt.suptitle("SHAP Dependence Plot - Top 6 Features", fontsize=16, y=1.02)
     plt.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR, "xgboost_shap_dependence.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
-    # 4-4. Force Plot (노쇼 최고 / 방문 최고)
+    # 4-4. Force Plot (highest no-show / visit cases)
     shap.initjs()
     y_prob = model.predict_proba(X_test)[:, 1]
     noshow_idx = np.argmax(y_prob)
     visit_idx = np.argmin(y_prob)
 
-    for idx, title in [(noshow_idx, "노쇼 확률 최고"), (visit_idx, "방문 확률 최고")]:
+    for idx, title, fname in [(noshow_idx, "노쇼 확률 최고", "noshow"), (visit_idx, "방문 확률 최고", "visit")]:
         shap.force_plot(explainer.expected_value, shap_values[idx],
                         X_test.iloc[idx], matplotlib=True, show=False)
         plt.gcf().set_size_inches(18, 4)
         plt.title(f"Force Plot: {title} 케이스", fontsize=14, pad=40)
         plt.tight_layout()
+        plt.savefig(os.path.join(OUTPUT_DIR, f"xgboost_shap_force_{fname}.png"), dpi=150, bbox_inches="tight")
         plt.show()
 
-    # 4-5. Waterfall
-    shap_exp = shap.Explanation(
-        values=shap_values,
-        base_values=np.full(len(shap_values), explainer.expected_value),
-        data=X_test.values,
-        feature_names=features,
-    )
-    fig, axes = plt.subplots(1, 2, figsize=(24, 8))
-    for ax, idx, title in [
-        (axes[0], noshow_idx, "Waterfall: 노쇼 확률 최고"),
-        (axes[1], visit_idx,  "Waterfall: 방문 확률 최고"),
-    ]:
-        plt.sca(ax)
-        shap.plots.waterfall(shap_exp[idx], max_display=15, show=False)
-        ax.set_title(title, fontsize=13)
-    plt.tight_layout()
-    plt.show()
-
-    # 4-6. Interaction (Top 3)
+    # 4-5. Interaction (Top 3)
     shap_interaction = explainer.shap_interaction_values(X_test)
     top3_feat = [features[i] for i in np.argsort(mean_abs_shap)[::-1][:3]]
     pairs = [
@@ -213,14 +232,37 @@ def run_shap(model, X_test, features):
         cbar.set_label(f2, fontsize=9)
     plt.suptitle("SHAP Interaction Plot - Top 3 피처 조합", fontsize=16, y=1.03)
     plt.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR, "xgboost_shap_interaction.png"), dpi=150, bbox_inches="tight")
     plt.show()
 
     return shap_values, mean_abs_shap
 
 if __name__ == "__main__":
+    TOTAL = 5
+    t0 = time.time()
+
+    step_log(1, TOTAL, "Loading & splitting data...")
     X_train, y_train, X_valid, y_valid, X_test, y_test, FEATURES_FINAL = load_and_split()
 
+    step_log(2, TOTAL, "Training XGBoost...")
     model = train(X_train, y_train, X_valid, y_valid)
+
+    step_log(3, TOTAL, "Evaluating model...")
     evaluate_all(model, X_train, y_train, X_valid, y_valid, X_test, y_test)
+
+    step_log(4, TOTAL, "Threshold tuning...")
     best_th = tune_threshold(model, X_valid, y_valid, X_test, y_test)
+
+    step_log(5, TOTAL, "SHAP analysis...")
     shap_values, mean_abs_shap = run_shap(model, X_test, FEATURES_FINAL)
+
+    # Save model
+    MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "results", "final_model")
+    os.makedirs(MODEL_DIR, exist_ok=True)
+    model_path = os.path.join(MODEL_DIR, "xgboost_model.joblib")
+    joblib.dump(model, model_path)
+    print(f"Model saved as joblib")
+
+    elapsed = time.time() - t0
+    print(f"🏁 XGBoost pipeline complete ({elapsed:.1f}s)")
+    print(f"   Best threshold: {best_th:.2f}")
