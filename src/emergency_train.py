@@ -149,7 +149,7 @@ def main():
         val_losses=loss_hist_valid,
         train_accs=acc_hist_train,
         val_accs=acc_hist_valid,
-        out_path="./checkpoints/train_curves.png",
+        out_path="../img/deeplearning/train_curves.png",
         show=True,
     )
 
