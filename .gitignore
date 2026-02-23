@@ -1,0 +1,7 @@
+# MLflow
+mlruns/
+mlartifacts/
+mlflow.db
+*.db
+app/
+.vscode/
