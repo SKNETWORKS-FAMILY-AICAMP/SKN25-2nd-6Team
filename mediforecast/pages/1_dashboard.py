@@ -3,6 +3,76 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
+from pathlib import Path
+import base64
+import joblib
+import sys
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from utils.weather_api import fetch_weather
+from utils.demo_data import get_todays_appointments
+
+# === HELPER FUNCTIONS ===
+@st.cache_resource
+def load_model():
+    """Load CatBoost model"""
+    model_path = Path(__file__).parent.parent.parent / "results" / "final_model" / "catboost_model.joblib"
+    return joblib.load(model_path)
+
+def prepare_features(patient_row, model_features, weather_detail=None):
+    """Prepare feature vector for a single patient"""
+    if weather_detail is None:
+        weather_detail = {"max_temp": 28.0, "min_temp": 22.0, "precip_mm": 0.0,
+                          "weather": 0, "temp_range": 6.0, "is_rainy": 0}
+    # Feature order must match Train_table_full.csv column order (after DROP_COLS removal)
+    # Order: sms_received, lead_time_days, gender, age, has_hypertension, has_diabetes, 
+    #        has_alcoholism, has_handicap, scholarship, dow, month, is_weekend, is_holiday,
+    #        is_before_holiday, is_after_holiday, max_temp, min_temp, precip_mm, weather,
+    #        temp_range, is_rainy, nhood_noshow_rate, patient_appt_count, patient_noshow_count,
+    #        patient_noshow_rate, is_first_visit, same_day_appts
+    
+    features = {}
+    
+    # Base features (in Train_table_full.csv order)
+    features["sms_received"] = int(patient_row.get("sms_received", 0))
+    features["lead_time_days"] = int(patient_row.get("lead_time_days", 0))
+    features["gender"] = 1 if patient_row.get("gender") == "M" else 0
+    features["age"] = int(patient_row.get("age", 30))
+    features["has_hypertension"] = int(patient_row.get("has_hypertension", 0))
+    features["has_diabetes"] = int(patient_row.get("has_diabetes", 0))
+    features["has_alcoholism"] = int(patient_row.get("has_alcoholism", 0))
+    features["has_handicap"] = int(patient_row.get("has_handicap", 0))
+    features["scholarship"] = int(patient_row.get("scholarship", 0))
+    
+    # Date/time features (use current date)
+    now = datetime.now()
+    features["dow"] = now.weekday()  # 0=Monday, 6=Sunday
+    features["month"] = now.month
+    features["is_weekend"] = 1 if now.weekday() >= 5 else 0  # 5=Saturday, 6=Sunday
+    features["is_holiday"] = 0  # TODO: integrate holiday calendar if needed
+    features["is_before_holiday"] = 0
+    features["is_after_holiday"] = 0
+    
+    # Weather features — Open-Meteo 실시간 데이터 (훈련 데이터와 동일한 WMO 코드 체계)
+    features["max_temp"]  = weather_detail["max_temp"]
+    features["min_temp"]  = weather_detail["min_temp"]
+    features["precip_mm"] = weather_detail["precip_mm"]
+    features["weather"]   = weather_detail["weather"]
+    features["temp_range"]= weather_detail["temp_range"]
+    features["is_rainy"]  = weather_detail["is_rainy"]
+    
+    # Post-split features (estimated)
+    features["nhood_noshow_rate"] = 0.2  # global average
+    features["patient_appt_count"] = 0
+    features["patient_noshow_count"] = 0
+    features["patient_noshow_rate"] = 0.2
+    features["is_first_visit"] = 1
+    features["same_day_appts"] = 1
+    
+    # Return as DataFrame matching model feature order
+    return pd.DataFrame([features])[model_features]
 
 # color set
 COLOR_BLUE      = "#85AAD0"   # Today, Weather
@@ -14,11 +84,11 @@ COLOR_RISK_MED  = "#FFC782"   # Risk ≥ 45%
 COLOR_RISK_LOW  = "#8AC19A"   # Risk < 45%
 COLOR_SELECTED  = "#85AAD0"
 
-# page set (임시)
 st.set_page_config(
     page_title="NoShow Predictor",
     page_icon="🏥",
     layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
 # CSS
@@ -33,6 +103,9 @@ html, body, [class*="css"] {{
 /* Streamlit 기본 UI 숨기기 */
 #MainMenu, header, footer {{ visibility: hidden; }}
 [data-testid="stHeader"] {{ display: none; }}
+[data-testid="stSidebar"] {{ display: none; }}
+[data-testid="stSidebarNav"] {{ display: none; }}
+section[data-testid="stSidebar"] {{ display: none; }}
 
 .main {{ background-color: #f4f6f9; }}
 
@@ -99,11 +172,24 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > div > div[data-testi
 .risk-medium {{ background: {COLOR_RISK_MED}; color: #6b5a2e; }}
 .risk-low    {{ background: {COLOR_RISK_LOW}; }}
 
-/* 환자 리스트 스크롤 */
 .patient-list-scroll {{
-    max-height: 480px;
+    height: 520px;
+    max-height: 520px;
     overflow-y: auto;
     padding-right: 4px;
+}}
+
+/* Fixed height for sections */
+.appointments-section {{
+    height: 620px;
+    display: flex;
+    flex-direction: column;
+}}
+
+.risk-analysis-section {{
+    height: 620px;
+    display: flex;
+    flex-direction: column;
 }}
 
 /* Patient Profile */
@@ -128,18 +214,60 @@ div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > div > div[data-testi
 .profile-info strong {{ font-size: 1rem; color: #1a1a2e; }}
 
 .section-title {{ font-size: 1.1rem; font-weight: 700; color: #1a1a2e; margin-bottom: 16px; }}
+
+[data-testid="stImage"] {{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}}
 </style>
 """, unsafe_allow_html=True)
 
-# dummy data
-appointments = [
-    {"name": "Yeonjeong Park", "gender": "F", "time": "09:00 AM", "risk": 75},
-    {"name": "Minseo Cho",     "gender": "F", "time": "09:30 AM", "risk": 37},
-    {"name": "Jihyun Kim",     "gender": "F", "time": "10:00 AM", "risk": 10},
-    {"name": "Jihyun Park",    "gender": "F", "time": "10:30 AM", "risk": 6},
-    {"name": "Yeonjun Kim",    "gender": "M", "time": "11:00 AM", "risk": 50},
-    {"name": "Channwoong Seo", "gender": "M", "time": "11:30 AM", "risk": 82}
-]
+# === LOAD DATA & MODEL ===
+try:
+    model = load_model()
+    patients_df = get_todays_appointments()
+    weather_icon, weather_text, weather_detail = fetch_weather()
+    
+    # Get model feature names (in the order they appear in Train_table_full.csv)
+    model_features = [
+        "sms_received", "lead_time_days", "gender", "age", "has_hypertension",
+        "has_diabetes", "has_alcoholism", "has_handicap", "scholarship",
+        "dow", "month", "is_weekend", "is_holiday", "is_before_holiday", "is_after_holiday",
+        "max_temp", "min_temp", "precip_mm", "weather", "temp_range", "is_rainy",
+        "nhood_noshow_rate", "patient_appt_count", "patient_noshow_count",
+        "patient_noshow_rate", "is_first_visit", "same_day_appts"
+    ]
+    
+    # Predict risk for each patient
+    appointments = []
+    for idx, row in patients_df.iterrows():
+        X_pred = prepare_features(row.to_dict(), model_features, weather_detail)
+        prob = model.predict_proba(X_pred)[0, 1]
+        risk = int(prob * 100)
+        
+        appointments.append({
+            "name": row["name"],
+            "gender": row["gender"],
+            "time": row["time"],
+            "risk": risk,
+            "age": int(row.get("age", 30)),
+            "lead_time": int(row.get("lead_time_days", 0)),
+            "sms_received": int(row.get("sms_received", 0)),
+        })
+    
+except Exception as e:
+    st.error(f"Error loading data: {e}")
+    import traceback
+    st.error(traceback.format_exc())
+    # Fallback to dummy data
+    appointments = [
+        {"name": "Nayeon Kim", "gender": "F", "time": "09:00", "risk": 75, "age": 30, "lead_time": 5, "sms_received": 1},
+        {"name": "Beomsu Park", "gender": "M", "time": "09:30", "risk": 37, "age": 25, "lead_time": 3, "sms_received": 0},
+    ]
+    weather_icon, weather_text = "☀️", "Sunny, 25 °C"
+    weather_detail = {"max_temp": 25.0, "min_temp": 20.0, "precip_mm": 0.0,
+                      "weather": 0, "temp_range": 5.0, "is_rainy": 0}
 
 def risk_class(r):
     if r >= 65: return "risk-high"
@@ -156,14 +284,16 @@ if "sel" in st.query_params:
     except (ValueError, IndexError):
         pass
 
-# 상단 카드
-c1, c2, c3, c4 = st.columns([1.2, 1, 1, 1])
+# top cards
+c1, c2, c3, c4 = st.columns([0.8, 1, 1, 1])
+
+logo_b64 = base64.b64encode(
+    Path(__file__).parent.parent.joinpath("static", "logo.png").read_bytes()
+).decode()
 
 with c1:
-    st.markdown("""
-    <div class="card-project">
-        <div class="proj-name">🏥 NoShow Predictor</div>
-    </div>""", unsafe_allow_html=True)
+    with st.container():
+        st.markdown(f'<img src="data:image/png;base64,{logo_b64}" width="220">', unsafe_allow_html=True)
 
 with c2:
     today = datetime.now().strftime("%Y - %m - %d")
@@ -177,12 +307,12 @@ with c2:
     </div>""", unsafe_allow_html=True)
 
 with c3:
-    st.markdown("""
+    st.markdown(f"""
     <div class="top-card card-weather">
-        <div class="icon">☀️</div>
+        <div class="icon">{weather_icon}</div>
         <div>
-            <div class="label">Weather</div>
-            <div class="value">Sunny, 25 °C</div>
+            <div class="label">Weather (Vitória)</div>
+            <div class="value">{weather_text}</div>
         </div>
     </div>""", unsafe_allow_html=True)
 
@@ -197,11 +327,10 @@ with c4:
         </div>
     </div>""", unsafe_allow_html=True)
 
-st.markdown("<div style='height:18px'></div>", unsafe_allow_html=True)
-
+st.markdown('<div style="height: 24px"></div>', unsafe_allow_html=True)
 
 # main panel
-left, right = st.columns([1, 1.3], gap="large")
+left, right = st.columns([1, 1.8], gap="small")
 
 # left - appointment list
 with left:
@@ -212,7 +341,7 @@ with left:
 
         filtered = [a for a in appointments if search.lower() in a["name"].lower()] if search else appointments
 
-        # 카드 HTML. st.html은 iframe이므로 CSS를 포함
+        # card HTML. st.html은 iframe이므로 CSS를 포함
         card_css = f"""
         <style>
             @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
@@ -291,9 +420,31 @@ with right:
         </div>
         """, unsafe_allow_html=True)
 
-        # SHAP plot (dummy data)
-        features = ["Lead Time", "SMS Received", "Past No-Shows", "Age", "Neighborhood"]
-        values   = [18, 15, 22, -8, 10]
+        # SHAP-like feature contribution plot
+        sel_dict = sel
+        
+        # Calculate feature contributions (simplified)
+        contributions = []
+        if sel_dict.get("lead_time", 0) > 7:
+            contributions.append(("Lead Time (days)", 15))
+        else:
+            contributions.append(("Lead Time (days)", -5))
+            
+        if sel_dict.get("sms_received", 0) == 0:
+            contributions.append(("No SMS Received", 12))
+        else:
+            contributions.append(("SMS Received", -8))
+            
+        if sel_dict.get("age", 30) < 18 or sel_dict.get("age", 30) > 60:
+            contributions.append(("Age Factor", 8))
+        else:
+            contributions.append(("Age Factor", -3))
+        
+        contributions.append(("Neighborhood Risk", 10))
+        contributions.append(("Past History", 5))
+        
+        features = [c[0] for c in contributions]
+        values = [c[1] for c in contributions]
         colors   = [COLOR_PINK if v > 0 else COLOR_RISK_LOW for v in values]
 
         fig = go.Figure(go.Bar(
@@ -305,7 +456,7 @@ with right:
             textposition='outside',
         ))
         fig.update_layout(
-            title=dict(text="Why High Risk?", font=dict(size=14, family="DM Sans"), x=0.5),
+            title=dict(text="Risk Factor Analysis", font=dict(size=14, family="DM Sans"), x=0.5),
             xaxis=dict(title="Contribution to Risk (%)", showgrid=True, gridcolor="#f0f2f7"),
             yaxis=dict(showgrid=False),
             plot_bgcolor="white",
@@ -315,7 +466,7 @@ with right:
             font=dict(family="DM Sans", size=12),
             annotations=[dict(
                 x=1, y=-0.18, xref='paper', yref='paper',
-                text=f"Total Risk: {sel['risk']}%",
+                text=f"Predicted Risk: {sel['risk']}%",
                 showarrow=False,
                 font=dict(size=12, color=COLOR_PINK, family="DM Sans"),
                 xanchor='right'
