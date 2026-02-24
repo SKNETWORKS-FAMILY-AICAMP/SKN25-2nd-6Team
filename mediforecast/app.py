@@ -15,7 +15,7 @@ logo_b64 = base64.b64encode(
     Path(__file__).parent.joinpath("static", "logo.png").read_bytes()
 ).decode()
 
-# ── CSS: UI 숨기기 + 버튼 카드 스타일 ──
+# CSS - UI customization
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
@@ -131,7 +131,7 @@ html, body {{ background-color: #ffffff; }}
 </html>
 """, height=280)
 
-# ── 네비게이션 버튼 (iframe 밖 = 페이지 이동 정상 작동) ──
+# navigation btn
 st.markdown("""
 <div class="btn-row">
     <a class="role-btn patient" href="/booking">

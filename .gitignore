@@ -3,5 +3,6 @@ mlruns/
 mlartifacts/
 mlflow.db
 *.db
+*.pt
 app/
 .vscode/

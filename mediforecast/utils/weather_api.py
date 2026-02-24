@@ -9,7 +9,7 @@ import streamlit as st
 LAT = -20.3155
 LON = -40.3128
 
-# WMO code → emoji
+# WMO code emoji
 WMO_ICONS = {
     0: "☀️",  1: "🌤️", 2: "⛅",  3: "☁️",
     45: "🌫️", 48: "🌫️",
@@ -20,7 +20,7 @@ WMO_ICONS = {
     95: "⛈️", 96: "⛈️", 99: "⛈️",
 }
 
-# WMO code → description
+# WMO code description
 WMO_DESC = {
     0: "Clear sky",      1: "Mainly clear",    2: "Partly cloudy",   3: "Overcast",
     45: "Fog",           48: "Rime fog",
@@ -35,12 +35,12 @@ WMO_DESC = {
 @st.cache_data(ttl=600)  # 10분 캐시
 def fetch_weather():
     """
-    Open-Meteo Forecast API로 비토리아 실시간 날씨 조회.
-    훈련 데이터(data_calendar_weather.py)와 동일한 API·WMO 코드 사용.
+    Open-Meteo Forecast API로 비토리아 실시간 날씨 조회
+    훈련 데이터(data_calendar_weather.py)와 동일한 API·WMO 코드 사용
 
     Returns:
         icon (str)         : 날씨 이모지
-        display_text (str) : 화면 표시용 문자열 (예: "Partly cloudy, 27 °C")
+        display_text (str) : 화면 표시용 문자열 (ex. "Partly cloudy, 27 °C")
         detail (dict)      : 모델 피처 {'max_temp', 'min_temp', 'precip_mm',
                                          'weather', 'temp_range', 'is_rainy'}
     """
@@ -62,11 +62,11 @@ def fetch_weather():
         resp.raise_for_status()
         data = resp.json()
 
-        # 현재 기온·코드 (상단 카드 표시용)
+        # 현재 기온·코드 - 상단 카드 표시용
         cur_temp  = round(data["current"]["temperature_2m"])
         cur_code  = int(data["current"]["weather_code"])
 
-        # 오늘 일별 요약 (모델 피처용)
+        # 오늘 일별 요약 - 모델 피처용
         max_temp   = data["daily"]["temperature_2m_max"][0]
         min_temp   = data["daily"]["temperature_2m_min"][0]
         precip_mm  = data["daily"]["precipitation_sum"][0] or 0.0
@@ -79,7 +79,7 @@ def fetch_weather():
             "max_temp":  float(max_temp),
             "min_temp":  float(min_temp),
             "precip_mm": float(precip_mm),
-            "weather":   day_code,                        # WMO code — 훈련 데이터와 동일
+            "weather":   day_code,                        # WMO code
             "temp_range": float(max_temp - min_temp),
             "is_rainy":   1 if precip_mm > 0 else 0,
         }
@@ -87,9 +87,9 @@ def fetch_weather():
 
     except requests.exceptions.Timeout:
         print("Weather API timeout")
-        return "⚠️", "날씨 정보 요청 시간 초과", _fallback_detail
+        return "날씨 정보 요청 시간 초과", _fallback_detail
     except Exception as e:
         print(f"Weather API error: {e}")
         import traceback
         traceback.print_exc()
-        return "⚠️", f"날씨 정보 오류: {str(e)}", _fallback_detail
+        return f"날씨 정보 오류: {str(e)}", _fallback_detail

@@ -1,0 +1,1241 @@
+age_norm,sex,symptom,emergency_label
+0.5916666666666667,1,right ocular pain,0
+0.4666666666666667,0,right forearm burn,0
+0.5666666666666667,0,"arm pain, Lt",0
+0.5916666666666667,1,ascites tapping,0
+0.48333333333333334,1,"distension, abd",0
+0.45,0,fever,0
+0.4083333333333333,1,With chest discomfort,1
+0.65,1,"pain, chest",1
+0.26666666666666666,1,LBP - Low back pain,0
+0.31666666666666665,0,"Eczema, Eyelid",0
+0.35833333333333334,1,acute epigastric pain,0
+0.375,1,"pain, leg",0
+0.44166666666666665,0,epigastric pain,0
+0.4583333333333333,1,abd pain,0
+0.48333333333333334,1,headache,0
+0.5416666666666666,0,headache,0
+0.44166666666666665,1,Open Wound,1
+0.16666666666666666,0,RUQ pain,1
+0.31666666666666665,1,Gingival swelling,0
+0.6583333333333333,0,chin pain,0
+0.16666666666666666,1,Finger Injury,0
+0.2,0,skin rash,1
+0.49166666666666664,1,Rt. side motor weakness,1
+0.6416666666666667,1,Lt. hip joint pain,0
+0.30833333333333335,1,face laceration,0
+0.5166666666666667,0,throat pain,1
+0.6166666666666667,1,chest wall pain right,1
+0.36666666666666664,1,"pain, arm",0
+0.4083333333333333,1,Seizure Like Activity,1
+0.26666666666666666,1,post seizure,1
+0.5416666666666666,0,vomiting,0
+0.6166666666666667,0,palpitation,1
+0.13333333333333333,1,syncope,1
+0.225,0,hematochezia,1
+0.25,0,"injury, finger",0
+0.30833333333333335,0,syncope,0
+0.4,0,hyperventilation,0
+0.725,0,involuntary movt.,0
+0.175,0,Urticarial rash,0
+0.2833333333333333,1,Foreign body sensation in neck,0
+0.3,1,throat pain,0
+0.43333333333333335,1,"swelling, facial",0
+0.4666666666666667,1,post seizure,1
+0.5833333333333334,1,dyspnea,1
+0.675,0,mental change,1
+0.5416666666666666,1,fever,1
+0.7416666666666667,1,melena,1
+0.30833333333333335,0,Abdominal pain (finding),0
+0.325,0,both leg pain,0
+0.675,0,Left leg pain,0
+0.24166666666666667,1,knee pain,0
+0.5333333333333333,1,H-Headache,1
+0.25,0,needle stick injury,1
+0.6,1,Left chest pain,1
+0.5666666666666667,0,palpitation,1
+0.49166666666666664,1,fever,1
+0.6916666666666667,0,abd pain,1
+0.49166666666666664,0,fever,1
+0.5833333333333334,0,dyspnea,1
+0.19166666666666668,1,vomiting,1
+0.20833333333333334,1,lip laceration,0
+0.375,0,ant. chest pain,1
+0.21666666666666667,0,right lower quadrant abdominal pain,1
+0.6916666666666667,0,right hemiparesis,1
+0.6,1,"leg pain, Lt.",0
+0.6416666666666667,1,left wrist swelling,0
+0.18333333333333332,0,watery diarrhea,1
+0.20833333333333334,0,abd pain,1
+0.36666666666666664,0,chest pain rt,1
+0.44166666666666665,0,epigastric pain,1
+0.5833333333333334,0,epigastric pain,1
+0.6833333333333333,0,V - vomiting,1
+0.16666666666666666,0,HA - Headache,1
+0.18333333333333332,0,both eye pain,1
+0.24166666666666667,1,leg pain left,0
+0.275,1,tooth pain,0
+0.325,0,acute epigastric pain,1
+0.4666666666666667,1,upper abdominal pain,1
+0.48333333333333334,0,"Edema, Cheek",0
+0.5083333333333333,1,headache,1
+0.5416666666666666,0,epigastric pain,1
+0.6166666666666667,0,epigastric pain,1
+0.625,0,fever,1
+0.225,1,"pain, low back",1
+0.36666666666666664,1,"Low Back Pain, Undetermined",1
+0.24166666666666667,0,"pain, low back",1
+0.49166666666666664,0,hematuria,1
+0.6416666666666667,1,"pain, back",1
+0.49166666666666664,1,both wrist pain,1
+0.15,1,testis pain,1
+0.18333333333333332,0,right upper abdominal pain,1
+0.35,1,Generalized abdominal pain,1
+0.44166666666666665,1,"pain, low back",1
+0.5166666666666667,0,abd pain,1
+0.55,0,"pain, abdominal",1
+0.6333333333333333,0,"Pain, Hip",0
+0.65,1,acute epigastric pain,1
+0.675,0,Abd. pain,1
+0.65,0,Elbow Injury,1
+0.26666666666666666,1,fever,1
+0.43333333333333335,0,Rt. flank pain,1
+0.18333333333333332,1,H-Headache,1
+0.275,0,headache,1
+0.36666666666666664,0,LLQ pain,1
+0.4666666666666667,0,rt flank pain,1
+0.48333333333333334,0,occipital area headache,1
+0.5666666666666667,1,Lt flank pain,1
+0.6583333333333333,0,RLQ pain,1
+0.7083333333333334,0,Lt flank pain,1
+0.6083333333333333,1,both leg pain,1
+0.6083333333333333,0,"ocular pain, Lt.",1
+0.15833333333333333,1,Open Wound,1
+0.2,0,leg pain left,1
+0.26666666666666666,1,headache,1
+0.675,0,Arm Injury,1
+0.7,1,vomiting,1
+0.4,1,dyspnea,1
+0.4166666666666667,0,"Blood Pressure, Low",1
+0.4166666666666667,0,"Blood Pressure, Low",1
+0.7,0,syncope,1
+0.6583333333333333,1,general weakness,1
+0.23333333333333334,0,dyspnea,1
+0.5,1,general weakness,1
+0.5166666666666667,0,fever,1
+0.5583333333333333,1,fever & chill,1
+0.625,0,fever,1
+0.6666666666666666,1,dyspnea,1
+0.6833333333333333,1,dyspnea,1
+0.75,0,acute dyspnea,1
+0.7666666666666667,0,dyspnea,1
+0.2833333333333333,0,general weakness,1
+0.475,1,vomiting,1
+0.5,0,weakness,0
+0.5833333333333334,1,diffuse chest discomfort,1
+0.5916666666666667,1,dizziness,1
+0.6083333333333333,1,dyspnea,1
+0.6166666666666667,0,dizziness,1
+0.6416666666666667,1,D - Diarrhea,0
+0.65,1,general weakness,0
+0.6583333333333333,0,dizziness,1
+0.7333333333333333,0,low Hb,1
+0.3,0,Suicidal Attempt,1
+0.375,0,chest palpitation,1
+0.475,1,general weakness,1
+0.6416666666666667,1,AVF site bleeding,1
+0.6416666666666667,1,mental change,1
+0.4083333333333333,1,dyspnea,1
+0.525,1,mental change,1
+0.5416666666666666,1,mental change,1
+0.6166666666666667,1,acute delirium,1
+0.65,0,Motor weakness,1
+0.2916666666666667,0,fever,1
+0.5083333333333333,0,fever,1
+0.6,0,Catheter removal,0
+0.625,1,dyspnea,1
+0.475,1,Generalized abdominal pain,1
+0.6416666666666667,0,melena,1
+0.65,0,hematemesis,1
+0.65,0,oliguria,1
+0.6666666666666666,0,dyspnea,1
+0.15833333333333333,1,both leg motor weakness,1
+0.4083333333333333,1,Drug Intoxication,1
+0.4666666666666667,0,Amnesia,1
+0.525,1,limb paresthesia,1
+0.6583333333333333,0,right hemiparesis,1
+0.225,0,fever,1
+0.225,0,fever,1
+0.5416666666666666,1,AVF malfunction,0
+0.225,1,post neck pain,1
+0.44166666666666665,1,generalized urticaria,1
+0.25,0,headache,1
+0.49166666666666664,0,left facial numbness,0
+0.25,0,upper abdominal pain,1
+0.26666666666666666,1,Rt. flank pain,1
+0.43333333333333335,1,"arm pain, Rt",0
+0.35833333333333334,1,"erection, penile",1
+0.48333333333333334,1,melena,1
+0.5416666666666666,1,dysarthria,1
+0.25,0,PPROM,1
+0.48333333333333334,1,dyspnea,1
+0.625,1,Facial Palsy,1
+0.4583333333333333,1,Urticarial rash,0
+0.4666666666666667,1,FB in eye,0
+0.6583333333333333,0,abdomen discomfort,0
+0.13333333333333333,1,Open Wound,0
+0.15,0,hand tingling sense,0
+0.16666666666666666,1,Dislocation of Jaw,0
+0.175,0,Foreign body sensation in throat,0
+0.18333333333333332,1,Rt. Chest pain,1
+0.19166666666666668,1,chest wall pain left,0
+0.24166666666666667,0,head trauma,0
+0.38333333333333336,0,F/C-fever/chills,0
+0.38333333333333336,1,blurred vision,0
+0.38333333333333336,1,scalp lac.,0
+0.4083333333333333,1,Rt side numbness,1
+0.43333333333333335,1,epigastric pain,0
+0.43333333333333335,0,vaginal bleeding,1
+0.45,0,vomiting,0
+0.45,1,"Flank pain, Rt.",1
+0.45,0,low abdominal pain,0
+0.4583333333333333,0,ant. chest pain,1
+0.475,1,Ankle Injury,0
+0.5083333333333333,1,"pain, periumbilical",0
+0.5083333333333333,0,"abdominal pain, Rt",0
+0.5166666666666667,1,Arm Injury,0
+0.575,0,Abd. pain,0
+0.575,0,"Discomfort, Chest",1
+0.6583333333333333,1,mental change,1
+0.5333333333333333,1,"pain, flank",0
+0.275,1,Urticarial rash,0
+0.625,0,"pain, chest",1
+0.6166666666666667,0,abd pain,0
+0.475,0,"pain, low back",0
+0.48333333333333334,0,"pain, chest",1
+0.6833333333333333,1,LBP - Low back pain,0
+0.5333333333333333,0,fever,0
+0.6,0,for A/tapping,0
+0.375,0,"Discomfort, Chest",0
+0.625,1,headache,1
+0.2916666666666667,0,acute epigastric pain,0
+0.13333333333333333,1,throat pain,0
+0.14166666666666666,0,H-Headache,0
+0.15,1,ocular pain,0
+0.15,1,PTx - Pneumothorax,0
+0.15,0,abd pain,0
+0.15,1,Abd. pain,0
+0.15833333333333333,0,lower abdominal pain,0
+0.16666666666666666,0,abd pain,0
+0.16666666666666666,1,left knee swelling,0
+0.16666666666666666,1,sorethroat,0
+0.175,1,"laceration, chin",0
+0.18333333333333332,0,abd pain,0
+0.18333333333333332,0,acute epigastric pain,0
+0.18333333333333332,0,Vaginal Bleeding,1
+0.18333333333333332,0,"Burn, arm",0
+0.18333333333333332,0,abd pain,0
+0.19166666666666668,0,epigastric pain,0
+0.19166666666666668,0,dysuria,0
+0.19166666666666668,1,"pain, chest",1
+0.2,0,Gingival bleeding,0
+0.2,0,anal bleeding,0
+0.20833333333333334,1,"pain, chest",1
+0.20833333333333334,1,"swelling, neck",0
+0.20833333333333334,1,headache,0
+0.21666666666666667,1,FB in pharynx,0
+0.21666666666666667,1,abdomen pain,0
+0.21666666666666667,1,"injury, finger",0
+0.21666666666666667,0,abd pain,0
+0.21666666666666667,1,chest discomfort left,1
+0.225,1,LLQ pain,0
+0.225,0,vomiting,0
+0.225,1,Knee Injury,0
+0.225,0,LBP - Low back pain,0
+0.225,0,headache,0
+0.225,1,facial injury,0
+0.225,1,epigastric pain,0
+0.23333333333333334,1,eyebrow laceration,0
+0.23333333333333334,0,abd pain,0
+0.23333333333333334,1,"pain, foot",0
+0.24166666666666667,1,blurred vision,0
+0.24166666666666667,1,"pain, chest",0
+0.24166666666666667,1,vomiting,0
+0.24166666666666667,0,vaginal spotting,1
+0.24166666666666667,1,abdomen pain,0
+0.24166666666666667,1,Open Wound,0
+0.25,1,anxiety,0
+0.25833333333333336,0,myalgia,0
+0.25833333333333336,0,headache,0
+0.25833333333333336,1,headache,0
+0.26666666666666666,0,right monoparesis,1
+0.26666666666666666,0,throat pain,0
+0.275,1,"pain, periumbilical",0
+0.275,0,"pain, low back",0
+0.275,1,Rt abd pain,0
+0.275,1,RLQ abd. pain,0
+0.275,1,Lt flank pain,0
+0.2833333333333333,1,With chest discomfort,1
+0.2833333333333333,1,"ocular pain, Rt.",0
+0.2833333333333333,1,left eyelid laceration,0
+0.2916666666666667,0,Chest pain NOS (finding),1
+0.2916666666666667,0,"ocular pain, Lt.",0
+0.2916666666666667,1,sorethroat,0
+0.2916666666666667,0,epigastric pain,0
+0.2916666666666667,0,Midmenstrual pain,0
+0.2916666666666667,1,fever,0
+0.3,0,diffuse abdominal pain,0
+0.3,0,Eye Injury,0
+0.3,0,headache,0
+0.30833333333333335,1,LOC - Loss of consciousness,1
+0.31666666666666665,1,Lt flank pain,0
+0.325,1,ant. chest pain,1
+0.325,0,cough,1
+0.325,0,abd pain,0
+0.3333333333333333,1,painful skin lesion,0
+0.3333333333333333,1,ant. chest pain,1
+0.3333333333333333,0,Rt abd pain,0
+0.3333333333333333,1,upper abdominal pain,0
+0.3333333333333333,0,H-Headache,0
+0.3333333333333333,1,"Leg pain, NOS",0
+0.3416666666666667,1,leg pain,0
+0.3416666666666667,0,RLQ pain,0
+0.3416666666666667,1,abd pain,0
+0.3416666666666667,0,Open Wound,0
+0.35,0,Open Wound,0
+0.35,0,"bleeding, knee",1
+0.35833333333333334,1,headache,0
+0.35833333333333334,0,Rt. flank pain,0
+0.35833333333333334,0,Rt. flank pain,0
+0.35833333333333334,0,Open Wound,0
+0.36666666666666664,0,LLQ pain,0
+0.36666666666666664,1,dyspnea,1
+0.36666666666666664,1,"Pain, Ankle",0
+0.36666666666666664,0,Abd. pain,1
+0.38333333333333336,0,abdomen pain,0
+0.38333333333333336,1,chest palpitation,1
+0.39166666666666666,1,"pain, neck",0
+0.39166666666666666,1,"ocular pain, Rt.",0
+0.4,1,Foreign Body Sense,0
+0.4,0,abd pain,0
+0.4,1,Open Wound,1
+0.4,0,Abd. pain,0
+0.4,1,mental change,1
+0.4083333333333333,0,Open Wound,0
+0.4083333333333333,0,HA - Headache,0
+0.4083333333333333,1,ant. chest pain,1
+0.4166666666666667,0,whirling type vertigo,1
+0.4166666666666667,0,rt flank pain,0
+0.4166666666666667,1,rt. side neck pain,0
+0.425,0,H-Headache,0
+0.425,1,diffuse abdominal pain,0
+0.425,1,fever,0
+0.425,1,Open Wound,0
+0.43333333333333335,1,RUQ pain,0
+0.44166666666666665,0,ant. chest pain,1
+0.44166666666666665,1,arm pain,0
+0.44166666666666665,1,finger laceration wound,0
+0.4583333333333333,1,head trauma,0
+0.4583333333333333,1,pain on Knee,0
+0.4583333333333333,1,abd pain,0
+0.4666666666666667,1,Left chest pain,1
+0.4666666666666667,1,Epigastric discomfort(+),0
+0.4666666666666667,1,both leg pain,0
+0.4666666666666667,1,abd pain,0
+0.4666666666666667,1,abd. Distension,0
+0.475,1,epigastric pain,0
+0.475,1,for medication,0
+0.475,1,"ocular pain, Rt.",0
+0.475,1,Lt flank pain,0
+0.475,0,ant. chest pain,1
+0.475,0,headache,0
+0.48333333333333334,1,Lt hemiparesis,1
+0.48333333333333334,1,ant. chest pain,1
+0.48333333333333334,1,Open Wound,0
+0.48333333333333334,1,"abdominal pain, Rt",0
+0.48333333333333334,0,Left chest pain,1
+0.48333333333333334,1,ant. chest pain,1
+0.49166666666666664,0,"pain, flank",0
+0.49166666666666664,0,LLQ pain,1
+0.49166666666666664,1,abd pain,0
+0.5,1,upper abdominal pain,0
+0.5,0,Open Wound,0
+0.5,1,headache,0
+0.5,0,left eye pain,0
+0.5,1,Rt hemiparesis,1
+0.5083333333333333,0,ant. chest pain,0
+0.5166666666666667,0,ant. chest pain,1
+0.5166666666666667,1,dyspnea,1
+0.525,1,"abdominal pain, Rt",0
+0.525,0,head trauma,0
+0.5333333333333333,0,ant. chest pain,1
+0.5416666666666666,0,dizziness,1
+0.5416666666666666,0,Abd. pain,0
+0.55,0,ant. chest pain,1
+0.55,1,VOIDING PAIN,0
+0.55,1,LOC - Loss of consciousness,1
+0.55,1,ant. chest pain,1
+0.5583333333333333,0,RLQ pain,0
+0.5666666666666667,1,LOC,1
+0.5666666666666667,1,"pain, chest",1
+0.575,0,"Pain, Eye",0
+0.575,0,dizziness,1
+0.5833333333333334,1,left thigh swelling,1
+0.5833333333333334,0,abd pain,0
+0.5833333333333334,0,diarrhea,0
+0.5916666666666667,0,ant. chest pain,1
+0.5916666666666667,1,abd pain,0
+0.5916666666666667,0,ant. chest pain,1
+0.6,1,ant. chest pain,1
+0.6,0,diffuse chest discomfort,1
+0.6,0,dyspnea,1
+0.6,0,epigastric pain,0
+0.6,0,general weakness,1
+0.6083333333333333,1,abdomen pain,0
+0.6083333333333333,1,Abd. pain,0
+0.6166666666666667,0,Lower Back Pain,0
+0.6166666666666667,1,backache,0
+0.6166666666666667,0,abd pain,1
+0.6166666666666667,1,left forearm pain,0
+0.625,0,post neck pain,0
+0.625,1,fever,1
+0.625,0,abd pain,0
+0.625,1,both leg cellulitis,0
+0.6333333333333333,0,RLQ abdominal pain,0
+0.6333333333333333,1,left side motor weakness,1
+0.6333333333333333,1,headache,0
+0.6333333333333333,0,Abd. pain,0
+0.6333333333333333,1,dyspnea,1
+0.6416666666666667,1,Lt flank pain,0
+0.6416666666666667,0,Low abd discomfort,0
+0.6416666666666667,0,fever,0
+0.65,0,RUQ pain,0
+0.65,1,alcohol smell,0
+0.65,0,diffuse chest discomfort,1
+0.6583333333333333,0,ant. chest pain,1
+0.6583333333333333,0,RUQ pain,0
+0.6583333333333333,1,abdomen pain,0
+0.6583333333333333,0,abd pain,0
+0.6666666666666666,0,Left chest pain,1
+0.6666666666666666,1,dyspnea,1
+0.6666666666666666,0,abdomen pain,0
+0.6666666666666666,1,Voiding Failure,0
+0.675,1,dyspnea,1
+0.675,0,left motor weakness,1
+0.6833333333333333,0,both eyelid swelling,1
+0.6916666666666667,0,ant. chest pain,1
+0.6916666666666667,0,Abd. pain,0
+0.7,0,cough,1
+0.7166666666666667,0,dizziness,1
+0.7166666666666667,1,Rt hemiparesis,1
+0.7166666666666667,1,ant. chest pain,1
+0.725,0,fever,0
+0.7333333333333333,1,ant. chest pain,1
+0.7833333333333333,0,"abdominal pain, LUQ",0
+0.43333333333333335,1,distended abdomen,1
+0.4666666666666667,1,ascites tapping,0
+0.6416666666666667,0,"pain, chest",0
+0.5833333333333334,0,"discomfort, chest",1
+0.675,1,"pain, chest",1
+0.7083333333333334,0,palpitation,1
+0.13333333333333333,1,Open Wound,0
+0.13333333333333333,1,Ankle Injury,0
+0.15,0,right forearm laceration,0
+0.15833333333333333,0,Ankle Injury,0
+0.18333333333333332,0,H-Headache,0
+0.18333333333333332,1,Open Wound,0
+0.18333333333333332,1,mandibular pain,0
+0.19166666666666668,0,Toe injury,0
+0.19166666666666668,0,both leg pain,0
+0.2,1,Convulsion,1
+0.2,0,abd pain,1
+0.2,1,"otalgia, Rt.",0
+0.2,1,"pain, chest",1
+0.2,1,"otalgia, Lt.",0
+0.2,1,nausea,1
+0.20833333333333334,0,Open Wound,0
+0.20833333333333334,0,Ankle Injury,0
+0.20833333333333334,0,abd pain,1
+0.20833333333333334,1,"Pain, Hand",0
+0.21666666666666667,1,Open Wound,0
+0.225,1,abd pain,1
+0.225,0,facial injury,0
+0.23333333333333334,1,abd pain,1
+0.25,1,facial injury,0
+0.25,1,headache,1
+0.26666666666666666,0,Arm Injury,0
+0.275,0,Foot Injury,0
+0.2833333333333333,0,cough,1
+0.2833333333333333,1,abd pain,1
+0.30833333333333335,1,"ocular pain, Rt.",0
+0.30833333333333335,1,ankle pain,0
+0.30833333333333335,1,Toe redness,0
+0.30833333333333335,0,abd pain,1
+0.30833333333333335,0,epigastric pain,1
+0.31666666666666665,1,ear pain lt,0
+0.325,1,toothache,0
+0.3333333333333333,1,Throat Pain,1
+0.35833333333333334,1,Open Wound,0
+0.35833333333333334,1,ant. chest pain,1
+0.35833333333333334,0,"injury, finger",0
+0.36666666666666664,1,general weakness,1
+0.36666666666666664,1,Open Wound,0
+0.36666666666666664,1,facial painful swelling,0
+0.38333333333333336,1,dizziness,1
+0.38333333333333336,0,"pain, chest",1
+0.39166666666666666,0,"otalgia, Lt.",0
+0.39166666666666666,0,facial injury,0
+0.39166666666666666,1,headache,1
+0.4,1,left leg pain,0
+0.4,1,diffuse abdominal pain,1
+0.4,1,ant. chest pain,1
+0.4166666666666667,1,abd pain,1
+0.425,1,Left leg pain,0
+0.425,0,ocular pain,0
+0.43333333333333335,0,toe pain,0
+0.44166666666666665,1,Left chest pain,1
+0.44166666666666665,1,Rt abd pain,0
+0.44166666666666665,0,"pain, foot",0
+0.4666666666666667,0,epigastric pain,1
+0.4666666666666667,1,RLQ abd. pain,1
+0.475,1,Open Wound,0
+0.475,0,Left chest pain,1
+0.475,0,"Discomfort, Chest",1
+0.475,0,facial injury,0
+0.48333333333333334,1,ant. chest pain,1
+0.49166666666666664,0,left eye swelling,0
+0.49166666666666664,0,"pain, abdominal",1
+0.5,1,abd pain,1
+0.5,0,"wrist pain, Lt",0
+0.5,1,epigastric pain,1
+0.5,0,abd pain,1
+0.5083333333333333,1,Open Wound,1
+0.525,1,ant. chest pain,1
+0.525,1,Left chest pain,1
+0.5333333333333333,0,low abdominal pain,1
+0.5333333333333333,1,Lt. side weakness,1
+0.5333333333333333,1,finger pain,0
+0.5416666666666666,0,hypertension,1
+0.5416666666666666,0,ant. chest pain,1
+0.55,0,Rt. flank pain,1
+0.55,1,Head Injury,1
+0.55,0,right upper abdominal pain,1
+0.5666666666666667,0,Rt abd pain,0
+0.5666666666666667,0,"shoulder pain, Lt",0
+0.575,1,right leg injury,0
+0.6,0,Abd. pain,1
+0.625,0,"leg swelling, Lt.",0
+0.625,0,"abdominal pain, periumbilical area",1
+0.625,1,"ocular pain, Lt.",0
+0.625,0,Abd. pain,1
+0.6333333333333333,0,diarrhea,0
+0.6416666666666667,1,hip pain Lt.,0
+0.65,0,both ocular pain,0
+0.675,0,"wrist pain, Rt",0
+0.675,0,Abd. pain,1
+0.6833333333333333,0,dyspnea,1
+0.6833333333333333,1,abd pain,1
+0.7333333333333333,1,Head pain,0
+0.7416666666666667,0,Left chest pain,1
+0.4,1,abd pain,1
+0.5333333333333333,1,dizziness,1
+0.5416666666666666,1,"leg swelling, Lt.",0
+0.5666666666666667,0,vomiting,1
+0.4,1,abd pain,1
+0.6,1,"pain, chest",1
+0.6166666666666667,0,"leg pain, Rt.",0
+0.7083333333333334,1,Femur Lesion,0
+0.13333333333333333,0,"ocular pain, Lt.",0
+0.14166666666666666,0,abd pain,1
+0.15,1,abd pain,1
+0.15833333333333333,1,abd pain,1
+0.15833333333333333,1,abd pain,1
+0.18333333333333332,0,Eye Foreign Body,0
+0.18333333333333332,1,abd pain,1
+0.18333333333333332,1,Hand Injury,0
+0.18333333333333332,0,headache,1
+0.19166666666666668,1,"pain, abdominal",1
+0.19166666666666668,0,"pain, abdominal",1
+0.2,1,finger lac.,0
+0.2,1,chest discomfort left,1
+0.20833333333333334,1,RLQ pain,1
+0.21666666666666667,1,right shoulder pain,0
+0.21666666666666667,0,epigastric pain,1
+0.225,1,abd pain,1
+0.225,0,foot swelling,0
+0.225,1,abd pain,1
+0.23333333333333334,0,Finger Injury,0
+0.23333333333333334,0,"pain, abdominal",1
+0.24166666666666667,1,Wrist Injury,0
+0.25,1,myalgia,0
+0.25833333333333336,1,Open Wound,0
+0.25833333333333336,0,abd pain,1
+0.25833333333333336,0,abd pain,1
+0.25833333333333336,0,abd pain,1
+0.275,0,skin rash,0
+0.275,1,abd pain,1
+0.275,0,sorethroat,1
+0.2833333333333333,0,Abdominal pain (finding),1
+0.2833333333333333,1,fever,1
+0.2833333333333333,1,head injury,1
+0.2916666666666667,1,elbow painful swelling,0
+0.2916666666666667,0,headache,1
+0.3,1,abd pain,1
+0.30833333333333335,1,"pain, chest wall, Rt",1
+0.325,1,"pain, flank",1
+0.35,1,"Pain, Hip",0
+0.35833333333333334,1,diffuse abdominal pain,1
+0.35833333333333334,0,elbow painful swelling lt.,0
+0.36666666666666664,1,ankle pain,0
+0.375,0,LBP - Low back pain,0
+0.39166666666666666,1,Open Wound,0
+0.39166666666666666,1,backache,1
+0.39166666666666666,1,Open Wound,0
+0.4,1,right chest pain,1
+0.4083333333333333,0,Ankle Injury,0
+0.4166666666666667,1,epigastric pain,1
+0.4166666666666667,1,Foot Injury,0
+0.4166666666666667,0,"injury, ankle",0
+0.4166666666666667,0,"injury, ankle",0
+0.425,1,ant. chest pain,1
+0.425,0,headache,1
+0.425,1,abd pain,1
+0.44166666666666665,1,FB in eye,0
+0.45,1,abdomen pain,1
+0.45,1,abdomen pain,1
+0.45,1,dizziness,1
+0.45,0,abd pain,1
+0.45,1,Chin swelling,0
+0.45,0,abd pain,1
+0.475,0,epigastric pain,1
+0.48333333333333334,0,Open Wound,0
+0.48333333333333334,0,"pain, chest",1
+0.48333333333333334,0,abdomen pain,1
+0.5,0,Rt. flank pain,0
+0.5,1,RUQ pain,1
+0.5,0,abd pain,1
+0.5,1,"Pain, anus",1
+0.5083333333333333,0,"burn, face",0
+0.5083333333333333,0,Lt. hip joint pain,0
+0.5166666666666667,0,abd pain,1
+0.5166666666666667,1,"pain, abdominal",1
+0.5166666666666667,1,Lt flank pain,1
+0.525,0,abd pain,1
+0.5333333333333333,1,left leg pain,0
+0.5416666666666666,1,abd pain,1
+0.55,1,voiding difficulty,0
+0.5583333333333333,0,myalgia,1
+0.5583333333333333,0,abd pain,1
+0.5583333333333333,0,ant. chest pain,1
+0.5666666666666667,0,Ankle Injury,0
+0.5666666666666667,1,"pain, abdominal",1
+0.5666666666666667,0,abd pain,1
+0.5666666666666667,1,headache,1
+0.5666666666666667,0,abd pain,0
+0.5916666666666667,1,Left chest pain,1
+0.6,0,leg pain,0
+0.6,0,Urticarial rash,0
+0.6083333333333333,0,headache,0
+0.6083333333333333,1,TMJ pain,0
+0.6166666666666667,1,abd pain,1
+0.6166666666666667,1,"shoulder pain, both",0
+0.6166666666666667,1,ant. chest pain,1
+0.625,1,"shoulder pain, Rt",0
+0.625,1,"pain, chest wall",1
+0.6416666666666667,0,lower chest wall pain,0
+0.65,1,headache,1
+0.6583333333333333,0,"pain, tooth",0
+0.7083333333333334,1,ant. chest pain,1
+0.7083333333333334,0,"Burn, hand",0
+0.7166666666666667,0,general ache,0
+0.7333333333333333,0,abd pain,1
+0.45,1,"pain, chest",1
+0.6583333333333333,1,"pain, chest",1
+0.15,1,visual disturbance,1
+0.175,1,scrotal pain,1
+0.18333333333333332,1,leg pain,0
+0.18333333333333332,0,abd pain,1
+0.19166666666666668,1,Finger Injury,0
+0.24166666666666667,1,"pain, abdominal",1
+0.24166666666666667,0,abd pain,1
+0.24166666666666667,0,foreign body ingestion,1
+0.24166666666666667,1,Open Wound,0
+0.25,0,RLQ pain,1
+0.25833333333333336,0,headache,1
+0.26666666666666666,1,Wrist Injury,0
+0.275,0,Vaginal Bleeding,0
+0.3,1,"pain, flank",1
+0.30833333333333335,1,"ocular injury, Lt.",0
+0.35,0,Open Wound,0
+0.35833333333333334,0,RUQ pain,1
+0.375,1,ant. chest pain,1
+0.375,1,headache,1
+0.38333333333333336,0,"pain, arm",0
+0.39166666666666666,1,lower extremity paraparesis,1
+0.39166666666666666,1,Foreign Body Sense,1
+0.4166666666666667,1,upper back pain,1
+0.425,1,"ocular pain, Rt.",0
+0.425,0,"pain, low back",1
+0.45,0,ocular pain,1
+0.4583333333333333,1,bee sting,0
+0.4666666666666667,1,"pelvic pain, Lt",0
+0.4666666666666667,0,right elbow pain,0
+0.475,0,palpitation,1
+0.48333333333333334,1,Left chest pain,1
+0.48333333333333334,1,"ocular pain, Lt.",0
+0.48333333333333334,1,ant. chest pain,1
+0.49166666666666664,0,Open Wound,0
+0.5,1,dysuria,0
+0.5083333333333333,1,abd pain,1
+0.5166666666666667,1,Left chest pain,1
+0.55,1,D - Diarrhea,1
+0.55,1,facial injury,1
+0.5666666666666667,0,headache,1
+0.5666666666666667,1,RUQ pain,1
+0.575,0,epigastric pain,1
+0.575,1,chest discomfort,1
+0.5916666666666667,0,Rt. shoulder pain,0
+0.6,1,Left chest pain,1
+0.6,1,"pain, flank",1
+0.6166666666666667,0,abd pain,1
+0.6166666666666667,1,ant. chest pain,1
+0.625,0,ant. chest pain,1
+0.6416666666666667,0,headache,1
+0.6416666666666667,0,Hip joint pain,0
+0.65,0,"pain, facial",0
+0.65,0,ant. chest pain,1
+0.65,1,RUQ pain,1
+0.44166666666666665,0,epigastric pain,1
+0.4666666666666667,0,abd pain,1
+0.6666666666666666,0,general weakness,1
+0.625,0,myalgia,0
+0.7,0,leg pain,0
+0.7333333333333333,1,buttock pain,0
+0.16666666666666666,0,abd pain,1
+0.175,0,abd pain,1
+0.225,1,wrist laceration,0
+0.23333333333333334,1,both leg pain,0
+0.2916666666666667,1,both shoulder pain,0
+0.3,0,abd pain,1
+0.3,0,"Injury, Leg",0
+0.30833333333333335,0,COCCYGEAL PAIN,0
+0.325,0,abd pain,1
+0.325,1,Lt flank pain,1
+0.35833333333333334,1,Lt flank pain,1
+0.43333333333333335,1,abd pain,1
+0.4583333333333333,0,Lt flank pain,1
+0.4666666666666667,1,abd pain,1
+0.4666666666666667,1,LLQ pain,1
+0.48333333333333334,1,leg pain,0
+0.48333333333333334,0,"Flank pain, Rt.",1
+0.525,1,epigastric pain,1
+0.5416666666666666,0,epigastric pain,1
+0.55,1,"pain, low back",0
+0.5666666666666667,0,"tooth pain, Lt",0
+0.6416666666666667,1,abd pain,1
+0.7333333333333333,0,"pain, shoulder",1
+0.4083333333333333,1,ant. chest pain,1
+0.4583333333333333,0,finger pain,1
+0.4666666666666667,1,upper back pain,1
+0.4666666666666667,1,abdomen pain,1
+0.30833333333333335,1,"pain, chest",1
+0.6916666666666667,0,dyspnea,1
+0.5583333333333333,0,dizziness,1
+0.5916666666666667,1,for PEG tube change,0
+0.425,0,Rt.arm weakness,1
+0.5583333333333333,0,general weakness,0
+0.575,0,high BSL,1
+0.5833333333333334,0,dyspnea,1
+0.6083333333333333,0,"Discomfort, Chest",1
+0.49166666666666664,0,sezure like motion,0
+0.6,0,dizziness,1
+0.6083333333333333,1,dizziness,1
+0.6166666666666667,1,general weakness,1
+0.675,0,vomiting,1
+0.675,0,dizziness,1
+0.7333333333333333,1,Nasal swelling,0
+0.39166666666666666,1,Sudden hearing loss,1
+0.43333333333333335,1,for A/tapping,0
+0.4666666666666667,1,hematemesis,1
+0.4666666666666667,1,distended abdomen,0
+0.475,1,dizziness,0
+0.49166666666666664,1,"distension, abd",0
+0.5,0,decreased activity,1
+0.525,1,for ascites tapping,0
+0.5333333333333333,1,fever,1
+0.5583333333333333,1,sleeping tendency,1
+0.5666666666666667,0,hematochezia,1
+0.6416666666666667,0,"distension, abd",0
+0.5666666666666667,0,vomiting,0
+0.675,0,sezure like motion,1
+0.39166666666666666,1,fever,1
+0.43333333333333335,1,rt. side weakness,1
+0.49166666666666664,1,post seizure,1
+0.49166666666666664,1,"Retention, Bladder",0
+0.49166666666666664,1,Free voiding,0
+0.5166666666666667,1,facial injury,0
+0.5416666666666666,0,Amnesia,1
+0.575,0,dyspnea,1
+0.5833333333333334,1,dizziness,1
+0.6083333333333333,1,fever,0
+0.6166666666666667,0,dyspnea,1
+0.625,1,for PEG tube change,0
+0.6333333333333333,1,anxiety,0
+0.6416666666666667,1,fever,1
+0.6416666666666667,0,epistaxis,1
+0.6583333333333333,0,mental change,1
+0.675,1,right hip pain,1
+0.6916666666666667,0,"F/C, C/S",1
+0.7,1,for L-tube insertion,0
+0.7083333333333334,0,"swelling, facial",0
+0.7583333333333333,1,fever,1
+0.2833333333333333,1,dyspnea,1
+0.325,1,"Discomfort, Chest",1
+0.38333333333333336,1,hypoglycemic symptom,1
+0.48333333333333334,0,epistaxis,0
+0.49166666666666664,0,anxiety,1
+0.5083333333333333,0,Voice changes,0
+0.5583333333333333,0,abnormal lab.,1
+0.6083333333333333,0,vomiting,1
+0.6333333333333333,1,general weakness,1
+0.6333333333333333,1,dyspnea,1
+0.6333333333333333,1,mental change,1
+0.6416666666666667,0,dizziness,1
+0.6666666666666666,0,dyspnea,1
+0.6833333333333333,0,dyspnea,1
+0.7166666666666667,0,anemia w/u,1
+0.7166666666666667,1,DZ - Dizziness,1
+0.7333333333333333,0,"Discomfort, Chest",1
+0.13333333333333333,1,forehead laceration,0
+0.13333333333333333,0,post seizure,1
+0.14166666666666666,1,light headness,1
+0.14166666666666666,0,H-Headache,1
+0.15,1,altered mentality,1
+0.15833333333333333,0,eye discomfort,0
+0.15833333333333333,1,po medication,0
+0.15833333333333333,1,fever,0
+0.16666666666666666,0,both hand numbness,0
+0.16666666666666666,0,finger laceration,0
+0.16666666666666666,0,Sexual Abuse of Adult,1
+0.175,1,"DI, drug intoxication",1
+0.175,1,dyspnea,1
+0.18333333333333332,0,skin rash,0
+0.18333333333333332,1,hematemesis,1
+0.18333333333333332,0,"bleeding, gingival",0
+0.18333333333333332,1,mental change,1
+0.19166666666666668,1,"laceration, scalp",0
+0.2,1,nasal injury,0
+0.2,0,Near syncope,1
+0.2,0,po medication,0
+0.2,0,dyspnea,1
+0.2,1,post seizure,1
+0.2,0,syncope,0
+0.2,0,vomiting,1
+0.2,0,hematochezia,1
+0.20833333333333334,0,sexual violence,1
+0.20833333333333334,1,eyelid laceration,0
+0.20833333333333334,0,dizziness,0
+0.20833333333333334,1,finger laceration,0
+0.20833333333333334,0,vomiting,0
+0.21666666666666667,0,sexual violence,0
+0.21666666666666667,1,vomiting,0
+0.21666666666666667,1,dizziness,1
+0.21666666666666667,0,"laceration, chin",0
+0.21666666666666667,1,"F/C, C/S",0
+0.21666666666666667,1,general weakness,0
+0.225,0,cough,0
+0.225,0,depression,0
+0.225,1,dizziness,1
+0.225,1,hematemesis,1
+0.225,1,fever,1
+0.225,0,Suicidal Attempt,1
+0.23333333333333334,1,"alcohol smelling state, drunken state",0
+0.23333333333333334,0,Facial Palsy,1
+0.24166666666666667,1,finger laceration,0
+0.24166666666666667,1,eyebrow laceration,0
+0.24166666666666667,0,skin rash,0
+0.24166666666666667,1,diarrhea,1
+0.24166666666666667,0,hallucination,0
+0.25,0,erythematous papule,0
+0.25,0,fever & chill,0
+0.25833333333333336,0,dyspnea,1
+0.25833333333333336,1,Suicidal thoughts (finding),1
+0.26666666666666666,0,right nasal bleeding,0
+0.26666666666666666,0,fever,1
+0.26666666666666666,1,post seizure,1
+0.26666666666666666,1,epistaxis,0
+0.275,1,seizure,1
+0.275,1,eye discomfort,0
+0.275,0,nausea,0
+0.2833333333333333,1,Delusional Idea,1
+0.2833333333333333,0,dyspnea,1
+0.2833333333333333,0,DZ - Dizziness,1
+0.2833333333333333,0,cerebral concussion,0
+0.2833333333333333,0,fever,0
+0.2833333333333333,0,fever,0
+0.2833333333333333,0,Convulsion,1
+0.2833333333333333,1,anterior chest discomfort,1
+0.2916666666666667,0,Vaginal Bleeding,1
+0.2916666666666667,0,anxiety,1
+0.2916666666666667,0,Vaginal Bleeding,1
+0.3,0,dyspnea,1
+0.3,0,vaginal bleeding,1
+0.3,0,abd pain,1
+0.3,0,dizziness,1
+0.30833333333333335,0,headache,0
+0.30833333333333335,0,face laceration,0
+0.30833333333333335,0,vaginal bleeding,1
+0.31666666666666665,0,dizziness,1
+0.31666666666666665,1,fever,1
+0.325,1,Confusion state,1
+0.325,0,Vaginal Bleeding,1
+0.325,0,anxiety,0
+0.3333333333333333,0,Open Wound,0
+0.3333333333333333,0,anxiety,0
+0.3333333333333333,0,sexual violence,1
+0.3416666666666667,1,scratch wound,0
+0.3416666666666667,1,facial injury,1
+0.3416666666666667,0,scalp lac.,0
+0.3416666666666667,0,diarrhea,0
+0.3416666666666667,1,"distension, abd",1
+0.3416666666666667,1,facial palsy left,1
+0.3416666666666667,1,FB in esophagus,0
+0.3416666666666667,1,forehead laceration,0
+0.35,0,left side weakness,1
+0.35,1,epistaxis,0
+0.35833333333333334,0,Facial Palsy,1
+0.36666666666666664,1,right ocular pain,0
+0.36666666666666664,1,hematemesis,1
+0.36666666666666664,1,mental change,1
+0.36666666666666664,1,LOC,1
+0.36666666666666664,0,dizziness,1
+0.36666666666666664,0,skin defect,0
+0.36666666666666664,0,skin eruption,0
+0.375,1,syncope,1
+0.375,0,fever,1
+0.375,0,dizziness,1
+0.375,1,general weakness,1
+0.38333333333333336,1,Chemical Burn,1
+0.38333333333333336,0,"alcohol smelling state, drunken state",0
+0.38333333333333336,1,diarrhea,1
+0.39166666666666666,0,Urticarial rash,0
+0.39166666666666666,0,dizziness,1
+0.39166666666666666,1,palpitation,1
+0.4,0,Lt. hemiparesis,1
+0.4,1,knee pain,0
+0.4,1,Suicidal ideation,1
+0.4,1,facial injury,0
+0.4,0,dizziness,1
+0.4,1,dyspnea,1
+0.4083333333333333,1,hematemesis,1
+0.4083333333333333,1,finger laceration,0
+0.4083333333333333,0,Suicidal Attempt,1
+0.4083333333333333,1,"DI, drug intoxication",1
+0.4083333333333333,0,nausea,1
+0.4083333333333333,0,ant. chest pain,0
+0.4166666666666667,1,eyelid laceration,0
+0.4166666666666667,0,Urticarial rash,1
+0.4166666666666667,1,skin defect,0
+0.4166666666666667,0,vaginal bleeding,1
+0.4166666666666667,1,chest palpitation,0
+0.425,1,hemoptysis,1
+0.425,0,Vaginal Bleeding,1
+0.425,1,CT film copy,0
+0.425,0,mental change,1
+0.425,0,whirling type vertigo,1
+0.43333333333333335,1,melena,1
+0.43333333333333335,0,fever,1
+0.43333333333333335,1,altered mentality,1
+0.43333333333333335,1,dizziness,1
+0.43333333333333335,1,hematemesis,1
+0.43333333333333335,1,hematemesis,1
+0.44166666666666665,1,hematemesis,1
+0.44166666666666665,1,hematemesis,1
+0.44166666666666665,1,"Abnormality, Visual Acuity",1
+0.44166666666666665,1,diarrhea,1
+0.44166666666666665,0,dizziness,1
+0.44166666666666665,0,dizziness,1
+0.44166666666666665,1,head injury,1
+0.44166666666666665,1,dizziness,1
+0.44166666666666665,1,anterior chest discomfort,1
+0.44166666666666665,1,whirling type vertigo,1
+0.44166666666666665,0,dizziness,1
+0.45,0,D - Diarrhea,1
+0.45,0,cough,1
+0.45,1,dysarthria,1
+0.45,1,hemoptysis,1
+0.4583333333333333,0,urinary Sx.-symptom,0
+0.4583333333333333,0,syncope,1
+0.4583333333333333,0,dizziness,1
+0.4666666666666667,1,for examination,0
+0.4666666666666667,0,voiding difficulty,0
+0.4666666666666667,0,Urticarial rash,0
+0.4666666666666667,1,nausea,1
+0.475,1,right side weakness,1
+0.475,1,desaturation,1
+0.475,1,eyebrow laceration,0
+0.475,1,eye trauma,1
+0.475,1,palpitation,1
+0.475,0,dysuria,0
+0.48333333333333334,1,fever,1
+0.48333333333333334,0,D - Diarrhea,1
+0.48333333333333334,0,post-CPR state,1
+0.48333333333333334,1,"Discomfort, Throat",1
+0.48333333333333334,0,vomiting,1
+0.48333333333333334,1,post-CPR state,1
+0.48333333333333334,0,facial lesion,0
+0.48333333333333334,1,Rt. side motor weakness,1
+0.48333333333333334,1,dizziness,1
+0.48333333333333334,0,right motor weakness,1
+0.48333333333333334,1,"Fever, Unspecified",0
+0.48333333333333334,0,melena,1
+0.49166666666666664,1,mental change,1
+0.49166666666666664,1,palpitation,0
+0.49166666666666664,1,dysarthria,1
+0.49166666666666664,1,itching,0
+0.49166666666666664,1,copy,0
+0.5,0,hemoptysis,1
+0.5,0,facial palsy left,1
+0.5,1,DZ - Dizziness,1
+0.5,1,Rt. side motor weakness,0
+0.5,0,fever,0
+0.5,1,dyspnea,1
+0.5083333333333333,1,dyspnea,1
+0.5083333333333333,1,Dental Problem,1
+0.5083333333333333,0,skin rash,0
+0.5083333333333333,1,PTBD malfunction,0
+0.5083333333333333,1,PTBD malfunction,0
+0.5083333333333333,1,dizziness,1
+0.5083333333333333,1,dizziness,1
+0.5166666666666667,0,dizziness,1
+0.5166666666666667,0,Lt. side weakness,1
+0.5166666666666667,0,mood depression,1
+0.5166666666666667,1,dizziness,1
+0.525,1,Rt. side motor weakness,1
+0.525,0,arrest,1
+0.525,1,dyspnea,1
+0.5333333333333333,1,"distension, abd",0
+0.5333333333333333,1,hiccup,0
+0.5333333333333333,0,rigth side weakness,1
+0.5333333333333333,1,dysarthria,1
+0.5333333333333333,0,hematochezia,1
+0.5333333333333333,1,Convulsion,1
+0.5416666666666666,1,"distension, abd",0
+0.5416666666666666,1,confuse mentality,1
+0.5416666666666666,1,dyspnea,1
+0.5416666666666666,0,palpitation,1
+0.5416666666666666,0,cough,1
+0.5416666666666666,1,hematochezia,1
+0.5416666666666666,1,mental change,1
+0.5416666666666666,1,loss of consciousness,1
+0.5416666666666666,0,hematemesis,1
+0.55,1,Lt. side weakness,1
+0.55,1,Motor weakness,1
+0.55,1,hematemesis,1
+0.55,1,myalgia,0
+0.55,1,general weakness,0
+0.5583333333333333,0,left diplopia,1
+0.5583333333333333,0,fever,0
+0.5583333333333333,0,rotatory vertigo,1
+0.5583333333333333,0,dysarthria,1
+0.5583333333333333,1,dizziness,1
+0.5583333333333333,1,dysarthria,1
+0.5583333333333333,0,vomiting,0
+0.5583333333333333,1,Urticarial rash,0
+0.5583333333333333,1,AVF malfunction,0
+0.5583333333333333,1,general weakness,1
+0.5583333333333333,1,dizziness,1
+0.5666666666666667,1,dyspnea,1
+0.5666666666666667,0,mental change,1
+0.5666666666666667,0,drowsy mentality,1
+0.5666666666666667,0,post seizure,1
+0.5666666666666667,0,Motor weakness,1
+0.5666666666666667,1,hematochezia,1
+0.5666666666666667,1,altered mental change,1
+0.5666666666666667,1,hypoglycemic,1
+0.5666666666666667,0,"Whole body, skin rash",0
+0.575,0,fever,0
+0.575,1,dyspnea,1
+0.575,1,dyspnea,1
+0.575,1,dyspnea,1
+0.575,1,Catheter removal,0
+0.575,0,hematochezia,1
+0.575,0,dizziness,1
+0.575,1,general weakness,1
+0.575,1,Facial Palsy,1
+0.575,1,dyspnea,1
+0.575,0,Urinary frequency,0
+0.5833333333333334,0,melena,1
+0.5833333333333334,1,C - Coughing,1
+0.5833333333333334,1,dizziness,1
+0.5833333333333334,0,DZ - Dizziness,1
+0.5833333333333334,0,rotatory vertigo,1
+0.5833333333333334,1,chest palpitation,1
+0.5833333333333334,1,mental change,1
+0.5916666666666667,1,hematuria,1
+0.5916666666666667,0,dyspnea,1
+0.5916666666666667,0,L side weakness,1
+0.5916666666666667,1,palpitation,1
+0.5916666666666667,1,voiding difficulty,0
+0.5916666666666667,0,dizziness,1
+0.6,1,fever,1
+0.6,1,LOC,1
+0.6,0,Lt. hemiparesis,1
+0.6,1,rigth side weakness,1
+0.6,1,PTBD leaukage,0
+0.6,1,dyspnea,1
+0.6,1,BST high,1
+0.6,0,melena,1
+0.6083333333333333,0,DZ - Dizziness,1
+0.6083333333333333,0,epistaxis,1
+0.6083333333333333,0,numbness,1
+0.6083333333333333,0,dizziness,1
+0.6083333333333333,1,dyspnea,1
+0.6083333333333333,1,right motor weakness,0
+0.6083333333333333,0,fever,0
+0.6166666666666667,1,itching sensation,0
+0.6166666666666667,0,"Aphasia, Motor",1
+0.6166666666666667,1,nasal bleeding,1
+0.6166666666666667,0,Seizure Like Activity,1
+0.6166666666666667,1,dizziness,0
+0.6166666666666667,1,fever,0
+0.6166666666666667,0,dizziness,1
+0.6166666666666667,0,confused mental status,1
+0.6166666666666667,1,mental change,1
+0.6166666666666667,0,dyspnea,1
+0.625,0,dysarthria,1
+0.625,0,mental change,1
+0.625,1,mental change,1
+0.625,0,acute dyspnea,1
+0.625,0,altered mentality,1
+0.625,0,dizziness,1
+0.625,1,diffuse abdominal discomfort,0
+0.625,1,syncope,1
+0.6333333333333333,1,Rt. side motor weakness,1
+0.6333333333333333,0,Rt. side motor weakness,1
+0.6333333333333333,1,dysuria,0
+0.6333333333333333,1,blurred vision,0
+0.6333333333333333,0,fever,1
+0.6333333333333333,0,post-CPR state,1
+0.6333333333333333,1,hematemesis,1
+0.6333333333333333,1,dizziness,1
+0.6333333333333333,0,dizziness,1
+0.6416666666666667,1,dyspnea,1
+0.6416666666666667,1,dizziness,1
+0.6416666666666667,0,Lt. motor weakness,1
+0.6416666666666667,0,dizziness,1
+0.6416666666666667,1,dizziness,1
+0.6416666666666667,0,dyspnea,1
+0.6416666666666667,1,mental confusion,1
+0.65,0,dyspnea,1
+0.65,1,dizziness,1
+0.65,1,dizziness,1
+0.65,1,general weakness,0
+0.65,1,cold,0
+0.65,0,confusion mentality,1
+0.6583333333333333,0,dyspnea,1
+0.6583333333333333,0,Lt hemiparesis,1
+0.6583333333333333,1,Difficulty in voiding,0
+0.6583333333333333,1,abnormal lab.,0
+0.6583333333333333,1,fever,0
+0.6583333333333333,0,tachycardia,1
+0.6583333333333333,0,loss of consciousness,1
+0.6583333333333333,0,blood tinged sputum,1
+0.6583333333333333,1,dysarthria,1
+0.6666666666666666,0,dyspnea,1
+0.6666666666666666,0,fever,0
+0.6666666666666666,1,acute dyspnea,1
+0.6666666666666666,1,general weakness,1
+0.6666666666666666,1,mental change,1
+0.6666666666666666,1,mental change,1
+0.6666666666666666,0,general weakness,1
+0.6666666666666666,0,Convulsion,1
+0.675,0,left motor weakness,1
+0.675,1,"Numbness, Arm",1
+0.675,1,syncope,1
+0.675,0,hypoglycemic symptom,1
+0.675,1,epistaxis,1
+0.675,0,dyspnea,1
+0.675,1,Low abd. pain,0
+0.6833333333333333,0,nasal bleeding,0
+0.6833333333333333,0,perm cath. malfunction,0
+0.6833333333333333,1,syncope,1
+0.6916666666666667,0,fever,0
+0.6916666666666667,1,dyspnea,1
+0.6916666666666667,1,dyspnea,1
+0.6916666666666667,0,acute dyspnea,1
+0.6916666666666667,0,mental change,1
+0.7,1,dyspnea,1
+0.7,0,hematemesis,1
+0.7166666666666667,0,fever,0
+0.7166666666666667,0,dysarthria,1
+0.7166666666666667,0,dyspnea,1
+0.7166666666666667,0,dizziness,1
+0.7166666666666667,1,dizziness,1
+0.7166666666666667,0,watery diarrhea,1
+0.725,1,hand laceration,0
+0.7333333333333333,1,dyspnea,1
+0.7333333333333333,1,Convulsion,1
+0.7333333333333333,0,dysarthria,1
+0.7416666666666667,0,melena,1
+0.7583333333333333,1,medication,0
+0.775,1,dizziness,1
+0.7916666666666666,0,Hyperkalemia (disorder),1
+0.8,1,general weakness,1
+0.13333333333333333,0,nausea,0
+0.3416666666666667,0,Open Wound,1
+0.4166666666666667,1,upper abdominal pain,0
+0.5583333333333333,0,ant. chest pain,1
+0.6666666666666666,0,ant. chest pain,1
+0.39166666666666666,0,Drug Allergy,0
+0.5333333333333333,0,dyspnea,1
+0.2916666666666667,1,Open Wound,0
+0.3333333333333333,1,For IV injection,0
+0.4083333333333333,1,ant. chest pain,1
+0.5833333333333334,1,Open Wound,0
+0.2,1,ant. chest pain,0
+0.20833333333333334,1,lip laceration,0
+0.225,0,"ocular pain, Rt.",0
+0.24166666666666667,0,right lower abdominal pain,0
+0.26666666666666666,0,abd pain,0
+0.3,0,Vaginal Bleeding,0
+0.4,1,eye pain left eye,0
+0.4166666666666667,1,Rt. flank pain,0
+0.425,1,ant. chest pain,1
+0.43333333333333335,0,headache,0
+0.575,0,dyspnea,1
+0.6166666666666667,1,ant. chest pain,1
+0.6416666666666667,1,dyspnea,0
+0.6833333333333333,0,epigastric pain,0
+0.7166666666666667,0,"Pain, Abdomen",0
+0.25,0,Vaginal Bleeding,1
+0.25833333333333336,0,Abdominal pain (finding),1
+0.4083333333333333,1,oral bleeding,0
+0.4583333333333333,0,post neck pain,1
+0.575,0,Lt flank pain,1
+0.65,0,"ocular pain, both",0
+0.6833333333333333,1,"ocular pain, Lt.",0
+0.175,1,lip laceration,0
+0.3,1,decerased visual acuity,0
+0.55,1,ant. chest pain,1
+0.15833333333333333,0,Foreign body in throat,0
+0.18333333333333332,0,swelling,0
+0.23333333333333334,0,Vaginal Bleeding,1
+0.2916666666666667,1,fever,0
+0.3,0,vaginal discharge,1
+0.4,0,dizziness,1
+0.4083333333333333,1,abdomen distension,0
+0.45,0,dizziness,1
+0.45,1,behavior change,1
+0.48333333333333334,1,LOC - Loss of consciousness,1
+0.5583333333333333,0,general weakness,1
+0.5666666666666667,0,Amnesia,1
+0.575,1,epistaxis,1
+0.575,1,dizziness,1
+0.6333333333333333,0,syncope,1
+0.65,1,G/W-General weakness,1
+0.6583333333333333,1,mental change,1
+0.675,1,dysuria,0
+0.675,1,dizziness,1
+0.675,0,"Sensory, Decreased",1
+0.725,1,orthopnea,1
