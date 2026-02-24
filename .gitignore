@@ -6,3 +6,4 @@ mlflow.db
 *.pt
 app/
 .vscode/
+.idea/
