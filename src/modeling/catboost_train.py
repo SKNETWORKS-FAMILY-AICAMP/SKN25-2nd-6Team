@@ -4,7 +4,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import joblib
-from catboost import CatBoostClassifier
+import shap
+from catboost import CatBoostClassifier, Pool
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     roc_auc_score, ConfusionMatrixDisplay,
@@ -121,7 +122,7 @@ def tune_threshold(model, X_valid, y_valid, X_test, y_test):
         f.write(f"CatBoost Threshold 비교 결과\n")
         f.write(f"{'='*55}\n")
         f.write(f"최적 Threshold = {best_th:.2f}\n")
-        f.write(f"   F1={best_row['f1']:.4f}  Precision={best_row['precision']:.4f}  Recall={best_row['recall']:.4f}\n\n")
+        f.write(f"F1={best_row['f1']:.4f}  Precision={best_row['precision']:.4f}  Recall={best_row['recall']:.4f}\n\n")
         f.write(f"Test 성능 비교: 기본(0.50) vs 최적({best_th:.2f})\n")
         f.write(f"{'='*55}\n")
         f.write(f"{'지표':<12} {'기본(0.50)':>10} {'최적':>10} {'변화':>10}\n")
@@ -150,8 +151,89 @@ def tune_threshold(model, X_valid, y_valid, X_test, y_test):
 
     return best_th
 
+def run_shap(model, X_test, features):
+    # CatBoost native SHAP: (n_samples, n_features + 1), last col = bias
+    raw = model.get_feature_importance(data=Pool(X_test), type="ShapValues")
+    shap_values = raw[:, :-1]
+    expected_value = float(raw[0, -1])
+    mean_abs_shap = np.abs(shap_values).mean(axis=0)
+
+    # 4-1. Feature Importance (Bar)
+    plt.figure(figsize=(12, 10))
+    shap.summary_plot(shap_values, X_test, plot_type="bar", show=False, max_display=len(features))
+    plt.title("SHAP Feature Importance (CatBoost)", fontsize=16, pad=15)
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, "catboost_shap_importance.png"), dpi=150, bbox_inches="tight")
+    plt.show()
+
+    # 4-2. Beeswarm
+    plt.figure(figsize=(12, 10))
+    shap.summary_plot(shap_values, X_test, show=False, max_display=len(features))
+    plt.title("SHAP Beeswarm Plot (CatBoost)", fontsize=16, pad=15)
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, "catboost_shap_beeswarm.png"), dpi=150, bbox_inches="tight")
+    plt.show()
+
+    # 4-3. Dependence (Top 6)
+    top6_idx = np.argsort(mean_abs_shap)[::-1][:6]
+    top6_feat = [features[i] for i in top6_idx]
+
+    fig, axes = plt.subplots(2, 3, figsize=(20, 12))
+    for ax, feat in zip(axes.flatten(), top6_feat):
+        shap.dependence_plot(feat, shap_values, X_test, ax=ax, show=False)
+        ax.set_title(feat, fontsize=13, fontweight="bold")
+    plt.suptitle("SHAP Dependence Plot - Top 6 Features", fontsize=16, y=1.02)
+    plt.tight_layout()
+    fig.savefig(os.path.join(OUTPUT_DIR, "catboost_shap_dependence.png"), dpi=150, bbox_inches="tight")
+    plt.show()
+
+    # 4-4. Force Plot (highest no-show / visit cases)
+    shap.initjs()
+    y_prob = model.predict_proba(X_test)[:, 1]
+    noshow_idx = int(np.argmax(y_prob))
+    visit_idx  = int(np.argmin(y_prob))
+
+    for idx, title, fname in [(noshow_idx, "Highest No-show Probability", "noshow"), (visit_idx, "Highest Visit Probability", "visit")]:
+        shap.force_plot(expected_value, shap_values[idx],
+                        X_test.iloc[idx], matplotlib=True, show=False)
+        plt.gcf().set_size_inches(18, 4)
+        plt.title(f"Force Plot: {title} Case", fontsize=14, pad=40)
+        plt.tight_layout()
+        plt.savefig(os.path.join(OUTPUT_DIR, f"catboost_shap_force_{fname}.png"), dpi=150, bbox_inches="tight")
+        plt.show()
+
+    # 4-5. Interaction (Top 3)
+    try:
+        explainer = shap.TreeExplainer(model)
+        shap_interaction = explainer.shap_interaction_values(X_test)
+        top3_feat = [features[i] for i in np.argsort(mean_abs_shap)[::-1][:3]]
+        pairs = [
+            (top3_feat[0], top3_feat[1]),
+            (top3_feat[0], top3_feat[2]),
+            (top3_feat[1], top3_feat[2]),
+        ]
+
+        fig, axes = plt.subplots(1, 3, figsize=(21, 6))
+        for ax, (f1, f2) in zip(axes, pairs):
+            i1, i2 = features.index(f1), features.index(f2)
+            ax.scatter(X_test[f1], shap_interaction[:, i1, i2],
+                       c=X_test[f2], cmap="coolwarm", alpha=0.3, s=5)
+            ax.set_xlabel(f1, fontsize=11)
+            ax.set_ylabel(f"SHAP interaction\n({f1} x {f2})", fontsize=10)
+            ax.set_title(f"{f1} × {f2}", fontsize=12, fontweight="bold")
+            cbar = plt.colorbar(ax.collections[0], ax=ax)
+            cbar.set_label(f2, fontsize=9)
+        plt.suptitle("SHAP Interaction Plot - Top 3 Feature Pairs", fontsize=16, y=1.03)
+        plt.tight_layout()
+        fig.savefig(os.path.join(OUTPUT_DIR, "catboost_shap_interaction.png"), dpi=150, bbox_inches="tight")
+        plt.show()
+    except Exception as e:
+        print(f"⚠️  Interaction plot skipped: {e}")
+
+    return shap_values, mean_abs_shap
+
 if __name__ == "__main__":
-    TOTAL = 4
+    TOTAL = 5
     t0 = time.time()
 
     step_log(1, TOTAL, "Loading & splitting data...")
@@ -165,6 +247,9 @@ if __name__ == "__main__":
 
     step_log(4, TOTAL, "Threshold tuning...")
     best_th = tune_threshold(model, X_valid, y_valid, X_test, y_test)
+
+    step_log(5, TOTAL, "SHAP analysis...")
+    shap_values, mean_abs_shap = run_shap(model, X_test, FEATURES_FINAL)
 
     # Save model
     MODEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "results", "final_model")
