@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 
 from models.bert_with_tabular import BertWithTabular
 from src.dataset.emergency_dataset import EmergencyDataset
-from src.emergency_visualize import plot_train_history
+from models.emergency_visualize import plot_train_history
 
 # -----------------------
 # Config
