@@ -1,7 +1,4 @@
 # SKN25-2nd-6Team
-> 딥러닝·머신러닝 기반 응급도 분류 및 노쇼 예측 환자 관리 시스템
-
-</br>
 
 ## 1. 팀 소개
 
@@ -43,8 +40,7 @@
       • 산출물 보고서 작성
     </td>
     <td valign="top">
-      • 데이터 셋 조사 및 전처리<br>
-      • 딥러닝 모델링<br>
+      • 딥러닝<br>
       • 응급/비응급 분류 모델 개발<br>
       • 발표자
     </td>
@@ -57,8 +53,6 @@
 
 <br>
 
-
-
 ## 2. 프로젝트 기간
 
 2026.02.19 ~ 2026.02.24 (6일)
@@ -70,7 +64,10 @@
 ### 프로젝트명
 
 **MediForecast**
+<img src="./mediforecast/static/logo.png" width="600"></br>
 > Predictive Healthcare Analytics
+> 딥러닝·머신러닝 기반 응급도 분류 및 노쇼 예측 환자 관리 시스템
+
 
 <br>
 
@@ -115,6 +112,7 @@ Kaggle Medical No-Show Dataset(`KaggleV2-May-2016.csv`)을 기반으로,
 
 - 병원 예약 관리 담당자 (No-Show 예측 활용)
 - 응급실 담당 의료진 (응급 분류 모델 활용)
+- 환자
 
 </br>
 
@@ -221,6 +219,19 @@ No-Show는 클래스 불균형 문제가 있으므로 단일 Accuracy 대신 **P
 
 </br>
 
+
+**파생 피처**
+- 데이터 누수 방지를 위해 시간 순 분할 이후 생성
+| 카테고리 | 피처 | 설명 |
+|---|---|---|
+| 지역 패턴 | `nhood_noshow_rate` | Train 기준 동네별 노쇼율 계산 후 Valid/Test에 매핑 |
+| 환자 이력 | `patient_appt_count` | 해당 환자의 누적 예약 횟수 |
+| 환자 이력 | `patient_noshow_count` | 해당 환자의 누적 노쇼 횟수 |
+| 환자 이력 | `patient_noshow_rate` | 누적 노쇼율 (신규 환자의 경우 전체 평균 대체) |
+| 환자 이력 | `is_first_visit` | 첫 방문 여부 (1=신규 환자) |
+| 예약 패턴 | `same_day_appts` | 동일 환자의 당일 중복 예약 건수 |
+
+
 **비교 모델:** Logistic Regression / LightGBM / XGBoost / CatBoost </br>
 
 **1) Logistic Regression**
@@ -249,7 +260,8 @@ No-Show는 클래스 불균형 문제가 있으므로 단일 Accuracy 대신 **P
 
 <img src="./img/xgboost/xgboost_shap_interaction.png" width="90%">
 
-> SHAP Interaction 분석 결과, `lead_time_days`, `age`, `nhood_noshow_rate` 조합이 예측에 가장 큰 영향을 미치는 것으로 나타났다.
+> SHAP Interaction 분석 결과, `lead_time_days × nhood_noshow_rate` 조합이 가장 강한 상호작용을 보였다.
+> 단기 예약 + 고노쇼율 지역 조합에서 큰 음의 인터랙션이 발생하며, **지역 집단 수준의 패턴**에 민감하게 반응하는 경향이 있다.
 
 </br>
 </br>
@@ -261,7 +273,22 @@ No-Show는 클래스 불균형 문제가 있으므로 단일 Accuracy 대신 **P
 
 <img src="./img/catboost/catboost_shap_interaction.png" width="90%">
 
-> SHAP Interaction 분석 결과, `lead_time_days`, `age`, `patient_noshow_rate` 조합이 예측에 가장 큰 영향을 미치는 것으로 나타났다.
+> SHAP Interaction 분석 결과, `lead_time_days × patient_noshow_rate` 조합이 강한 상호작용을 보였다.
+> 단기 예약 + 고노쇼율 환자 조합에서 노쇼 위험이 상승하며, **개인 이력 기반 패턴**을 더 세밀하게 포착한다.
+
+</br>
+
+**XGBoost vs CatBoost: SHAP 기반 모델 비교**
+두 모델 모두 `lead_time_days`가 압도적 1위 피처이나, **2~4위 순위에서 차이**가 있었다.
+
+| 순위 | XGBoost | CatBoost |
+|---|---|---|
+| 1 | `lead_time_days` | `lead_time_days` |
+| 2 | `age` | `age` |
+| 3 | `nhood_noshow_rate` (지역 수준) | `patient_noshow_rate` (개인 수준) |
+| 4 | `patient_noshow_rate` | `nhood_noshow_rate` |
+
+XGBoost는 지역 집단 패턴, CatBoost는 개인 이력 패턴을 우선시하였다.
 
 </br>
 </br>
@@ -287,7 +314,7 @@ KTAS 1\~3은 응급(1), KTAS 4~5는 비응급(0)으로 이진 분류한다.
 
 </br>
 
-# 5. 수행결과
+## 5. 수행결과
 ### No-Show 예측 모델 최종 성능
 
 | Model | Valid ROC-AUC | Valid PR-AUC | Test ROC-AUC | Test PR-AUC | Best Threshold | Test Precision | Test Recall | Test F1 |
@@ -297,7 +324,9 @@ KTAS 1\~3은 응급(1), KTAS 4~5는 비응급(0)으로 이진 분류한다.
 | XGBoost | 0.7250 | 0.3456 | 0.7266 | 0.3209 | 0.4449 | 0.2791 | 0.7908 | 0.4126 |
 | **CatBoost** | **0.7319** | **0.3493** | **0.7358** | **0.3308** | 0.5099 | **0.2937** | 0.7550 | **0.4229** |
 
-> **최종 선정 모델 : CatBoost** — PR-AUC, ROC-AUC, F1 전 지표 1위
+> **최종 선정 모델 : CatBoost** — PR-AUC, ROC-AUC, F1 전 지표 1위</br>
+> 성능 뿐만 아니라 개별 환자 관리 및 노쇼 예측 목적을 고려할 때 **개인화 예측에 유리한 CatBoost**가 더 적합하다고 판단하였다.</br>
+> 더 자세한 SHAP 분석은[`results/docs/modeling_README.md`](./results/docs/modeling_README.md) 참고
 
 </br>
 
@@ -310,7 +339,59 @@ KTAS 1\~3은 응급(1), KTAS 4~5는 비응급(0)으로 이진 분류한다.
 
 </br>
 
-# 6. 기술 스택
+## 6. 화면 설계
+### 6.1. 화면설계서
+<table>
+  <tr>
+    <td><img src="./img/docs/ui_mockup_1.png" width="600"></td>
+    <td><img src="./img/docs/ui_mockup_2.png" width="600"></td>
+  </tr>
+  <tr>
+    <td align="center">Main Dashboard</td>
+    <td align="center">Comment Feature</td>
+  </tr>
+</table>
+
+> Figma로 제작한 UI 목업
+> 초기 설계에 포함된 이름 순 필터링 기능은 개발 우선순위 조정으로 최종 구현에서 제외되었습니다.
+
+### 6.2 화면흐름도
+```mermaid
+flowchart TD
+    A([🏠 Home</br>역할 선택]) --> B([👤 Patient</br>booking])
+    A --> C([🏥 Hospital Staff</br>dashboard])
+
+    B --> D[신규 / 기존 환자 선택]
+    D --> E[개인정보 입력</br>이름 · 성별 · 나이 · 지역]
+    E --> F[병력 & 예약 일시 입력</br>증상 · 날짜 · 시간]
+    F --> G[✅ 예약 완료 표시]
+
+    C --> H[오늘의 예약 목록 조회</br>환자 검색]
+    H --> I[환자 선택]
+    I --> J[노쇼 위험도 분석</br>SHAP 기여도 차트]
+    J --> K[📩 SMS 발송]
+    J --> L[📋 상세 기록 조회]
+
+    G --> M([세션 종료 / 홈으로])
+
+    style A fill:#1a1e2e,color:#fff,stroke:none
+    style B fill:#edf7f1,stroke:#8AC19A,color:#2a6b44
+    style C fill:#eaf2fc,stroke:#85AAD0,color:#1a4a74
+    style D fill:#f0fbf4,stroke:#8AC19A,color:#2a6b44
+    style E fill:#f0fbf4,stroke:#8AC19A,color:#2a6b44
+    style F fill:#f0fbf4,stroke:#8AC19A,color:#2a6b44
+    style G fill:#fff8ec,stroke:#f0b842,color:#7a5200
+    style H fill:#f0f6fd,stroke:#85AAD0,color:#1a4a74
+    style I fill:#f0f6fd,stroke:#85AAD0,color:#1a4a74
+    style J fill:#f0f6fd,stroke:#85AAD0,color:#1a4a74
+    style K fill:#fff8ec,stroke:#f0b842,color:#7a5200
+    style L fill:#fff8ec,stroke:#f0b842,color:#7a5200
+    style M fill:#f0f2f8,stroke:#c5cce0,color:#555e7a
+```
+### 6.3. 시연 영상
+
+
+# 7. 기술 스택
 
 | 분류 | 기술 |
 |---|---|
@@ -338,4 +419,4 @@ KTAS 1\~3은 응급(1), KTAS 4~5는 비응급(0)으로 이진 분류한다.
 README와 보고서 작성까지 마무리하며 프로젝트의 시작부터 끝을 직접 책임져본 경험이었고, 각자의 역할에 최선을 다해준 팀원들 덕분에 좋은 결과를 낼 수 있었습니다.
 
 김연준
-> 딥러닝을 활용해서 유의미한 프로그램을 만들어보는 재밌는 경험이었습니다.
+> 
