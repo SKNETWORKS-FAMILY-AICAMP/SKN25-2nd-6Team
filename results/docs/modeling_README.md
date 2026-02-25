@@ -80,6 +80,8 @@ No-Show 예측은 클래스 불균형 가능성이 높고, 운영 관점에서 �
 
 ### 6.2 최종 선정 모델: **CatBoost**
 
+#### 성능 지표 비교
+
 | 지표 | 값 |
 |---|---|
 | Test ROC-AUC | **0.7358** (전체 1위) |
@@ -89,13 +91,80 @@ No-Show 예측은 클래스 불균형 가능성이 높고, 운영 관점에서 �
 | Test F1(1) | **0.4229** (전체 1위) |
 | Best Threshold | 0.5099 |
 
+
+</br>
+
+#### SHAP 기반 모델 해석 (XGBoost vs CatBoost)
+
+</br>
+
+**Feature Importance 비교**
+
+<img src="../../img/xgboost/xgboost_shap_importance.png" width="45%"> <img src="../../img/catboost/catboost_shap_importance.png" width="45%">
+
+두 모델 모두 `lead_time_days`가 압도적 1위 피처이나, **2~4위 순위에서 차이**가 발생하였다.
+
+| 순위 | XGBoost | CatBoost |
+|---|---|---|
+| 1 | `lead_time_days` | `lead_time_days` |
+| 2 | `age` | `age` |
+| 3 | `nhood_noshow_rate` (지역 수준) | `patient_noshow_rate` (개인 수준) |
+| 4 | `patient_noshow_rate` | `nhood_noshow_rate` |
+| 5 | `patient_noshow_count` | `same_day_appts` |
+
+XGBoost는 **지역 집단 패턴(`nhood_noshow_rate`)**을 우선시한 반면, CatBoost는 **개인 이력 패턴(`patient_noshow_rate`)**을 더 중요하게 활용하였다.
+
+</br>
+
+**Beeswarm Plot**
+
+<img src="../../img/xgboost/xgboost_shap_beeswarm.png" width="45%"> <img src="../../img/catboost/catboost_shap_beeswarm.png" width="45%">
+
+SHAP value의 방향성과 분포를 통해 각 피처가 노쇼 예측에 미치는 영향을 해석하였다.
+
+| 피처 | 해석 |
+|---|---|
+| `lead_time_days` | 값이 낮을수록(단기 예약) 노쇼 위험 감소, 높을수록(장기 예약) 노쇼 위험 증가 |
+| `age` | 고령일수록 노쇼 위험 감소, 20~40대 청장년층에서 노쇼 위험 증가 |
+| `patient_noshow_rate` | 과거 노쇼율이 높을수록 노쇼 위험 상승 (CatBoost에서 더 선형적으로 반응) |
+| `same_day_appts` | 당일 예약이 2건 이상일 때 노쇼 위험 상승 신호 포착 |
+
+</br>
+
+**Dependence Plot 비교 (Top 6 Features)**
+
+<img src="../../img/xgboost/xgboost_shap_dependence.png" width="45%"> <img src="../../img/catboost/catboost_shap_dependence.png" width="45%">
+
+각 피처 값에 따른 SHAP value 변화를 통해 비선형 관계를 확인하였다.
+
+- `lead_time_days`: 0~50일 구간에서 SHAP 값이 급격히 상승 후 완만해지는 비선형 패턴
+- `age`: 20세 부근에서 노쇼 위험 피크, 이후 고령으로 갈수록 위험 감소
+- `patient_noshow_rate`: CatBoost에서 0.6 이상 구간의 SHAP 기여가 더 안정적으로 증가
+
+</br>
+
+**Interaction Plot 비교 (Top 3 Feature Pairs)**
+
+<img src="../../img/xgboost/xgboost_shap_interaction.png" width="45%"> <img src="../../img/catboost/catboost_shap_interaction.png" width="45%">
+
+두 피처 간의 상호작용이 예측에 미치는 영향을 분석하였다.
+
+| 모델 | Top 상호작용 조합 | 해석 |
+|---|---|---|
+| XGBoost | `lead_time_days × nhood_noshow_rate` | 예약 기간과 지역 노쇼율의 상호작용이 강함 → 지역 집단 수준 패턴에 민감 |
+| CatBoost | `lead_time_days × patient_noshow_rate` | 예약 기간과 개인 노쇼율의 상호작용이 강함 → 개인 이력 기반 패턴에 민감 |
+
+> 노쇼 예측의 목적(개별 환자 관리)을 고려할 때, **개인 이력 기반 상호작용을 포착하는 CatBoost**가 더 적합한 모델임을 확인할 수 있다.
+
+
+</br>
+
 **선정 이유:**
 - PR-AUC, ROC-AUC, F1 모두 전체 모델 중 최고 성능
 - `auto_class_weights=Balanced`로 클래스 불균형을 자동 처리하여 별도의 수동 보정 없이도 안정적인 성능 달성
 - threshold가 0.51로 기본값(0.5)에 가깝다는 것은 모델이 이미 충분히 보정된 확률 출력을 제공함을 의미
 - Recall과 Precision의 균형이 4개 모델 중 가장 우수하여 오탐 부담을 최소화하면서도 No-Show를 효과적으로 탐지
-
-</br>
+- 개인 이력 기반 상호작용을 포착
 </br>
 
 ## 7. 딥러닝 모델 (BERT + MLP)
