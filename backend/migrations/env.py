@@ -11,6 +11,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 
 from app.db.base import Base
 from app.models.user import User
+from app.models.doctor import Doctor
 from app.core.config import settings  # 추가
 
 config = context.config
