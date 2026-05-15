@@ -9,3 +9,8 @@ venv/
 
 # macOS
 .DS_Store
+
+# jh
+AGENTS.md
+.cursor/
+.vscode/
