@@ -3,21 +3,23 @@ __pycache__/
 *.py[cod]
 *.pyo
 
-
-# 가상환경
-venv/
-.venv/
-
-
 # 환경변수
 backend/.env
-
 
 # IDE
 .vscode/
 .idea/
 
-
 # OS
 .DS_Store
 Thumbs.db
+
+# Frontend
+frontend/**/node_modules/
+frontend/**/dist/
+frontend/**/.env
+
+# Python virtual env
+venv/
+.venv/
+
