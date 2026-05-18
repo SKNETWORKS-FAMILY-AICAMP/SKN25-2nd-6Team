@@ -1,15 +1,18 @@
-from pydantic import BaseModel
-from typing import Optional
-from datetime import date
+from pydantic import BaseModel, model_validator
 
 # 회원가입 요청
 class UserCreate(BaseModel):
+    name: str
     loginid: str
     password: str
-    name: str
+    password_confirm: str
     phone: str
-    address: Optional[str] = None
-    birth_date: Optional[date] = None
+
+    @model_validator(mode="after")
+    def passwords_match(self):
+        if self.password != self.password_confirm:
+            raise ValueError("비밀번호가 일치하지 않습니다.")
+        return self
 
 # 회원가입 응답
 class UserResponse(BaseModel):
