@@ -7,9 +7,6 @@ from app.core.security import hash_password
 def get_user_by_loginid(db: Session, loginid: str):
     return db.query(User).filter(User.loginid == loginid).first()
 
-# phone 중복 확인
-def get_user_by_phone(db: Session, phone: str):
-    return db.query(User).filter(User.phone == phone).first()
 
 # 회원가입
 def create_user(db: Session, user: UserCreate):
@@ -19,8 +16,6 @@ def create_user(db: Session, user: UserCreate):
         password=hashed_pw,
         name=user.name,
         phone=user.phone,
-        address=user.address,
-        birth_date=user.birth_date,
     )
     db.add(db_user)
     db.commit()

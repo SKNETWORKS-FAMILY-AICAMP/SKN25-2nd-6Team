@@ -3,12 +3,13 @@ __pycache__/
 *.py[cod]
 *.pyo
 
-# 환경변수
+# Environment
 backend/.env
 
 # IDE
 .vscode/
 .idea/
+.cursor/
 
 # OS
 .DS_Store
@@ -23,3 +24,5 @@ frontend/**/.env
 venv/
 .venv/
 
+# Local agent instructions
+AGENTS.md
