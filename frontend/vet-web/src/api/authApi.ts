@@ -11,6 +11,7 @@ export interface HospitalUser {
 export interface AuthSession {
   accessToken: string;
   user: HospitalUser;
+  lastLoginAt?: string;
 }
 
 interface LoginResponse {
@@ -32,6 +33,14 @@ interface LoginResponse {
     role?: HospitalUser["role"];
     is_first_login?: boolean;
     isFirstLogin?: boolean;
+    first_login?: boolean;
+    firstLogin?: boolean;
+    password_change_required?: boolean;
+    passwordChangeRequired?: boolean;
+    must_change_password?: boolean;
+    mustChangePassword?: boolean;
+    password_changed?: boolean;
+    passwordChanged?: boolean;
   };
   user?: {
     loginid?: string;
@@ -42,6 +51,14 @@ interface LoginResponse {
     role?: HospitalUser["role"];
     is_first_login?: boolean;
     isFirstLogin?: boolean;
+    first_login?: boolean;
+    firstLogin?: boolean;
+    password_change_required?: boolean;
+    passwordChangeRequired?: boolean;
+    must_change_password?: boolean;
+    mustChangePassword?: boolean;
+    password_changed?: boolean;
+    passwordChanged?: boolean;
   };
   loginid?: string;
   name?: string;
@@ -49,6 +66,14 @@ interface LoginResponse {
   role?: HospitalUser["role"];
   is_first_login?: boolean;
   isFirstLogin?: boolean;
+  first_login?: boolean;
+  firstLogin?: boolean;
+  password_change_required?: boolean;
+  passwordChangeRequired?: boolean;
+  must_change_password?: boolean;
+  mustChangePassword?: boolean;
+  password_changed?: boolean;
+  passwordChanged?: boolean;
 }
 
 interface PasswordChangeResponse {
@@ -58,6 +83,7 @@ interface PasswordChangeResponse {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
 const SESSION_STORAGE_KEY = "medipaw_vet_session";
+const PASSWORD_CHANGED_USERS_STORAGE_KEY = "medipaw_vet_password_changed_users";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -75,7 +101,19 @@ export function getSavedSession(): AuthSession | null {
   }
 
   try {
-    return JSON.parse(savedSession) as AuthSession;
+    const parsedSession = JSON.parse(savedSession) as AuthSession;
+
+    if (hasChangedPassword(parsedSession.user.id)) {
+      return {
+        ...parsedSession,
+        user: {
+          ...parsedSession.user,
+          isFirstLogin: false,
+        },
+      };
+    }
+
+    return parsedSession;
   } catch {
     localStorage.removeItem(SESSION_STORAGE_KEY);
     return null;
@@ -84,6 +122,10 @@ export function getSavedSession(): AuthSession | null {
 
 export function saveSession(session: AuthSession) {
   localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+}
+
+export function clearSession() {
+  localStorage.removeItem(SESSION_STORAGE_KEY);
 }
 
 export async function loginDoctor(loginid: string, password: string) {
@@ -112,6 +154,7 @@ export async function loginDoctor(loginid: string, password: string) {
     const responseUser = data.user ?? data.data?.user;
     const session: AuthSession = {
       accessToken,
+      lastLoginAt: new Date().toISOString(),
       user: {
         id:
           responseUser?.loginid ??
@@ -129,16 +172,13 @@ export async function loginDoctor(loginid: string, password: string) {
           data.hospital_name ??
           "MediPaw 동물병원",
         role: responseUser?.role ?? data.data?.role ?? data.role ?? "VETERINARIAN",
-        isFirstLogin:
-          responseUser?.is_first_login ??
-          responseUser?.isFirstLogin ??
-          data.data?.is_first_login ??
-          data.data?.isFirstLogin ??
-          data.is_first_login ??
-          data.isFirstLogin ??
-          true,
+        isFirstLogin: getIsFirstLogin(data, responseUser),
       },
     };
+
+    if (hasChangedPassword(session.user.id)) {
+      session.user.isFirstLogin = false;
+    }
 
     saveSession(session);
 
@@ -146,6 +186,87 @@ export async function loginDoctor(loginid: string, password: string) {
   } catch (err) {
     throw new Error(getApiErrorMessage(err, "로그인 중 오류가 발생했습니다."));
   }
+}
+
+function getIsFirstLogin(
+  data: LoginResponse,
+  user?: LoginResponse["user"]
+) {
+  const explicitFirstLogin =
+    parseBoolean(user?.is_first_login) ??
+    parseBoolean(user?.isFirstLogin) ??
+    parseBoolean(user?.first_login) ??
+    parseBoolean(user?.firstLogin) ??
+    parseBoolean(data.data?.is_first_login) ??
+    parseBoolean(data.data?.isFirstLogin) ??
+    parseBoolean(data.data?.first_login) ??
+    parseBoolean(data.data?.firstLogin) ??
+    parseBoolean(data.is_first_login) ??
+    parseBoolean(data.isFirstLogin) ??
+    parseBoolean(data.first_login) ??
+    parseBoolean(data.firstLogin);
+
+  if (explicitFirstLogin !== undefined) {
+    return explicitFirstLogin;
+  }
+
+  const passwordChangeRequired =
+    parseBoolean(user?.password_change_required) ??
+    parseBoolean(user?.passwordChangeRequired) ??
+    parseBoolean(user?.must_change_password) ??
+    parseBoolean(user?.mustChangePassword) ??
+    parseBoolean(data.data?.password_change_required) ??
+    parseBoolean(data.data?.passwordChangeRequired) ??
+    parseBoolean(data.data?.must_change_password) ??
+    parseBoolean(data.data?.mustChangePassword) ??
+    parseBoolean(data.password_change_required) ??
+    parseBoolean(data.passwordChangeRequired) ??
+    parseBoolean(data.must_change_password) ??
+    parseBoolean(data.mustChangePassword);
+
+  if (passwordChangeRequired !== undefined) {
+    return passwordChangeRequired;
+  }
+
+  const passwordChanged =
+    parseBoolean(user?.password_changed) ??
+    parseBoolean(user?.passwordChanged) ??
+    parseBoolean(data.data?.password_changed) ??
+    parseBoolean(data.data?.passwordChanged) ??
+    parseBoolean(data.password_changed) ??
+    parseBoolean(data.passwordChanged);
+
+  if (passwordChanged !== undefined) {
+    return !passwordChanged;
+  }
+
+  return false;
+}
+
+function parseBoolean(value: unknown) {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value === 1;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalizedValue = value.trim().toLowerCase();
+
+  if (["true", "1", "y", "yes"].includes(normalizedValue)) {
+    return true;
+  }
+
+  if (["false", "0", "n", "no"].includes(normalizedValue)) {
+    return false;
+  }
+
+  return undefined;
 }
 
 export async function changeFirstPassword(params: {
@@ -183,6 +304,7 @@ export async function changeFirstPassword(params: {
       },
     };
 
+    markPasswordChanged(params.session.user.id);
     saveSession(session);
 
     return session;
@@ -190,6 +312,41 @@ export async function changeFirstPassword(params: {
     throw new Error(
       getApiErrorMessage(err, "비밀번호 변경 중 오류가 발생했습니다.")
     );
+  }
+}
+
+function hasChangedPassword(userId: string) {
+  return getChangedPasswordUserIds().includes(userId);
+}
+
+function markPasswordChanged(userId: string) {
+  const changedUserIds = getChangedPasswordUserIds();
+
+  if (changedUserIds.includes(userId)) {
+    return;
+  }
+
+  localStorage.setItem(
+    PASSWORD_CHANGED_USERS_STORAGE_KEY,
+    JSON.stringify([...changedUserIds, userId])
+  );
+}
+
+function getChangedPasswordUserIds() {
+  const savedUserIds = localStorage.getItem(PASSWORD_CHANGED_USERS_STORAGE_KEY);
+
+  if (!savedUserIds) {
+    return [];
+  }
+
+  try {
+    const parsedUserIds = JSON.parse(savedUserIds);
+    return Array.isArray(parsedUserIds)
+      ? parsedUserIds.filter((userId): userId is string => typeof userId === "string")
+      : [];
+  } catch {
+    localStorage.removeItem(PASSWORD_CHANGED_USERS_STORAGE_KEY);
+    return [];
   }
 }
 
