@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 
 import pawOnlyLogo from "../../../../shared/assets/logo/medipaw-pawonly.png";
 import { createPet, type CreatePetPayload } from "../../api/pets-api";
-import { Header } from "../guardian/home-page";
+import GuardianNavbar from "../../components/guardian-navbar";
 
 const speciesOptions = ["강아지", "고양이", "기타"];
 const genderOptions = ["수컷", "암컷", "모름"];
@@ -296,7 +296,7 @@ const PetRegisterPage = () => {
 
   return (
     <div className="min-h-screen bg-[#f8f9fc] text-slate-900">
-      <Header />
+      <GuardianNavbar />
 
       <main className="mx-auto w-full max-w-[1280px] px-6 py-8">
         <section className="flex items-center gap-4">
