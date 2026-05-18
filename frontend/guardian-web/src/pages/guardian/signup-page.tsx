@@ -12,6 +12,8 @@ interface SignupFormState {
   passwordConfirm: string;
 }
 
+type SignupFieldErrors = Partial<Record<keyof SignupFormState, string>>;
+
 const initialFormState: SignupFormState = {
   name: "",
   loginid: "",
@@ -35,23 +37,74 @@ const serviceItems = [
   },
 ];
 
+const inputClassName = (hasError?: boolean) =>
+  [
+    "mt-1.5 h-10 w-full rounded-xl border px-3 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4",
+    hasError
+      ? "border-red-400 focus:border-red-500 focus:ring-red-100"
+      : "border-slate-200 focus:border-blue-500 focus:ring-blue-100",
+  ].join(" ");
+
+const getSignupApiFieldError = (message: string): SignupFieldErrors | null => {
+  if (/필수 입력값/.test(message)) {
+    return {
+      name: "이름을 입력해주세요.",
+      loginid: "ID를 입력해주세요.",
+      password: "비밀번호를 입력해주세요.",
+      phone: "전화번호를 입력해주세요.",
+    };
+  }
+
+  if (/loginid|로그인\s*id|로그인 ID|아이디/i.test(message)) {
+    return { loginid: message };
+  }
+
+  if (/password|비밀번호/i.test(message)) {
+    return { password: message };
+  }
+
+  if (/name|이름/i.test(message)) {
+    return { name: message };
+  }
+
+  if (/phone|전화번호|휴대폰/i.test(message)) {
+    return { phone: message };
+  }
+
+  return null;
+};
+
+interface SignupErrorResponse {
+  code?: number;
+  message?: string;
+}
+
+const getSignupErrorMessage = (message?: string) =>
+  message || "회원가입에 실패했습니다.";
+
 const SignupPage = () => {
   const navigate = useNavigate();
   const [form, setForm] = useState<SignupFormState>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<SignupFieldErrors>({});
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
   const isLoginIdValid = useMemo(
-    () => /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{4,}$/.test(form.loginid.trim()),
+    () => /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{4,20}$/.test(form.loginid.trim()),
     [form.loginid],
+  );
+  const isPasswordPolicyValid = useMemo(
+    () =>
+      /^(?=.*[A-Za-z])(?=.*\d)(?=.*[^A-Za-z\d]).{8,}$/.test(form.password),
+    [form.password],
   );
   const isPasswordMatch = useMemo(
     () => form.password.length > 0 && form.password === form.passwordConfirm,
     [form.password, form.passwordConfirm],
   );
   const isPhoneValid = useMemo(
-    () => /^010-\d{4}-\d{4}$/.test(form.phone.trim()),
+    () => /^[0-9-]+$/.test(form.phone.trim()),
     [form.phone],
   );
 
@@ -62,30 +115,45 @@ const SignupPage = () => {
         ...current,
         [field]: event.target.value,
       }));
+      setFieldErrors((current) => {
+        const nextErrors = { ...current };
+        delete nextErrors[field];
+        return nextErrors;
+      });
       setErrorMessage("");
       setSuccessMessage("");
     };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const nextFieldErrors: SignupFieldErrors = {};
 
     if (!form.name.trim()) {
-      setErrorMessage("이름을 입력해주세요.");
-      return;
+      nextFieldErrors.name = "이름을 입력해주세요.";
+    } else if (form.name.trim().length > 30) {
+      nextFieldErrors.name = "이름은 최대 30자까지 입력할 수 있습니다.";
     }
 
     if (!isLoginIdValid) {
-      setErrorMessage("로그인 ID는 영문과 숫자를 섞어 4자리 이상 입력해주세요.");
-      return;
+      nextFieldErrors.loginid = "ID는 영문·숫자 조합 4~20자로 입력해주세요.";
     }
 
     if (!isPhoneValid) {
-      setErrorMessage("휴대폰 번호는 010-1234-5678 형식으로 입력해주세요.");
-      return;
+      nextFieldErrors.phone = "전화번호는 숫자와 하이픈만 입력할 수 있습니다.";
+    }
+
+    if (!isPasswordPolicyValid) {
+      nextFieldErrors.password =
+        "비밀번호는 영문, 숫자, 특수문자를 포함해 8자 이상 입력해주세요.";
     }
 
     if (!isPasswordMatch) {
-      setErrorMessage("비밀번호가 일치하지 않습니다.");
+      nextFieldErrors.passwordConfirm = "비밀번호가 일치하지 않습니다.";
+    }
+
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      setErrorMessage("");
       return;
     }
 
@@ -98,15 +166,63 @@ const SignupPage = () => {
         phone: form.phone.trim(),
       });
 
-      setSuccessMessage(response.message || "회원가입이 완료되었습니다.");
-      setTimeout(() => navigate("/login"), 700);
-    } catch (error) {
-      if (isAxiosError<{ message?: string }>(error)) {
-        setErrorMessage(error.response?.data?.message || "회원가입에 실패했습니다.");
+      if (response.code !== 200) {
+        const message = getSignupErrorMessage(response.message);
+        const apiFieldError = getSignupApiFieldError(message);
+
+        if (apiFieldError) {
+          setFieldErrors(apiFieldError);
+          setErrorMessage("");
+          return;
+        }
+
+        setErrorMessage(message);
         return;
       }
 
-      setErrorMessage("잠시 후 다시 시도해주세요.");
+      setSuccessMessage(response.message || "회원가입이 완료되었습니다.");
+      setTimeout(() => navigate("/login"), 700);
+    } catch (error) {
+      if (isAxiosError<SignupErrorResponse>(error)) {
+        const code = error.response?.data?.code ?? error.response?.status;
+        const message = getSignupErrorMessage(error.response?.data?.message);
+
+        if (code === 409) {
+          setFieldErrors({ loginid: message });
+          setErrorMessage("");
+          return;
+        }
+
+        if (code === 400) {
+          const apiFieldError = getSignupApiFieldError(message);
+
+          if (apiFieldError) {
+            setFieldErrors(apiFieldError);
+            setErrorMessage("");
+            return;
+          }
+
+          setErrorMessage(message || "필수 입력값을 확인해주세요.");
+          return;
+        }
+
+        if (code === 500) {
+          setErrorMessage("네트워크 오류가 발생했습니다. 다시 시도해주세요.");
+          return;
+        }
+
+        const apiFieldError = getSignupApiFieldError(message);
+        if (apiFieldError) {
+          setFieldErrors(apiFieldError);
+          setErrorMessage("");
+          return;
+        }
+
+        setErrorMessage(message);
+        return;
+      }
+
+      setErrorMessage("네트워크 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsSubmitting(false);
     }
@@ -182,22 +298,33 @@ const SignupPage = () => {
                   value={form.name}
                   onChange={handleChange("name")}
                   placeholder="이름을 입력해주세요."
-                  className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  aria-invalid={Boolean(fieldErrors.name)}
+                  className={inputClassName(Boolean(fieldErrors.name))}
                 />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-xs font-medium text-red-500">{fieldErrors.name}</p>
+                )}
               </div>
 
               <div>
                 <label className="text-sm font-semibold text-slate-800" htmlFor="loginid">
-                  로그인 ID <span className="text-red-500">*</span>
+                  ID <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="loginid"
                   value={form.loginid}
                   onChange={handleChange("loginid")}
-                  placeholder="로그인 ID를 입력해주세요."
-                  className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  placeholder="ID를 입력해주세요."
+                  aria-invalid={Boolean(fieldErrors.loginid)}
+                  className={inputClassName(Boolean(fieldErrors.loginid))}
                 />
-                <p className="mt-1 text-xs text-slate-500">영문, 숫자 혼합 4자리 이상</p>
+                <p
+                  className={`mt-1 text-xs ${
+                    fieldErrors.loginid ? "font-medium text-red-500" : "text-slate-500"
+                  }`}
+                >
+                  {fieldErrors.loginid || "영문, 숫자 혼합 4~20자"}
+                </p>
               </div>
             </div>
 
@@ -212,8 +339,14 @@ const SignupPage = () => {
                   value={form.password}
                   onChange={handleChange("password")}
                   placeholder="비밀번호를 입력해주세요."
-                  className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  aria-invalid={Boolean(fieldErrors.password)}
+                  className={inputClassName(Boolean(fieldErrors.password))}
                 />
+                {fieldErrors.password && (
+                  <p className="mt-1 text-xs font-medium text-red-500">
+                    {fieldErrors.password}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -229,10 +362,17 @@ const SignupPage = () => {
                   value={form.passwordConfirm}
                   onChange={handleChange("passwordConfirm")}
                   placeholder="비밀번호를 다시 입력해주세요."
-                  className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  aria-invalid={Boolean(fieldErrors.passwordConfirm)}
+                  className={inputClassName(Boolean(fieldErrors.passwordConfirm))}
                 />
-                <p className="mt-1 text-xs text-slate-500">
-                  비밀번호를 한 번 더 입력해주세요.
+                <p
+                  className={`mt-1 text-xs ${
+                    fieldErrors.passwordConfirm
+                      ? "font-medium text-red-500"
+                      : "text-slate-500"
+                  }`}
+                >
+                  {fieldErrors.passwordConfirm || "비밀번호를 한 번 더 입력해주세요."}
                 </p>
               </div>
             </div>
@@ -246,15 +386,29 @@ const SignupPage = () => {
                 value={form.phone}
                 onChange={handleChange("phone")}
                 placeholder="예: 010-1234-5678"
-                className="mt-1.5 h-10 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                aria-invalid={Boolean(fieldErrors.phone)}
+                className={inputClassName(Boolean(fieldErrors.phone))}
               />
-              <p className="mt-1 text-xs text-slate-500">휴대폰 번호만 입력 가능합니다.</p>
+              <p
+                className={`mt-1 text-xs ${
+                  fieldErrors.phone ? "font-medium text-red-500" : "text-slate-500"
+                }`}
+              >
+                {fieldErrors.phone || "숫자와 하이픈만 입력 가능합니다."}
+              </p>
             </div>
 
             {errorMessage && (
-              <p className="rounded-xl bg-red-50 px-4 py-2 text-sm font-medium text-red-600">
-                {errorMessage}
-              </p>
+              <div className="rounded-xl bg-red-50 px-4 py-3 text-center">
+                <p className="text-sm font-semibold text-red-600">{errorMessage}</p>
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage("")}
+                  className="mt-3 rounded-lg border border-red-200 px-4 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-100"
+                >
+                  확인
+                </button>
+              </div>
             )}
             {successMessage && (
               <p className="rounded-xl bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
