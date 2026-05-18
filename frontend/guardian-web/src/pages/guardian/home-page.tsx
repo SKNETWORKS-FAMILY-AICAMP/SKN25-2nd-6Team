@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate, useSearchParams } from "react-router-dom";
 
 import { getPets, type Pet } from "../../api/pets-api";
 import { useAuthStore } from "../../stores/auth-store";
+import medipawSymbol from "../../../../shared/assets/logo/medipaw-symbol.png";
 
 const navItems = [
   { label: "홈", to: "/home" },
@@ -20,38 +21,14 @@ const getPetMeta = (pet: Pet) =>
     .join(" · ");
 
 const PetIllustration = () => (
-  <div className="relative mx-auto h-40 w-64">
-    <div className="absolute bottom-4 left-8 h-24 w-28 rounded-t-[2rem] bg-blue-100/80" />
-    <div className="absolute bottom-4 left-14 h-12 w-12 rounded-full bg-blue-200/70" />
-    <div className="absolute bottom-4 right-4 h-9 w-9 rounded-full bg-blue-100 text-center text-xl leading-9 text-blue-500">
-      ♥
-    </div>
-
-    <div className="absolute bottom-2 left-20 h-28 w-24">
-      <div className="absolute left-3 top-3 h-8 w-5 -rotate-12 rounded-full bg-amber-100" />
-      <div className="absolute right-3 top-3 h-8 w-5 rotate-12 rounded-full bg-amber-100" />
-      <div className="absolute left-4 top-5 h-20 w-16 rounded-full bg-white shadow-lg shadow-blue-100" />
-      <div className="absolute left-8 top-12 h-2 w-2 rounded-full bg-slate-800" />
-      <div className="absolute right-8 top-12 h-2 w-2 rounded-full bg-slate-800" />
-      <div className="absolute left-[2.55rem] top-[3.7rem] h-2 w-3 rounded-full bg-slate-800" />
-      <div className="absolute left-8 top-[4.35rem] h-3 w-8 rounded-b-full border-b border-slate-400" />
-      <div className="absolute bottom-0 left-2 h-12 w-20 rounded-3xl bg-amber-50 shadow-lg shadow-blue-100" />
-    </div>
-
-    <div className="absolute bottom-2 right-16 h-24 w-20">
-      <div className="absolute left-4 top-0 h-9 w-7 -rotate-12 rounded-t-full bg-slate-500" />
-      <div className="absolute right-4 top-0 h-9 w-7 rotate-12 rounded-t-full bg-slate-500" />
-      <div className="absolute left-3 top-5 h-16 w-14 rounded-full bg-slate-100 shadow-lg shadow-blue-100" />
-      <div className="absolute left-6 top-10 h-2 w-2 rounded-full bg-slate-800" />
-      <div className="absolute right-6 top-10 h-2 w-2 rounded-full bg-slate-800" />
-      <div className="absolute left-[2.1rem] top-[3rem] h-2 w-3 rounded-full bg-pink-300" />
-      <div className="absolute bottom-0 left-1 h-11 w-16 rounded-3xl bg-slate-500" />
-      <div className="absolute bottom-8 right-0 h-10 w-3 rotate-12 rounded-full bg-slate-500" />
-    </div>
-  </div>
+  <img
+    src="/assets/medi-paw-logo.png"
+    alt="반려동물 등록 안내"
+    className="mx-auto h-36 w-auto object-contain"
+  />
 );
 
-const Header = () => {
+export const Header = () => {
   const guardian = useAuthStore((state) => state.guardian);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const displayName = guardian?.name || guardian?.loginid || "보호자";
@@ -59,11 +36,12 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link to="/home" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-sm font-black text-white">
-            MP
-          </span>
-          <span className="text-lg font-black text-blue-600">MediPaw</span>
+        <Link to="/home" className="flex items-center">
+          <img
+            src={medipawSymbol}
+            alt="MediPaw"
+            className="h-9 w-auto"
+          />
         </Link>
 
         <nav className="hidden h-full items-center gap-8 md:flex">
