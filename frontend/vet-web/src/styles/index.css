@@ -1,3 +1,183 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html {
+  scrollbar-gutter: stable;
+}
+
+.prescription-print-page {
+  box-sizing: border-box;
+  width: 210mm;
+  height: 297mm;
+  padding: 18mm 14mm 8mm;
+}
+
+.prescription-form {
+  font-family: "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  color: #111111;
+  font-size: 11.5px;
+  line-height: 1.25;
+}
+
+.prescription-form .form-rule-title {
+  margin-bottom: 7mm;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.prescription-form .form-title {
+  margin-bottom: 5mm;
+  text-align: center;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: 0.35em;
+}
+
+.prescription-form .form-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.prescription-form .form-table + .form-table {
+  margin-top: 4.2mm;
+}
+
+.prescription-form th,
+.prescription-form td {
+  height: 7.7mm;
+  border: 1px solid #a8a8a8;
+  padding: 1.3mm 2mm;
+  vertical-align: middle;
+  word-break: keep-all;
+}
+
+.prescription-form th {
+  font-weight: 800;
+  text-align: center;
+}
+
+.prescription-form td {
+  font-weight: 600;
+}
+
+.prescription-form .shade,
+.prescription-form .section-title {
+  background: #c9c9c9;
+}
+
+.prescription-form .side-head {
+  padding: 1mm;
+  font-weight: 800;
+  line-height: 1.55;
+}
+
+.prescription-form .date-cell,
+.prescription-form .notice-cell {
+  text-align: center;
+  font-size: 13px;
+}
+
+.prescription-form .notice-cell,
+.prescription-form .ingredient-cell {
+  font-weight: 800;
+}
+
+.prescription-form .subject-table {
+  border-top: 2px solid #111111;
+  border-bottom: 2px solid #111111;
+}
+
+.prescription-form .medicine-table {
+  border-top: 2px solid #111111;
+  border-bottom: 2px solid #111111;
+}
+
+.prescription-form .medicine-table th {
+  height: 12mm;
+  line-height: 1.25;
+}
+
+.prescription-form .medicine-table td {
+  height: 14.5mm;
+  text-align: center;
+}
+
+.prescription-form .blank-medicine-cell {
+  height: 14.5mm;
+}
+
+.prescription-form .sale-summary-table {
+  border-top: 2px solid #111111;
+}
+
+.prescription-form .sale-detail-table {
+  margin-top: 1.5mm;
+}
+
+.prescription-form .sale-detail-table th,
+.prescription-form .sale-detail-table td {
+  text-align: center;
+}
+
+.prescription-form .blank-sale-cell {
+  height: 7.2mm;
+}
+
+.prescription-form .paper-note {
+  margin-top: 2mm;
+  text-align: right;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0;
+    background: #ffffff;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .prescription-print-page,
+  .prescription-print-page * {
+    visibility: visible;
+  }
+
+  .print-prescription-modal {
+    position: static;
+    display: block;
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .print-prescription-modal > div,
+  .print-prescription-modal .prescription-print-page {
+    max-height: none;
+    width: 210mm;
+    max-width: none;
+    overflow: visible;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .print-prescription-modal .prescription-print-page {
+    position: absolute;
+    inset: 0 auto auto 0;
+    box-sizing: border-box;
+    height: 297mm;
+    padding: 18mm 14mm 8mm;
+  }
+}

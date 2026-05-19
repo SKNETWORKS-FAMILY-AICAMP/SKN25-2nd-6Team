@@ -1,3 +1,9 @@
+import {
+  mockScheduleItems,
+  ScheduleItem,
+  VisitType,
+} from "../dashboard/dashboardMockData";
+
 export type TriageStatus = "emergency" | "semiEmergency" | "normal";
 
 export interface QueuePatient {
@@ -97,44 +103,114 @@ export interface UploadedFile {
   label: string;
 }
 
-export const mockWaitingQueue: QueuePatient[] = [
-  {
-    schedule_id: 101,
-    time: "09:30",
-    guardian_name: "김지연",
-    pet_name: "뽀삐",
-    species: "말티즈",
-    triage_status: "emergency",
-    source: "reservation",
-  },
-  {
-    schedule_id: 102,
-    time: "10:00",
-    guardian_name: "박현수",
-    pet_name: "루이",
-    species: "푸들",
-    triage_status: "semiEmergency",
-    source: "reservation",
-  },
-  {
-    schedule_id: 103,
-    time: "10:30",
-    guardian_name: "이수연",
-    pet_name: "보리",
-    species: "시바견",
-    triage_status: "normal",
-    source: "walk_in",
-  },
-  {
-    schedule_id: 104,
-    time: "11:00",
-    guardian_name: "최민정",
-    pet_name: "로빈",
-    species: "말티즈",
-    triage_status: "normal",
-    source: "reservation",
-  },
-];
+const guardiansByPatientName: Record<string, string> = {
+  이나비: "김지연",
+  백도리: "박현수",
+  보리: "이수연",
+  종합검진: "최민정",
+  쭈쭈: "정인수",
+  콩구름: "김하나",
+  몽치: "이정훈",
+  별이: "김하나",
+};
+
+const profileImagesByPatientName: Record<string, string> = {
+  이나비:
+    "https://images.unsplash.com/photo-1574144611937-0df059b5ef3e?auto=format&fit=crop&w=320&q=80",
+  백도리:
+    "https://images.unsplash.com/photo-1552053831-71594a27632d?auto=format&fit=crop&w=320&q=80",
+  보리:
+    "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=320&q=80",
+  종합검진:
+    "https://images.unsplash.com/photo-1583511655826-05700d52f4d9?auto=format&fit=crop&w=320&q=80",
+  쭈쭈:
+    "https://images.unsplash.com/photo-1583511655826-05700d52f4d9?auto=format&fit=crop&w=320&q=80",
+  콩구름:
+    "https://images.unsplash.com/photo-1597633425046-08f5110420b5?auto=format&fit=crop&w=320&q=80",
+  몽치:
+    "https://images.unsplash.com/photo-1601758125946-6ec2ef64daf8?auto=format&fit=crop&w=320&q=80",
+  별이:
+    "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=320&q=80",
+};
+
+function mapVisitTypeToTriageStatus(type: VisitType): TriageStatus {
+  if (type === "emergency" || type === "semiEmergency") {
+    return type;
+  }
+
+  return "normal";
+}
+
+function parseAge(age: string) {
+  const parsedAge = Number.parseInt(age, 10);
+  return Number.isNaN(parsedAge) ? 1 : parsedAge;
+}
+
+function createEmrResponseFromSchedule(item: ScheduleItem): EmrResponse {
+  const guardianName = guardiansByPatientName[item.patientName] ?? "보호자";
+
+  return {
+    code: 200,
+    result: {
+      pet_info: {
+        pet_id: item.id,
+        pet_name: item.patientName,
+        species: item.breed,
+        gender: item.id % 2 === 0 ? "Male" : "Female",
+        weight_kg: Number.parseFloat(item.weight),
+        age: parseAge(item.age),
+        birth_date: `202${Math.max(0, 6 - parseAge(item.age))}.01.08`,
+        is_neutered: item.id % 2 === 0,
+        notes: `${guardianName} 보호자. 오늘 내원 사유는 ${item.reason}입니다.`,
+        profile_image:
+          profileImagesByPatientName[item.patientName] ??
+          "https://images.unsplash.com/photo-1583511655826-05700d52f4d9?auto=format&fit=crop&w=320&q=80",
+        last_visit: "2024.03.10",
+      },
+      triage_summary: {
+        summary: [
+          `${item.reason} 사유로 ${item.start} 예약 내원했습니다.`,
+          `${item.breed}, ${item.age}, ${item.weight} 기본 정보를 확인했습니다.`,
+          "보호자 문진 후 신체검사와 필요 처치를 진행할 예정입니다.",
+        ],
+        attachments: [
+          profileImagesByPatientName[item.patientName] ??
+            "https://images.unsplash.com/photo-1583511655826-05700d52f4d9?auto=format&fit=crop&w=320&q=80",
+        ],
+      },
+      emr_history: [
+        {
+          emr_id: item.id,
+          date: "2024.03.10",
+          doctor_name: "김보호",
+          vet_memo: `${item.reason} 관련 이전 진료 기록입니다. 증상 경과 확인 후 필요 시 처방을 조정했습니다.`,
+          prescriptions:
+            item.type === "checkup"
+              ? []
+              : [
+                  {
+                    drug_name: "기본 처방약",
+                    dosage: "1T",
+                    form: "PO",
+                    frequency: "SID",
+                    duration_days: 5,
+                  },
+                ],
+        },
+      ],
+    },
+  };
+}
+
+export const mockWaitingQueue: QueuePatient[] = mockScheduleItems.map((item) => ({
+  schedule_id: item.id,
+  time: item.start,
+  guardian_name: guardiansByPatientName[item.patientName] ?? "보호자",
+  pet_name: item.patientName,
+  species: item.breed,
+  triage_status: mapVisitTypeToTriageStatus(item.type),
+  source: "reservation",
+}));
 
 export const mockCompletedQueue: QueuePatient[] = [
   {
@@ -149,6 +225,10 @@ export const mockCompletedQueue: QueuePatient[] = [
 ];
 
 export const mockEmrResponsesByScheduleId: Record<number, EmrResponse> = {
+  ...mockScheduleItems.reduce<Record<number, EmrResponse>>((acc, item) => {
+    acc[item.id] = createEmrResponseFromSchedule(item);
+    return acc;
+  }, {}),
   101: {
     code: 200,
     result: {

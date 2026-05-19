@@ -93,6 +93,35 @@ const apiClient = axios.create({
   },
 });
 
+export async function changePassword(params: {
+  accessToken: string;
+  currentPassword: string;
+  newPassword: string;
+  newPasswordConfirm: string;
+}) {
+  try {
+    const { data } = await apiClient.put<PasswordChangeResponse>(
+      "/hospital/auth/password",
+      {
+        current_password: params.currentPassword,
+        new_password: params.newPassword,
+        new_password_confirm: params.newPasswordConfirm,
+      },
+      {
+        headers: { Authorization: `Bearer ${params.accessToken}` },
+      }
+    );
+
+    if (data.code !== 200) {
+      throw new Error(data.message ?? "비밀번호 변경에 실패했습니다.");
+    }
+  } catch (err) {
+    throw new Error(
+      getApiErrorMessage(err, "비밀번호 변경 중 오류가 발생했습니다.")
+    );
+  }
+}
+
 export function getSavedSession(): AuthSession | null {
   const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
 
