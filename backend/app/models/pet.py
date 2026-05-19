@@ -12,6 +12,7 @@ class Pet(Base):
     petname = Column(String, nullable=False)
     gender = Column(String, nullable=True)
     birth_date = Column(Date, nullable=True)
+    checkup_date = Column(Date, nullable=True)
     weight_kg = Column(Numeric, nullable=True)
     is_neutered = Column(Boolean, nullable=True)
     notes = Column(Text, nullable=True)

@@ -27,27 +27,28 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     return create_user(db, user)
 
 # 로그인
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
-
-    # 유저 조회
     user = get_user_by_loginid(db, request.loginid)
 
-    # 유저 없거나 비밀번호 틀리면
     if not user or not verify_password(request.password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="로그인 ID 또는 비밀번호가 올바르지 않습니다."
         )
 
-    # 토큰 생성
     access_token = create_access_token({"sub": str(user.userid), "type": "user"})
     refresh_token = create_refresh_token({"sub": str(user.userid), "type": "user"})
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token
-    )
+    return {
+        "code": 200,
+        "message": "로그인 성공",
+        "result": {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer"
+        }
+    }
 
 # 토큰 갱신
 @router.post("/refresh", response_model=TokenRefreshResponse)

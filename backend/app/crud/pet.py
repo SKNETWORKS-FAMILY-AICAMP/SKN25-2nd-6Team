@@ -12,6 +12,7 @@ def create_pet(db: Session, pet: PetCreate, userid: int):
         gender=pet.gender,
         is_neutered=True if pet.is_neutered == "예" else False if pet.is_neutered == "아니요" else None,
         birth_date=None if pet.is_birth_unknown else pet.birth_date,
+        checkup_date=None if pet.is_checkup_unknown else pet.checkup_date,
         weight_kg=pet.weight_kg,
         notes=pet.notes,
         profile_image=pet.profile_image,
@@ -43,6 +44,10 @@ def update_pet(db: Session, pet: Pet, pet_data: PetUpdate):
         pet.is_neutered = True if pet_data.is_neutered == "예" else False if pet_data.is_neutered == "아니요" else None
     if pet_data.is_birth_unknown == True:
         pet.birth_date = None
+    if pet_data.is_checkup_unknown == True:
+        pet.checkup_date = None
+    elif pet_data.checkup_date is not None:
+        pet.checkup_date = pet_data.checkup_date
     elif pet_data.birth_date is not None:
         pet.birth_date = pet_data.birth_date
     if pet_data.weight_kg is not None:
