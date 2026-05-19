@@ -1,6 +1,6 @@
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { useMatch, useNavigate, useParams } from "react-router-dom";
+import { useMatch, useNavigate } from "react-router-dom";
 
 import pawOnlyLogo from "../../../../shared/assets/logo/medipaw-pawonly.png";
 import {
@@ -198,14 +198,20 @@ const getChoiceClass = (
 
 const PetRegisterPage = () => {
   const navigate = useNavigate();
+  const detailRouteMatch = useMatch("/pets/:petId");
   const editRouteMatch = useMatch("/pets/:petId/edit");
-  const { petId } = useParams();
   const isEditRoute = Boolean(editRouteMatch);
-  const parsedPetId = petId ? Number(petId) : NaN;
-  const isValidEditPetId =
-    isEditRoute && Number.isFinite(parsedPetId) && parsedPetId > 0;
-  const editPetId = isValidEditPetId ? parsedPetId : undefined;
-  const isEditMode = isEditRoute && isValidEditPetId;
+  const detailPetId = detailRouteMatch?.params.petId;
+  const editPetId = editRouteMatch?.params.petId;
+  const isDetailRoute = Boolean(detailRouteMatch && detailPetId !== "register");
+  const routePetId = isEditRoute ? editPetId : isDetailRoute ? detailPetId : undefined;
+  const parsedPetId = routePetId ? Number(routePetId) : NaN;
+  const isPetDataRoute = isDetailRoute || isEditRoute;
+  const isValidPetId =
+    isPetDataRoute && Number.isFinite(parsedPetId) && parsedPetId > 0;
+  const selectedPetId = isValidPetId ? parsedPetId : undefined;
+  const isDetailMode = isDetailRoute && isValidPetId;
+  const isEditMode = isEditRoute && isValidPetId;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const customSpeciesInputRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
@@ -215,13 +221,13 @@ const PetRegisterPage = () => {
   const [originalPreviewUrl, setOriginalPreviewUrl] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
   const [loadMessage, setLoadMessage] = useState(
-    isEditRoute && !isValidEditPetId ? "잘못된 접근입니다." : "",
+    isPetDataRoute && !isValidPetId ? "잘못된 접근입니다." : "",
   );
-  const [isLoading, setIsLoading] = useState(Boolean(isEditMode));
+  const [isLoading, setIsLoading] = useState(Boolean(isDetailMode || isEditMode));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isEditRoute && !isValidEditPetId) {
+    if (isPetDataRoute && !isValidPetId) {
       setForm(initialForm);
       setOriginalForm(null);
       setPreviewUrl("");
@@ -231,7 +237,7 @@ const PetRegisterPage = () => {
       return;
     }
 
-    if (!isEditRoute) {
+    if (!isPetDataRoute) {
       setForm(initialForm);
       setOriginalForm(null);
       setPreviewUrl("");
@@ -241,7 +247,7 @@ const PetRegisterPage = () => {
       return;
     }
 
-    if (!editPetId) {
+    if (!selectedPetId) {
       return;
     }
 
@@ -252,7 +258,7 @@ const PetRegisterPage = () => {
         setIsLoading(true);
         setLoadMessage("");
 
-        const response = await getPet(editPetId);
+        const response = await getPet(selectedPetId);
         if (!isMounted) {
           return;
         }
@@ -295,7 +301,7 @@ const PetRegisterPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [editPetId, isEditRoute, isValidEditPetId]);
+  }, [isPetDataRoute, isValidPetId, selectedPetId]);
 
   const closeModal = () => {
     navigate("/home");
@@ -321,6 +327,10 @@ const PetRegisterPage = () => {
   };
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (isDetailMode) {
+      return;
+    }
+
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -424,6 +434,10 @@ const PetRegisterPage = () => {
     event.preventDefault();
     setSubmitMessage("");
 
+    if (isDetailMode) {
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -442,12 +456,12 @@ const PetRegisterPage = () => {
 
       let petIdToRefresh: number | undefined;
       const response =
-        isEditMode && editPetId
-          ? await updatePet(editPetId, updatePayload || {})
+        isEditMode && selectedPetId
+          ? await updatePet(selectedPetId, updatePayload || {})
           : await createPet(buildPayload());
 
       if (isEditMode) {
-        petIdToRefresh = editPetId;
+        petIdToRefresh = selectedPetId;
       } else {
         petIdToRefresh = (response as { result?: { pet_id?: number } }).result
           ?.pet_id;
@@ -509,11 +523,21 @@ const PetRegisterPage = () => {
             />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-950">
-              {isEditRoute ? "반려동물 수정하기" : "반려동물 등록하기"}
+            <h1
+              className={`font-black text-slate-950 ${
+                isDetailMode ? "text-xl" : "text-2xl"
+              }`}
+            >
+              {isDetailMode
+                ? "반려동물 상세 정보"
+                : isEditRoute
+                  ? "반려동물 수정하기"
+                  : "반려동물 등록하기"}
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              반려동물 정보를 입력해주세요.
+              {isDetailMode
+                ? "등록된 반려동물 정보를 확인해주세요."
+                : "반려동물 정보를 입력해주세요."}
             </p>
           </div>
         </section>
@@ -545,8 +569,16 @@ const PetRegisterPage = () => {
               <h2 className="text-lg font-black text-slate-900">대표 사진</h2>
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="relative mt-5 flex h-72 w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-violet-200 bg-gradient-to-b from-violet-50 to-white text-center transition hover:border-violet-300 hover:bg-violet-50"
+                onClick={() => {
+                  if (!isDetailMode) {
+                    fileInputRef.current?.click();
+                  }
+                }}
+                className={`relative mt-5 flex h-72 w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-violet-200 bg-gradient-to-b from-violet-50 to-white text-center transition ${
+                  isDetailMode
+                    ? "cursor-default"
+                    : "hover:border-violet-300 hover:bg-violet-50"
+                }`}
               >
                 {previewUrl ? (
                   <img
@@ -579,6 +611,7 @@ const PetRegisterPage = () => {
                 type="file"
                 accept="image/jpeg,image/png"
                 onChange={handleImageChange}
+                disabled={isDetailMode}
                 className="hidden"
               />
               <FieldError message={errors.profileImage} />
@@ -590,8 +623,17 @@ const PetRegisterPage = () => {
                 <h2 className="text-lg font-black">안내사항</h2>
               </div>
               <ul className="mt-6 space-y-4 pr-6 text-sm font-semibold leading-6 text-slate-700">
-                <li>입력하지 않은 항목은 나중에 반려동물 관리에서 수정할 수 있습니다.</li>
-                <li>정확한 정보는 AI 상담과 진료 예약 정확도 향상에 도움이 됩니다.</li>
+                {isDetailMode ? (
+                  <>
+                    <li>수정이 필요한 정보가 있다면 하단의 수정하기 버튼을 눌러주세요.</li>
+                    <li>정확한 정보는 AI 상담과 진료 예약 정확도 향상에 도움이 됩니다.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>입력하지 않은 항목은 나중에 반려동물 관리에서 수정할 수 있습니다.</li>
+                    <li>정확한 정보는 AI 상담과 진료 예약 정확도 향상에 도움이 됩니다.</li>
+                  </>
+                )}
               </ul>
               <div className="pointer-events-none mt-8 flex justify-center gap-3 text-6xl leading-none">
                 <span>🐶</span>
@@ -620,10 +662,11 @@ const PetRegisterPage = () => {
                     id="petname"
                     value={form.petname}
                     onChange={handleNameChange}
+                    readOnly={isDetailMode}
                     placeholder="예시) 몽몽이"
                     className={`${inputClass} mt-2 ${
                       errors.petname ? errorInputClass : ""
-                    }`}
+                    } ${isDetailMode ? "bg-slate-50" : ""}`}
                   />
                   <FieldError message={errors.petname} />
                 </div>
@@ -636,10 +679,11 @@ const PetRegisterPage = () => {
                   <select
                     id="gender"
                     value={form.gender}
+                    disabled={isDetailMode}
                     onChange={(event) => updateForm("gender", event.target.value)}
                     className={`${selectClass} mt-2 ${
                       errors.gender ? errorInputClass : ""
-                    }`}
+                    } ${isDetailMode ? "bg-slate-50" : ""}`}
                   >
                     <option value="">선택해주세요</option>
                     {genderOptions.map((option) => (
@@ -663,11 +707,12 @@ const PetRegisterPage = () => {
                       min="0"
                       step="0.1"
                       value={form.weight}
+                      readOnly={isDetailMode}
                       onChange={(event) => updateForm("weight", event.target.value)}
                       placeholder="예) 4.2"
                       className={`${inputClass} pr-12 ${
                         errors.weight ? errorInputClass : ""
-                      }`}
+                      } ${isDetailMode ? "bg-slate-50" : ""}`}
                     />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
                       kg
@@ -684,12 +729,13 @@ const PetRegisterPage = () => {
                   <select
                     id="is-neutered"
                     value={form.isNeutered}
+                    disabled={isDetailMode}
                     onChange={(event) =>
                       updateForm("isNeutered", event.target.value)
                     }
                     className={`${selectClass} mt-2 ${
                       errors.isNeutered ? errorInputClass : ""
-                    }`}
+                    } ${isDetailMode ? "bg-slate-50" : ""}`}
                   >
                     <option value="">선택해주세요</option>
                     {neuteredOptions.map((option) => (
@@ -719,6 +765,7 @@ const PetRegisterPage = () => {
                     <button
                       key={option}
                       type="button"
+                      disabled={isDetailMode}
                       onClick={() => {
                         updateForm("species", option);
                         if (option !== "기타") {
@@ -748,7 +795,7 @@ const PetRegisterPage = () => {
                 <input
                   ref={customSpeciesInputRef}
                   value={form.customSpecies}
-                  disabled={form.species !== "기타"}
+                  disabled={isDetailMode || form.species !== "기타"}
                   onChange={(event) =>
                     updateForm("customSpecies", event.target.value)
                   }
@@ -767,9 +814,10 @@ const PetRegisterPage = () => {
                 <input
                   id="breed"
                   value={form.breed}
+                  readOnly={isDetailMode}
                   onChange={(event) => updateForm("breed", event.target.value)}
                   placeholder="예) 말티즈, 코리안숏헤어 등"
-                  className={`${inputClass} mt-2`}
+                  className={`${inputClass} mt-2 ${isDetailMode ? "bg-slate-50" : ""}`}
                 />
               </div>
             </section>
@@ -789,7 +837,7 @@ const PetRegisterPage = () => {
                     id="birth-date"
                     type="date"
                     value={form.birthDate}
-                    disabled={form.isBirthUnknown}
+                    disabled={isDetailMode || form.isBirthUnknown}
                     onChange={(event) => updateForm("birthDate", event.target.value)}
                     className={`${inputClass} mt-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:placeholder:text-slate-400`}
                   />
@@ -797,6 +845,7 @@ const PetRegisterPage = () => {
                     <input
                       type="checkbox"
                       checked={form.isBirthUnknown}
+                      disabled={isDetailMode}
                       onChange={(event) => {
                         updateForm("isBirthUnknown", event.target.checked);
                         if (event.target.checked) {
@@ -817,7 +866,7 @@ const PetRegisterPage = () => {
                     id="checkup-date"
                     type="date"
                     value={form.checkupDate}
-                    disabled={form.isCheckupUnknown}
+                    disabled={isDetailMode || form.isCheckupUnknown}
                     onChange={(event) =>
                       updateForm("checkupDate", event.target.value)
                     }
@@ -827,6 +876,7 @@ const PetRegisterPage = () => {
                     <input
                       type="checkbox"
                       checked={form.isCheckupUnknown}
+                      disabled={isDetailMode}
                       onChange={(event) => {
                         updateForm("isCheckupUnknown", event.target.checked);
                         if (event.target.checked) {
@@ -849,9 +899,12 @@ const PetRegisterPage = () => {
                     <textarea
                       id="notes"
                       value={form.notes}
+                      readOnly={isDetailMode}
                       onChange={handleNotesChange}
                       placeholder="알레르기, 질병 이력, 성격 등 간단히 입력해주세요."
-                      className="h-[88px] w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 pb-7 text-sm font-semibold leading-5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                      className={`h-[88px] w-full resize-none rounded-xl border border-slate-200 px-4 py-3 pb-7 text-sm font-semibold leading-5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100 ${
+                        isDetailMode ? "bg-slate-50" : "bg-white"
+                      }`}
                     />
                     <span className="absolute bottom-3 right-4 text-xs font-bold text-slate-400">
                       {form.notes.length} / {maxNotesLength}
@@ -873,22 +926,33 @@ const PetRegisterPage = () => {
                 onClick={closeModal}
                 className="h-11 min-w-32 rounded-xl border border-slate-200 bg-white px-6 text-sm font-black text-slate-700 transition hover:bg-slate-50"
               >
-                취소
+                {isDetailMode ? "목록으로" : "취소"}
               </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:from-violet-300 disabled:to-indigo-300"
-              >
-                <PawIcon className="h-4 w-4" />
-                {isSubmitting
-                  ? isEditMode
-                    ? "수정 중..."
-                    : "등록 중..."
-                  : isEditMode
-                    ? "수정하기"
-                    : "등록하기"}
-              </button>
+              {isDetailMode ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/pets/${selectedPetId}/edit`)}
+                  className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700"
+                >
+                  <PawIcon className="h-4 w-4" />
+                  수정하기
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:from-violet-300 disabled:to-indigo-300"
+                >
+                  <PawIcon className="h-4 w-4" />
+                  {isSubmitting
+                    ? isEditMode
+                      ? "수정 중..."
+                      : "등록 중..."
+                    : isEditMode
+                      ? "수정하기"
+                      : "등록하기"}
+                </button>
+              )}
             </footer>
           </form>
         </div>
