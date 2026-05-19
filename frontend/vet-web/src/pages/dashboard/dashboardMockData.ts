@@ -160,7 +160,7 @@ export const mockScheduleItems: ScheduleItem[] = [
 export const mockTodayPatients: PatientCard[] = [
   {
     id: 1,
-    name: "이니비",
+    name: "이나비",
     species: "고양이",
     breed: "샴",
     age: "2세",

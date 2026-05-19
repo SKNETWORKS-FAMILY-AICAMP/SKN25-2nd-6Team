@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import FindIdPage from "../pages/auth/find-id-page";
 import FindPasswordPage from "../pages/auth/find-password-page";
 import LoginPage from "../pages/auth/login-page";
+import ChatbotPage from "../pages/chatbot/chatbot-page";
 import HomePage from "../pages/guardian/home-page";
 import SignupPage from "../pages/guardian/signup-page";
 import PetRegisterPage from "../pages/pets/pet-register-page";
@@ -18,6 +19,7 @@ const AppRouter = () => {
         <Route path="/find-password" element={<FindPasswordPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/home" element={<HomePage />} />
+          <Route path="/chatbot" element={<ChatbotPage />} />
           <Route path="/pets/register" element={<PetRegisterPage />} />
           <Route path="/pets/:petId/edit" element={<PetRegisterPage />} />
         </Route>
