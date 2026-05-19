@@ -440,10 +440,18 @@ const PetRegisterPage = () => {
         return;
       }
 
+      let petIdToRefresh: number | undefined;
       const response =
         isEditMode && editPetId
           ? await updatePet(editPetId, updatePayload || {})
           : await createPet(buildPayload());
+
+      if (isEditMode) {
+        petIdToRefresh = editPetId;
+      } else {
+        petIdToRefresh = (response as { result?: { pet_id?: number } }).result
+          ?.pet_id;
+      }
 
       if (!([200, 201] as number[]).includes(response.code)) {
         setSubmitMessage(
@@ -453,6 +461,10 @@ const PetRegisterPage = () => {
               : "반려동물 등록에 실패했습니다."),
         );
         return;
+      }
+
+      if (petIdToRefresh) {
+        await getPet(petIdToRefresh);
       }
 
       navigate("/home", {

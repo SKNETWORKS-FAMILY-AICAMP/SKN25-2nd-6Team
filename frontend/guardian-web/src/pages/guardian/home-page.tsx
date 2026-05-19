@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { getPets, type Pet } from "../../api/pets-api";
 import GuardianNavbar from "../../components/guardian-navbar";
@@ -86,6 +86,7 @@ const PetIllustration = () => (
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const previewMode = import.meta.env.DEV ? searchParams.get("preview") : null;
   const isEmptyPreview = previewMode === "empty";
@@ -96,6 +97,11 @@ const HomePage = () => {
 
   const hasPets = pets.length > 0;
   const petCountLabel = useMemo(() => `${pets.length}마리`, [pets.length]);
+  const refreshRequestedAt =
+    (location.state as { petRegisteredAt?: number; petUpdatedAt?: number } | null)
+      ?.petRegisteredAt ||
+    (location.state as { petRegisteredAt?: number; petUpdatedAt?: number } | null)
+      ?.petUpdatedAt;
 
   useEffect(() => {
     if (isPetsPreview) {
@@ -162,7 +168,7 @@ const HomePage = () => {
     return () => {
       isMounted = false;
     };
-  }, [isEmptyPreview, isPetsPreview, navigate]);
+  }, [isEmptyPreview, isPetsPreview, navigate, refreshRequestedAt]);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
