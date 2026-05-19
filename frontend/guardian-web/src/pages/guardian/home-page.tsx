@@ -15,6 +15,7 @@ const previewPets: Pet[] = [
     breed: "말티즈",
     age: 4,
     gender: "남아",
+    profile_image: "/assets/profile1.png",
   },
   {
     pet_id: 2,
@@ -23,6 +24,7 @@ const previewPets: Pet[] = [
     breed: "말티즈",
     age: 4,
     gender: "남아",
+    profile_image: "/assets/profile2.png",
   },
   {
     pet_id: 3,
@@ -31,7 +33,17 @@ const previewPets: Pet[] = [
     breed: "말티즈",
     age: 4,
     gender: "남아",
+    profile_image: "/assets/profile3.png",
   },
+];
+
+const defaultProfileImages = [
+  "/assets/profile1.png",
+  "/assets/profile2.png",
+  "/assets/profile3.png",
+  "/assets/profile4.png",
+  "/assets/profile5.png",
+  "/assets/profile6.png",
 ];
 
 const normalizeGender = (gender?: string) => {
@@ -54,6 +66,15 @@ const getPetMeta = (pet: Pet) =>
   [pet.breed || pet.species, pet.age ? `${pet.age}살` : undefined, normalizeGender(pet.gender)]
     .filter(Boolean)
     .join(" · ");
+
+const getProfileImage = (pet: Pet) =>
+  pet.profile_image ||
+  defaultProfileImages[Math.abs(pet.pet_id) % defaultProfileImages.length];
+
+const sortPetsByName = (petsToSort: Pet[]) =>
+  [...petsToSort].sort((firstPet, secondPet) =>
+    firstPet.petname.localeCompare(secondPet.petname, "ko"),
+  );
 
 const PetIllustration = () => (
   <img
@@ -80,7 +101,7 @@ const HomePage = () => {
     if (isPetsPreview) {
       setIsLoading(false);
       setErrorMessage("");
-      setPets(previewPets);
+      setPets(sortPetsByName(previewPets));
       return;
     }
 
@@ -114,7 +135,7 @@ const HomePage = () => {
           return;
         }
 
-        setPets(response.result);
+        setPets(sortPetsByName(response.result));
       } catch (error) {
         if (!isMounted) {
           return;
@@ -147,7 +168,7 @@ const HomePage = () => {
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <GuardianNavbar />
 
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6">
         {isLoading ? (
           <section className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
@@ -155,10 +176,7 @@ const HomePage = () => {
         ) : errorMessage ? (
           <section className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
             <div className="w-full max-w-md rounded-3xl bg-white px-6 py-10 text-center shadow-xl shadow-blue-100/60 ring-1 ring-blue-50">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-50 text-xl font-black text-red-500">
-                !
-              </div>
-              <h1 className="mt-5 text-xl font-black text-slate-900">
+              <h1 className="text-xl font-black text-slate-900">
                 홈 화면을 불러오지 못했습니다
               </h1>
               <p className="mt-3 text-sm font-medium leading-6 text-slate-500">
@@ -198,22 +216,24 @@ const HomePage = () => {
           <section className="pb-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h1 className="text-2xl font-black text-slate-950">내 반려동물</h1>
-                <p className="mt-2 text-sm font-medium text-slate-500">
+                <h1 className="text-xl font-black text-slate-950">
+                  내 반려동물
+                </h1>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
                   사랑하는 반려동물의 건강을 관리하고 예약해보세요.
                 </p>
               </div>
 
               <Link
                 to={petRegisterPath}
-                className="inline-flex h-11 items-center justify-center rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
               >
                 + 반려동물 등록
               </Link>
             </div>
 
-            <div className="mt-6 max-h-[calc(100vh-12rem)] overflow-y-auto rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-              <div className="mb-3 text-sm font-bold text-slate-500">
+            <div className="mt-6 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+              <div className="mb-3 px-1 text-sm font-bold text-slate-500">
                 등록된 반려동물 {petCountLabel}
               </div>
 
@@ -221,20 +241,14 @@ const HomePage = () => {
                 {pets.map((pet) => (
                   <article
                     key={pet.pet_id}
-                    className="rounded-2xl border border-slate-100 bg-white p-4 transition hover:border-blue-100 hover:shadow-lg hover:shadow-blue-100/50 sm:flex sm:items-center sm:gap-6"
+                    className="rounded-xl border border-slate-100 bg-white p-4 transition hover:border-blue-100 hover:shadow-lg hover:shadow-blue-100/50 sm:flex sm:items-center sm:gap-6"
                   >
-                    <div className="mx-auto h-28 w-28 shrink-0 overflow-hidden rounded-full bg-blue-50 sm:mx-0">
-                      {pet.profile_image ? (
-                        <img
-                          src={pet.profile_image}
-                          alt={`${pet.petname} 프로필`}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-blue-100 text-sm font-black text-blue-500">
-                          {pet.species === "고양이" ? "고양이" : "강아지"}
-                        </div>
-                      )}
+                    <div className="mx-auto h-28 w-28 shrink-0 overflow-hidden rounded-full bg-slate-50 sm:mx-0">
+                      <img
+                        src={getProfileImage(pet)}
+                        alt={`${pet.petname} 프로필`}
+                        className="h-full w-full object-cover"
+                      />
                     </div>
 
                     <div className="mt-4 min-w-0 flex-1 text-center sm:mt-0 sm:text-left">
@@ -246,22 +260,22 @@ const HomePage = () => {
                       </p>
 
                       <div className="mt-4 border-t border-slate-100 pt-4">
-                        <div className="grid gap-2 sm:grid-cols-3">
+                        <div className="grid gap-2 sm:max-w-[620px] sm:grid-cols-3">
                           <Link
-                            to={`/pets/${pet.pet_id}`}
-                            className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+                            to={`/pets/${pet.pet_id}/edit`}
+                            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
                           >
-                            상세 보기
+                            정보 수정
                           </Link>
                           <Link
                             to={`/chatbot?petId=${pet.pet_id}`}
-                            className="inline-flex h-10 items-center justify-center rounded-xl border border-blue-200 px-4 text-sm font-bold text-blue-600 transition hover:bg-blue-50"
+                            className="inline-flex h-10 items-center justify-center rounded-lg border border-blue-200 px-4 text-sm font-bold text-blue-600 transition hover:bg-blue-50"
                           >
                             챗봇 예약
                           </Link>
                           <Link
                             to={`/reservations/new?petId=${pet.pet_id}`}
-                            className="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 px-4 text-sm font-bold text-emerald-600 transition hover:bg-emerald-50"
+                            className="inline-flex h-10 items-center justify-center rounded-lg border border-emerald-200 px-4 text-sm font-bold text-emerald-600 transition hover:bg-emerald-50"
                           >
                             검진 / 바로 예약
                           </Link>

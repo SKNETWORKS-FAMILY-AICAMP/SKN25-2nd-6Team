@@ -1,9 +1,15 @@
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { useNavigate } from "react-router-dom";
+import { useMatch, useNavigate, useParams } from "react-router-dom";
 
 import pawOnlyLogo from "../../../../shared/assets/logo/medipaw-pawonly.png";
-import { createPet, type CreatePetPayload } from "../../api/pets-api";
+import {
+  createPet,
+  getPet,
+  updatePet,
+  type CreatePetPayload,
+  type Pet,
+} from "../../api/pets-api";
 import GuardianNavbar from "../../components/guardian-navbar";
 
 const speciesOptions = ["강아지", "고양이", "기타"];
@@ -36,6 +42,12 @@ interface FormState {
 }
 
 type FormErrors = Partial<Record<keyof FormState | "profileImage", string>>;
+type PetPayload = CreatePetPayload & {
+  breed?: string;
+  birth_date?: string;
+  checkup_date?: string;
+  notes?: string;
+};
 
 const initialForm: FormState = {
   petname: "",
@@ -68,6 +80,81 @@ const getRandomDefaultProfileImage = () => {
   const randomIndex = Math.floor(Math.random() * defaultProfileImages.length);
   return defaultProfileImages[randomIndex];
 };
+
+const normalizeDate = (date?: string) => date?.slice(0, 10) || "";
+
+const normalizeGender = (gender?: string) => {
+  if (gender === "male" || gender === "남아") {
+    return "수컷";
+  }
+
+  if (gender === "female" || gender === "여아") {
+    return "암컷";
+  }
+
+  return genderOptions.includes(gender || "") ? gender || "" : "";
+};
+
+const normalizeNeutered = (isNeutered?: string) =>
+  neuteredOptions.includes(isNeutered || "") ? isNeutered || "" : "";
+
+const getFormFromPet = (pet: Pet): FormState => {
+  const isKnownSpecies = speciesOptions.includes(pet.species || "");
+
+  return {
+    petname: pet.petname || "",
+    species: isKnownSpecies ? pet.species || "" : pet.species ? "기타" : "",
+    customSpecies: isKnownSpecies ? "" : pet.species || "",
+    breed: pet.breed || "",
+    gender: normalizeGender(pet.gender),
+    isNeutered: normalizeNeutered(pet.is_neutered),
+    birthDate: normalizeDate(pet.birth_date),
+    isBirthUnknown: Boolean(pet.is_birth_unknown),
+    weight: pet.weight ? String(pet.weight) : "",
+    checkupDate: normalizeDate(pet.checkup_date),
+    isCheckupUnknown: Boolean(pet.is_checkup_unknown),
+    notes: pet.notes || "",
+  };
+};
+
+const getPayloadFromForm = (
+  formState: FormState,
+  profileImage?: string,
+): PetPayload => ({
+  petname: formState.petname.trim(),
+  species:
+    formState.species === "기타"
+      ? formState.customSpecies.trim()
+      : formState.species,
+  breed: formState.breed.trim(),
+  gender: formState.gender,
+  is_neutered: formState.isNeutered,
+  birth_date:
+    !formState.isBirthUnknown && formState.birthDate ? formState.birthDate : "",
+  is_birth_unknown: formState.isBirthUnknown,
+  weight: Number(formState.weight),
+  checkup_date:
+    !formState.isCheckupUnknown && formState.checkupDate
+      ? formState.checkupDate
+      : "",
+  is_checkup_unknown: formState.isCheckupUnknown,
+  notes: formState.notes.trim(),
+  ...(profileImage ? { profile_image: profileImage } : {}),
+});
+
+const getChangedPayload = (
+  currentPayload: PetPayload,
+  originalPayload: PetPayload,
+) =>
+  (Object.keys(currentPayload) as Array<keyof PetPayload>).reduce<
+    Partial<CreatePetPayload>
+  >((changedPayload, key) => {
+    if (currentPayload[key] !== originalPayload[key]) {
+      return { ...changedPayload, [key]: currentPayload[key] };
+    }
+
+    return changedPayload;
+  }, {});
 
 const PawIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
@@ -111,21 +198,104 @@ const getChoiceClass = (
 
 const PetRegisterPage = () => {
   const navigate = useNavigate();
+  const editRouteMatch = useMatch("/pets/:petId/edit");
+  const { petId } = useParams();
+  const isEditRoute = Boolean(editRouteMatch);
+  const parsedPetId = petId ? Number(petId) : NaN;
+  const isValidEditPetId =
+    isEditRoute && Number.isFinite(parsedPetId) && parsedPetId > 0;
+  const editPetId = isValidEditPetId ? parsedPetId : undefined;
+  const isEditMode = isEditRoute && isValidEditPetId;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const customSpeciesInputRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [originalForm, setOriginalForm] = useState<FormState | null>(null);
   const [errors, setErrors] = useState<FormErrors>({});
   const [previewUrl, setPreviewUrl] = useState("");
+  const [originalPreviewUrl, setOriginalPreviewUrl] = useState("");
   const [submitMessage, setSubmitMessage] = useState("");
+  const [loadMessage, setLoadMessage] = useState(
+    isEditRoute && !isValidEditPetId ? "잘못된 접근입니다." : "",
+  );
+  const [isLoading, setIsLoading] = useState(Boolean(isEditMode));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    return () => {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
+    if (isEditRoute && !isValidEditPetId) {
+      setForm(initialForm);
+      setOriginalForm(null);
+      setPreviewUrl("");
+      setOriginalPreviewUrl("");
+      setLoadMessage("잘못된 접근입니다.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!isEditRoute) {
+      setForm(initialForm);
+      setOriginalForm(null);
+      setPreviewUrl("");
+      setOriginalPreviewUrl("");
+      setLoadMessage("");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!editPetId) {
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadPet = async () => {
+      try {
+        setIsLoading(true);
+        setLoadMessage("");
+
+        const response = await getPet(editPetId);
+        if (!isMounted) {
+          return;
+        }
+
+        if (response.code !== 200) {
+          setLoadMessage(response.message || "반려동물 정보를 불러오지 못했습니다.");
+          return;
+        }
+
+        const loadedForm = getFormFromPet(response.result);
+        const loadedProfileImage = response.result.profile_image || "";
+
+        setForm(loadedForm);
+        setOriginalForm(loadedForm);
+        setPreviewUrl(loadedProfileImage);
+        setOriginalPreviewUrl(loadedProfileImage);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        if (isAxiosError<{ message?: string }>(error)) {
+          setLoadMessage(
+            error.response?.data?.message ||
+              "반려동물 정보를 불러오지 못했습니다.",
+          );
+          return;
+        }
+
+        setLoadMessage("반려동물 정보를 불러오지 못했습니다.");
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     };
-  }, [previewUrl]);
+
+    loadPet();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [editPetId, isEditRoute, isValidEditPetId]);
 
   const closeModal = () => {
     navigate("/home");
@@ -177,14 +347,16 @@ const PetRegisterPage = () => {
 
     setErrors((current) => ({ ...current, profileImage: undefined }));
 
-    const nextPreviewUrl = URL.createObjectURL(file);
-    setPreviewUrl((currentPreviewUrl) => {
-      if (currentPreviewUrl) {
-        URL.revokeObjectURL(currentPreviewUrl);
+    // TODO: This base64 preview/payload is temporary for MVP. Production should
+    // request a FastAPI presigned URL, upload directly to S3, then save the
+    // resulting CloudFront URL as profile_image.
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        setPreviewUrl(reader.result);
       }
-
-      return nextPreviewUrl;
-    });
+    };
+    reader.readAsDataURL(file);
   };
 
   const validateForm = () => {
@@ -226,37 +398,26 @@ const PetRegisterPage = () => {
   };
 
   const buildPayload = (): CreatePetPayload => {
-    const payload: CreatePetPayload = {
-      petname: form.petname.trim(),
-      species: form.species === "기타" ? form.customSpecies.trim() : form.species,
-      gender: form.gender,
-      is_neutered: form.isNeutered,
-      is_birth_unknown: form.isBirthUnknown,
-      is_checkup_unknown: form.isCheckupUnknown,
-      weight: Number(form.weight),
-    };
-
-    if (form.breed.trim()) {
-      payload.breed = form.breed.trim();
-    }
-
-    if (!form.isBirthUnknown && form.birthDate) {
-      payload.birth_date = form.birthDate;
-    }
-
-    if (!form.isCheckupUnknown && form.checkupDate) {
-      payload.checkup_date = form.checkupDate;
-    }
-
-    if (form.notes.trim()) {
-      payload.notes = form.notes.trim();
-    }
+    const payload = getPayloadFromForm(form);
 
     if (!previewUrl) {
       payload.profile_image = getRandomDefaultProfileImage();
+    } else {
+      payload.profile_image = previewUrl;
     }
 
     return payload;
+  };
+
+  const buildUpdatePayload = (): Partial<CreatePetPayload> => {
+    if (!originalForm) {
+      return getPayloadFromForm(form, previewUrl);
+    }
+
+    const originalPayload = getPayloadFromForm(originalForm, originalPreviewUrl);
+    const currentPayload = getPayloadFromForm(form, previewUrl);
+
+    return getChangedPayload(currentPayload, originalPayload);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -269,26 +430,53 @@ const PetRegisterPage = () => {
 
     try {
       setIsSubmitting(true);
-      const response = await createPet(buildPayload());
+      const updatePayload = isEditMode ? buildUpdatePayload() : undefined;
 
-      if (response.code !== 201) {
-        setSubmitMessage(response.message || "반려동물 등록에 실패했습니다.");
+      if (isEditMode && Object.keys(updatePayload || {}).length === 0) {
+        navigate("/home", {
+          replace: true,
+          state: { petUpdatedAt: Date.now() },
+        });
+        return;
+      }
+
+      const response =
+        isEditMode && editPetId
+          ? await updatePet(editPetId, updatePayload || {})
+          : await createPet(buildPayload());
+
+      if (!([200, 201] as number[]).includes(response.code)) {
+        setSubmitMessage(
+          response.message ||
+            (isEditMode
+              ? "반려동물 수정에 실패했습니다."
+              : "반려동물 등록에 실패했습니다."),
+        );
         return;
       }
 
       navigate("/home", {
         replace: true,
-        state: { petRegisteredAt: Date.now() },
+        state: isEditMode
+          ? { petUpdatedAt: Date.now() }
+          : { petRegisteredAt: Date.now() },
       });
     } catch (error) {
       if (isAxiosError<{ message?: string }>(error)) {
         setSubmitMessage(
-          error.response?.data?.message || "반려동물 등록에 실패했습니다.",
+          error.response?.data?.message ||
+            (isEditMode
+              ? "반려동물 수정에 실패했습니다."
+              : "반려동물 등록에 실패했습니다."),
         );
         return;
       }
 
-      setSubmitMessage("반려동물 등록에 실패했습니다.");
+      setSubmitMessage(
+        isEditMode
+          ? "반려동물 수정에 실패했습니다."
+          : "반려동물 등록에 실패했습니다.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -310,7 +498,7 @@ const PetRegisterPage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-black text-slate-950">
-              반려동물 등록하기
+              {isEditRoute ? "반려동물 수정하기" : "반려동물 등록하기"}
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-500">
               반려동물 정보를 입력해주세요.
@@ -318,6 +506,27 @@ const PetRegisterPage = () => {
           </div>
         </section>
 
+        {isLoading ? (
+          <section className="mt-6 flex min-h-[420px] items-center justify-center rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="h-12 w-12 animate-spin rounded-full border-4 border-violet-100 border-t-violet-600" />
+          </section>
+        ) : loadMessage ? (
+          <section className="mt-6 rounded-2xl border border-red-100 bg-white px-6 py-10 text-center shadow-sm">
+            <h2 className="text-lg font-black text-slate-900">
+              반려동물 정보를 불러오지 못했습니다
+            </h2>
+            <p className="mt-3 text-sm font-semibold text-red-500">
+              {loadMessage}
+            </p>
+            <button
+              type="button"
+              onClick={() => navigate("/home")}
+              className="mt-6 h-11 rounded-xl bg-violet-600 px-6 text-sm font-black text-white transition hover:bg-violet-700"
+            >
+              홈으로 돌아가기
+            </button>
+          </section>
+        ) : (
         <div className="mt-6 grid gap-6 lg:grid-cols-[340px_1fr]">
           <aside className="space-y-6">
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -660,11 +869,18 @@ const PetRegisterPage = () => {
                 className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:from-violet-300 disabled:to-indigo-300"
               >
                 <PawIcon className="h-4 w-4" />
-                {isSubmitting ? "등록 중..." : "등록하기"}
+                {isSubmitting
+                  ? isEditMode
+                    ? "수정 중..."
+                    : "등록 중..."
+                  : isEditMode
+                    ? "수정하기"
+                    : "등록하기"}
               </button>
             </footer>
           </form>
         </div>
+        )}
       </main>
     </div>
   );

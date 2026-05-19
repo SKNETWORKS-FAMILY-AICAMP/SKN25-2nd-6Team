@@ -1,4 +1,4 @@
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 
 import { useAuthStore } from "../stores/auth-store";
 import medipawSymbol from "../../../shared/assets/logo/medipaw-symbol.png";
@@ -11,9 +11,15 @@ const navItems = [
 ];
 
 const GuardianNavbar = () => {
+  const navigate = useNavigate();
   const guardian = useAuthStore((state) => state.guardian);
   const clearAuth = useAuthStore((state) => state.clearAuth);
   const displayName = guardian?.name || guardian?.loginid || "보호자";
+
+  const handleLogout = () => {
+    clearAuth();
+    navigate("/login", { replace: true });
+  };
 
   return (
     <header className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 backdrop-blur">
@@ -58,13 +64,13 @@ const GuardianNavbar = () => {
             >
               계정 관리
             </Link>
-            <Link
-              to="/login"
-              onClick={clearAuth}
-              className="block rounded-xl px-3 py-2 text-slate-700 hover:bg-blue-50 hover:text-blue-600"
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="block w-full rounded-xl px-3 py-2 text-left text-slate-700 hover:bg-blue-50 hover:text-blue-600"
             >
               로그아웃
-            </Link>
+            </button>
           </div>
         </details>
       </div>
