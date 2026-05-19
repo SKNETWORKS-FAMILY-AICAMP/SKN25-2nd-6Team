@@ -3,40 +3,16 @@ import {
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
-  type FormEvent,
 } from "react";
 import { isAxiosError } from "axios";
 import { Link, useSearchParams } from "react-router-dom";
 
-import {
-  createChatSession,
-  deleteChatSession,
-  getChatSessions,
-  getChatUploadPresignedUrl,
-  sendChatMessage,
-  uploadChatAttachment,
-  type ChatSessionHistory,
-  type ChatSessionResult,
-  type ChatStreamEvent,
-} from "../../api/chat-api";
+import { type ChatSessionHistory } from "../../api/chat-api";
 import { getPets, type Pet } from "../../api/pets-api";
 import GuardianNavbar from "../../components/guardian-navbar";
-
-interface ChatMessage {
-  id: number;
-  role: "user" | "assistant";
-  content: string;
-  attachmentUrl?: string;
-  attachmentType?: string;
-}
-
-interface PendingAttachment {
-  fileName: string;
-  contentType: string;
-  cloudfrontUrl: string;
-  previewUrl: string;
-}
+import { useChatConversation } from "../../hooks/use-chat-conversation";
+import { useChatSessions } from "../../hooks/use-chat-sessions";
+import { useChatUpload } from "../../hooks/use-chat-upload";
 
 const defaultProfileImages = [
   "/assets/profile1.png",
@@ -46,8 +22,6 @@ const defaultProfileImages = [
   "/assets/profile5.png",
   "/assets/profile6.png",
 ];
-
-const allowedAttachmentTypes = ["image/jpeg", "image/png", "video/mp4"];
 
 const getProfileImage = (pet: Pet) =>
   pet.profile_image ||
@@ -144,32 +118,62 @@ const ChatbotPage = () => {
   const [selectedPetId, setSelectedPetId] = useState<number | null>(
     Number.isFinite(selectedPetIdFromQuery) ? selectedPetIdFromQuery : null,
   );
-  const [chatHistories, setChatHistories] = useState<ChatSessionHistory[]>([]);
-  const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(
-    null,
-  );
-  const [session, setSession] = useState<ChatSessionResult | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [messageInput, setMessageInput] = useState("");
-  const [pendingAttachment, setPendingAttachment] =
-    useState<PendingAttachment | null>(null);
-  const [quickReplies, setQuickReplies] = useState<string[]>([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [isLoadingPets, setIsLoadingPets] = useState(true);
-  const [isLoadingHistories, setIsLoadingHistories] = useState(false);
-  const [creatingPetId, setCreatingPetId] = useState<number | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const {
+    pendingAttachment,
+    setPendingAttachment,
+    clearPendingAttachment,
+    handleSelectAttachment,
+    isUploadingAttachment,
+  } = useChatUpload({
+    setErrorMessage,
+    getErrorMessage,
+  });
+  const {
+    session,
+    setSession,
+    messages,
+    setMessages,
+    messageInput,
+    setMessageInput,
+    quickReplies,
+    isStreaming,
+    resetConversationState,
+    handleSendMessage,
+    handleSubmitMessage,
+  } = useChatConversation({
+    pendingAttachment,
+    setPendingAttachment,
+    clearPendingAttachment,
+    isUploadingAttachment,
+    setErrorMessage,
+    getErrorMessage,
+  });
 
   const selectedPet = useMemo(
     () => pets.find((pet) => pet.pet_id === selectedPetId),
     [pets, selectedPetId],
   );
-  const selectedHistory = useMemo(
-    () =>
-      chatHistories.find((history) => history.session_id === selectedHistoryId),
-    [chatHistories, selectedHistoryId],
-  );
+  const {
+    chatHistories,
+    selectedHistoryId,
+    selectedHistory,
+    isLoadingHistories,
+    creatingPetId,
+    resetSessionStateForPetChange,
+    handleCreateSession,
+    handleSelectHistory,
+    handleDeleteHistory,
+  } = useChatSessions({
+    selectedPet,
+    resetConversationState,
+    setSession,
+    setMessages,
+    setErrorMessage,
+    getErrorMessage,
+    getProfileImage,
+  });
   const todayChatTitle = useMemo(() => formatDateToYyyyMmDd(new Date()), []);
   useEffect(() => {
     let isMounted = true;
@@ -219,298 +223,9 @@ const ChatbotPage = () => {
     };
   }, []);
 
-  useEffect(() => {
-    if (!selectedPet) {
-      setChatHistories([]);
-      return;
-    }
-
-    let isMounted = true;
-
-    const loadChatHistories = async () => {
-      try {
-        setIsLoadingHistories(true);
-        setErrorMessage("");
-
-        const response = await getChatSessions(selectedPet.pet_id);
-        if (!isMounted) {
-          return;
-        }
-
-        if (response.code !== 200) {
-          setErrorMessage(response.message || "상담 기록을 불러오지 못했습니다.");
-          setChatHistories([]);
-          return;
-        }
-
-        setChatHistories(response.result);
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        setErrorMessage(
-          getErrorMessage(error, "상담 기록을 불러오지 못했습니다."),
-        );
-        setChatHistories([]);
-      } finally {
-        if (isMounted) {
-          setIsLoadingHistories(false);
-        }
-      }
-    };
-
-    loadChatHistories();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedPet]);
-
-  const clearPendingAttachment = () => {
-    if (pendingAttachment?.previewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(pendingAttachment.previewUrl);
-    }
-
-    setPendingAttachment(null);
-  };
-
-  const resetConversationState = () => {
-    setSession(null);
-    setMessages([]);
-    setQuickReplies([]);
-    setMessageInput("");
-    clearPendingAttachment();
-    setIsStreaming(false);
-  };
-
   const handleSelectPet = (petId: number) => {
     setSelectedPetId(petId);
-    setSelectedHistoryId(null);
-    setChatHistories([]);
-    resetConversationState();
-    setErrorMessage("");
-  };
-
-  const handleCreateSession = async () => {
-    if (!selectedPet || creatingPetId !== null) {
-      return;
-    }
-
-    try {
-      setCreatingPetId(selectedPet.pet_id);
-      setSelectedHistoryId(null);
-      resetConversationState();
-      setErrorMessage("");
-
-      const response = await createChatSession({ pet_id: selectedPet.pet_id });
-      if (response.code !== 201) {
-        setErrorMessage(response.message || "상담 세션을 시작하지 못했습니다.");
-        return;
-      }
-
-      const petName = response.result.pet_name || selectedPet.petname;
-      setSession({
-        ...response.result,
-        pet_name: petName,
-        profile_image:
-          response.result.profile_image || getProfileImage(selectedPet),
-      });
-      setMessages([
-        {
-          id: Date.now(),
-          role: "assistant",
-          content: `안녕하세요. ${petName}의 증상과 걱정되는 점을 알려주시면 상담을 이어갈 수 있습니다.`,
-        },
-      ]);
-    } catch (error) {
-      setErrorMessage(
-        getErrorMessage(error, "상담 세션을 시작하지 못했습니다."),
-      );
-    } finally {
-      setCreatingPetId(null);
-    }
-  };
-
-  const handleSelectHistory = (historyId: number) => {
-    setSelectedHistoryId(historyId);
-    resetConversationState();
-  };
-
-  const handleDeleteHistory = async (history: ChatSessionHistory) => {
-    const isConfirmed = window.confirm("상담 기록을 삭제하시겠습니까?");
-    if (!isConfirmed) {
-      return;
-    }
-
-    try {
-      setErrorMessage("");
-
-      const response = await deleteChatSession(history.session_id);
-      if (response.code !== 200) {
-        setErrorMessage(response.message || "상담 기록을 삭제하지 못했습니다.");
-        return;
-      }
-
-      setChatHistories((currentHistories) =>
-        currentHistories.filter(
-          (currentHistory) =>
-            currentHistory.session_id !== history.session_id,
-        ),
-      );
-
-      if (selectedHistoryId === history.session_id) {
-        setSelectedHistoryId(null);
-        resetConversationState();
-      }
-    } catch (error) {
-      setErrorMessage(
-        getErrorMessage(error, "상담 기록을 삭제하지 못했습니다."),
-      );
-    }
-  };
-
-  const applyStreamEvent = (
-    event: ChatStreamEvent,
-    assistantMessageId: number,
-  ) => {
-    if (event.type === "message") {
-      setMessages((currentMessages) =>
-        currentMessages.map((message) =>
-          message.id === assistantMessageId
-            ? {
-                ...message,
-                content: `${message.content}${event.content}`,
-              }
-            : message,
-        ),
-      );
-      return;
-    }
-
-    if (event.type === "quick_replies") {
-      setQuickReplies(event.options);
-      return;
-    }
-
-    if (event.type === "done") {
-      setIsStreaming(false);
-      return;
-    }
-
-    if (event.type === "error") {
-      setErrorMessage(event.message || "응답을 불러오지 못했습니다.");
-      setIsStreaming(false);
-    }
-  };
-
-  const handleSendMessage = async (content: string) => {
-    const trimmedContent = content.trim();
-    if (
-      !session ||
-      (!trimmedContent && !pendingAttachment) ||
-      isStreaming ||
-      isUploadingAttachment
-    ) {
-      return;
-    }
-
-    const userMessageId = Date.now();
-    const assistantMessageId = userMessageId + 1;
-    const attachmentToSend = pendingAttachment;
-
-    setMessages((currentMessages) => [
-      ...currentMessages,
-      {
-        id: userMessageId,
-        role: "user",
-        content: trimmedContent || "첨부파일을 보냈습니다.",
-        attachmentUrl: attachmentToSend?.previewUrl,
-        attachmentType: attachmentToSend?.contentType,
-      },
-      {
-        id: assistantMessageId,
-        role: "assistant",
-        content: "",
-      },
-    ]);
-    setMessageInput("");
-    setPendingAttachment(null);
-    setQuickReplies([]);
-    setIsStreaming(true);
-    setErrorMessage("");
-
-    try {
-      await sendChatMessage(
-        session.session_id,
-        {
-          content: trimmedContent,
-          image_url: attachmentToSend?.cloudfrontUrl,
-        },
-        (event) => applyStreamEvent(event, assistantMessageId),
-      );
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error, "메시지를 전송하지 못했습니다."));
-      setIsStreaming(false);
-      setMessages((currentMessages) =>
-        currentMessages.filter((message) => message.id !== assistantMessageId),
-      );
-    }
-  };
-
-  const handleSelectAttachment = async (
-    event: ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-
-    if (!file) {
-      return;
-    }
-
-    if (!allowedAttachmentTypes.includes(file.type)) {
-      setErrorMessage("이미지(JPG, PNG) 또는 영상(MP4) 파일만 업로드 가능합니다.");
-      return;
-    }
-
-    try {
-      setIsUploadingAttachment(true);
-      setErrorMessage("");
-
-      const response = await getChatUploadPresignedUrl(file.name, file.type);
-      if (
-        response.code !== 200 ||
-        !response.result?.presigned_url ||
-        !response.result.cloudfront_url
-      ) {
-        setErrorMessage(
-          response.message || "첨부파일 업로드 URL을 발급하지 못했습니다.",
-        );
-        return;
-      }
-
-      await uploadChatAttachment(response.result.presigned_url, file);
-
-      if (pendingAttachment?.previewUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(pendingAttachment.previewUrl);
-      }
-
-      setPendingAttachment({
-        fileName: file.name,
-        contentType: file.type,
-        cloudfrontUrl: response.result.cloudfront_url,
-        previewUrl: URL.createObjectURL(file),
-      });
-    } catch (error) {
-      setErrorMessage(getErrorMessage(error, "첨부파일을 업로드하지 못했습니다."));
-    } finally {
-      setIsUploadingAttachment(false);
-    }
-  };
-
-  const handleSubmitMessage = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    handleSendMessage(messageInput);
+    resetSessionStateForPetChange();
   };
 
   return (
