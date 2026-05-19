@@ -12,6 +12,7 @@ export interface Pet {
   birth_date?: string;
   is_birth_unknown?: boolean;
   weight?: number;
+  weight_kg?: number;
   checkup_date?: string;
   is_checkup_unknown?: boolean;
   notes?: string;
@@ -102,17 +103,31 @@ const writeDemoPets = (pets: Pet[]) => {
   window.localStorage.setItem(demoPetsStorageKey, JSON.stringify(pets));
 };
 
+const normalizePet = (pet: Pet): Pet => ({
+  ...pet,
+  weight: pet.weight ?? pet.weight_kg,
+});
+
+const normalizePetsResponse = <Response extends { result: Pet | Pet[] }>(
+  response: Response,
+): Response => ({
+  ...response,
+  result: Array.isArray(response.result)
+    ? response.result.map(normalizePet)
+    : normalizePet(response.result),
+});
+
 export const getPets = async (): Promise<PetsResponse> => {
   if (isDemoGuardian()) {
     return {
       code: 200,
       message: "데모 반려동물 목록을 불러왔습니다.",
-      result: readDemoPets(),
+      result: readDemoPets().map(normalizePet),
     };
   }
 
   const response = await apiClient.get<PetsResponse>("/pets");
-  return response.data;
+  return normalizePetsResponse(response.data);
 };
 
 export interface PetResponse {
@@ -130,12 +145,12 @@ export const getPet = async (petId: number): Promise<PetResponse> => {
       message: pet
         ? "데모 반려동물 정보를 불러왔습니다."
         : "반려동물 정보를 찾을 수 없습니다.",
-      result: pet || demoPets[0],
+      result: normalizePet(pet || demoPets[0]),
     };
   }
 
   const response = await apiClient.get<PetResponse>(`/pets/${petId}`);
-  return response.data;
+  return normalizePetsResponse(response.data);
 };
 
 export interface CreatePetPayload {
