@@ -168,14 +168,14 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
     <AppLayout
       session={session}
       activeMenu="emr"
-      serviceName="동물병원 EMR 시스템"
+      serviceName="동물병원 의료 보조 시스템"
       notificationCount={3}
       onLogout={onLogout}
       onNavigate={onNavigate}
     >
       <div className="min-h-[calc(100vh-72px)] bg-[#f6f8fb] p-4">
         <div className="grid grid-cols-[300px_minmax(620px,1fr)_320px] gap-4">
-          <aside className="space-y-4">
+          <aside className="sticky top-[88px] grid h-[calc(100vh-104px)] grid-rows-[320px_minmax(0,1fr)] gap-3 overflow-hidden">
             <QueuePanel
               title={queueTitle}
               activeTab={queueTab}
@@ -314,11 +314,12 @@ function QueuePanel({
   onRefresh: () => void;
 }) {
   return (
-    <Panel>
-      <div className="flex items-center justify-between px-4 py-3">
+    <Panel className="flex h-full min-h-0 flex-col overflow-hidden">
+      {/* 헤더 - 고정 */}
+      <div className="flex shrink-0 items-center justify-between px-4 py-2.5">
         <div>
           <h2 className="text-sm font-extrabold text-[#151b28]">{title}</h2>
-          <p className="mt-1 text-xs font-bold text-[#8a94a6]">
+          <p className="mt-0.5 text-xs font-bold text-[#8a94a6]">
             갱신 {lastRefreshText}
           </p>
         </div>
@@ -332,7 +333,8 @@ function QueuePanel({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 border-y border-[#edf1f6] bg-[#f9fbfe] p-1">
+      {/* 탭 - 고정 */}
+      <div className="grid shrink-0 grid-cols-2 border-y border-[#edf1f6] bg-[#f9fbfe] p-1">
         <QueueTabButton
           active={activeTab === "waiting"}
           label={`진료 대기 ${waitingCount}`}
@@ -345,13 +347,14 @@ function QueuePanel({
         />
       </div>
 
-      <div className="overflow-hidden">
+      {/* 환자 목록 - 패널 내부 스크롤 */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <table className="w-full table-fixed text-left">
-          <thead className="bg-[#f7f9fc] text-xs font-extrabold text-[#697386]">
+          <thead className="sticky top-0 z-10 bg-[#f7f9fc] text-xs font-extrabold text-[#697386]">
             <tr>
-              <th className="w-[54px] px-3 py-3">시간</th>
-              <th className="px-2 py-3">환자</th>
-              <th className="w-[68px] px-2 py-3">상태</th>
+              <th className="w-[86px] px-6 py-3">시간</th>
+              <th className="px-4 py-3">환자</th>
+              <th className="w-[88px] px-4 py-3">상태</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf1f6]">
@@ -365,18 +368,18 @@ function QueuePanel({
                     : "hover:bg-[#fafcff]"
                 }`}
               >
-                <td className="px-3 py-3 font-extrabold tabular-nums">
+                <td className="px-6 py-2 font-extrabold tabular-nums">
                   {patient.time}
                 </td>
-                <td className="px-2 py-3">
+                <td className="px-4 py-2">
                   <p className="font-extrabold text-[#20283a]">
                     {patient.pet_name}
                   </p>
-                  <p className="mt-1 truncate font-bold text-[#8a94a6]">
+                  <p className="mt-0.5 truncate font-bold text-[#8a94a6]">
                     {patient.guardian_name} · {patient.species}
                   </p>
                 </td>
-                <td className="px-2 py-3">
+                <td className="px-4 py-2">
                   <StatusBadge status={patient.triage_status} />
                 </td>
               </tr>
@@ -384,13 +387,6 @@ function QueuePanel({
           </tbody>
         </table>
       </div>
-
-      <a
-        href="#queue"
-        className="block border-t border-[#edf1f6] px-4 py-3 text-center text-sm font-extrabold text-[#2f7df6]"
-      >
-        대기열 전체보기
-      </a>
     </Panel>
   );
 }
@@ -408,7 +404,7 @@ function QueueTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`h-9 rounded-md text-sm font-extrabold transition ${
+      className={`h-8 rounded-md text-sm font-extrabold transition ${
         active ? "bg-white text-[#2f7df6] shadow-sm" : "text-[#697386]"
       }`}
     >
@@ -422,7 +418,7 @@ function StatusBadge({ status }: { status: TriageStatus }) {
 
   return (
     <span
-      className={`inline-flex h-7 items-center rounded-md border px-2 text-xs font-extrabold ${statusInfo.className}`}
+      className={`inline-flex h-5 items-center rounded-md border px-2 text-[11px] font-extrabold ${statusInfo.className}`}
     >
       {statusInfo.label}
     </span>
@@ -446,9 +442,9 @@ function IntakePanel({
   const memo = emr.triage_summary.memo;
 
   return (
-    <Panel>
-      <div className="flex items-center justify-between px-4 py-3">
-        <h2 className="text-base font-extrabold text-[#151b28]">
+    <Panel className="flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between px-4 py-2.5">
+        <h2 className="text-sm font-extrabold text-[#151b28]">
           사전 문진 / 메모
         </h2>
         <button type="button" aria-label="닫기">
@@ -456,18 +452,18 @@ function IntakePanel({
         </button>
       </div>
 
-      <div className="space-y-4 px-4 pb-4">
+      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-4 pb-3">
         <button
           type="button"
           onClick={() => onApplyIntake("all")}
-          className="h-9 w-full rounded-lg bg-[#edf5ff] text-sm font-extrabold text-[#2f7df6] transition hover:bg-[#dcecff]"
+          className="h-8 w-full rounded-lg bg-[#edf5ff] text-xs font-extrabold text-[#2f7df6] transition hover:bg-[#dcecff]"
         >
           사전문진 + 메모 전체 옮기기
         </button>
 
-        <div className="rounded-lg border border-[#edf1f6] p-3">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-sm font-extrabold text-[#20283a]">
+        <div className="rounded-lg border border-[#edf1f6] p-2.5">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-extrabold text-[#20283a]">
               AI 요약 문진
             </p>
             <button
@@ -480,24 +476,24 @@ function IntakePanel({
             </button>
           </div>
           {summary.length > 0 ? (
-            <ul className="space-y-2 text-sm font-bold leading-6 text-[#59657a]">
+            <ul className="space-y-1.5 text-xs font-bold leading-5 text-[#59657a]">
               {summary.map((bullet) => (
                 <li key={bullet} className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#4a89ff]" />
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#4a89ff]" />
                   <span>{bullet}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm font-bold text-[#8a94a6]">
+            <p className="text-xs font-bold text-[#8a94a6]">
               예약 사전문진 내용이 없습니다.
             </p>
           )}
         </div>
 
-        <div className="rounded-lg border border-[#edf1f6] bg-[#fbfcfe] p-3">
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <p className="text-sm font-extrabold text-[#20283a]">메모</p>
+        <div className="rounded-lg border border-[#edf1f6] bg-[#fbfcfe] p-2.5">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-extrabold text-[#20283a]">메모</p>
             <button
               type="button"
               onClick={() => onApplyIntake("memo")}
@@ -507,14 +503,14 @@ function IntakePanel({
               옮기기
             </button>
           </div>
-          <p className="text-sm font-bold leading-6 text-[#59657a]">
+          <p className="text-xs font-bold leading-5 text-[#59657a]">
             {memo ?? "수의사 메모가 없습니다."}
           </p>
         </div>
 
         <div>
-          <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-extrabold text-[#20283a]">
+          <div className="mb-1.5 flex items-center justify-between">
+            <p className="text-xs font-extrabold text-[#20283a]">
               첨부 파일
             </p>
             <span className="text-xs font-bold text-[#8a94a6]">
@@ -523,7 +519,7 @@ function IntakePanel({
           </div>
           <div className="grid grid-cols-4 gap-2">
             {visibleFiles.length === 0 && (
-              <div className="col-span-4 rounded-lg bg-[#f8fafc] px-3 py-4 text-center text-xs font-bold text-[#8a94a6]">
+              <div className="col-span-4 rounded-lg bg-[#f8fafc] px-3 py-3 text-center text-xs font-bold text-[#8a94a6]">
                 보호자 첨부 파일 없음
               </div>
             )}
@@ -532,7 +528,7 @@ function IntakePanel({
                 type="button"
                 key={fileUrl}
                 onClick={() => onPreviewImage(fileUrl, `보호자 첨부 ${index + 1}`)}
-                className="relative h-16 overflow-hidden rounded-lg bg-[#edf1f6]"
+                className="relative h-12 overflow-hidden rounded-lg bg-[#edf1f6]"
               >
                 <img
                   src={fileUrl}
@@ -1119,11 +1115,15 @@ function PrescriptionPreviewModal({
 }) {
   const data = document.result;
   const issuedDateParts = data.issued_at.match(/(\d{4})년\s*(\d{2})월\s*(\d{2})일/);
+  const issuedYear = issuedDateParts?.[1] ?? "";
+  const issuedMonth = issuedDateParts?.[2] ?? "";
+  const issuedDay = issuedDateParts?.[3] ?? "";
+  const medicineRows = Math.max(0, 6 - data.prescriptions.length);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/55 px-4 py-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/55 px-4 py-6 print-prescription-modal">
       <div className="max-h-[92vh] w-full max-w-[900px] overflow-hidden rounded-lg bg-white shadow-2xl">
-        <div className="flex items-start justify-between border-b border-[#edf1f6] px-5 py-4">
+        <div className="flex items-start justify-between border-b border-[#edf1f6] px-5 py-4 print:hidden">
           <div>
             <h2 className="text-lg font-extrabold text-[#151b28]">
               처방전 미리보기
@@ -1153,275 +1153,243 @@ function PrescriptionPreviewModal({
         </div>
 
         <div className="max-h-[calc(92vh-78px)] overflow-auto bg-[#f5f7fb] p-6">
-          <div className="mx-auto w-[760px] bg-white p-6 text-[#111827] shadow-sm">
-            <div className="mb-3 text-[10px] font-bold">
-              ■ 수의사법 시행규칙 [별지 제10호서식]
-            </div>
-            <div className="relative mb-4">
-              <h1 className="text-center text-3xl font-extrabold tracking-[0.35em]">
+          <div className="prescription-print-page prescription-form mx-auto bg-white text-[#111827] shadow-sm">
+            <p className="form-rule-title">■ 수의사법 시행규칙 [별지 제10호서식]</p>
+            <h1 className="form-title">
                 처 방 전
-              </h1>
-              <table className="absolute right-0 top-0 w-[270px] border-collapse text-[11px]">
-                <tbody>
-                  <PrescriptionMetaRow
-                    label="발급 연월일"
-                    value={`${issuedDateParts?.[1] ?? "2024"} 년 ${
-                      issuedDateParts?.[2] ?? "05"
-                    } 월 ${issuedDateParts?.[3] ?? "20"} 일`}
-                  />
-                  <PrescriptionMetaRow
-                    label="발급 번호"
-                    value={data.issue_number}
-                  />
-                </tbody>
-              </table>
-            </div>
+            </h1>
 
-            <table className="w-full border-collapse text-[11px]">
+            <table className="form-table issue-table">
+              <colgroup>
+                <col className="w-[18%]" />
+                <col className="w-[46%]" />
+                <col className="w-[14%]" />
+                <col className="w-[22%]" />
+              </colgroup>
               <tbody>
                 <tr>
-                  <PrescriptionTh className="w-[130px]">
-                    처방전 유효기간
-                  </PrescriptionTh>
-                  <PrescriptionTd colSpan={2}>
-                    발급일부터 ( {data.valid_days} )일간
-                  </PrescriptionTd>
-                  <PrescriptionTd colSpan={4} className="text-center font-bold">
+                  <th className="shade">발급 연월일</th>
+                  <td className="date-cell">
+                    {issuedYear} 년&nbsp;&nbsp;&nbsp;&nbsp; {issuedMonth} 월&nbsp;&nbsp;&nbsp;&nbsp; {issuedDay} 일
+                  </td>
+                  <th className="shade">발급 번호</th>
+                  <td>{data.issue_number}</td>
+                </tr>
+                <tr>
+                  <th>처방전 유효기간</th>
+                  <td className="date-cell">
+                    발급일부터 (&nbsp;&nbsp;&nbsp;&nbsp; {data.valid_days} &nbsp;&nbsp;&nbsp;&nbsp;)일간
+                  </td>
+                  <td colSpan={2} className="notice-cell">
                     처방전 유효기간 내에 구매해야 합니다.
-                  </PrescriptionTd>
-                </tr>
-                <tr>
-                  <PrescriptionSideHeader rowSpan={3}>
-                    개별 처방
-                    <br />
-                    [√]
-                  </PrescriptionSideHeader>
-                  <PrescriptionTh>동물의 이름</PrescriptionTh>
-                  <PrescriptionTd>{data.pet.name}</PrescriptionTd>
-                  <PrescriptionTh>동물의 소유자 [√]</PrescriptionTh>
-                  <PrescriptionTd>{data.pet.owner_name}</PrescriptionTd>
-                  <PrescriptionTh>전화번호</PrescriptionTh>
-                  <PrescriptionTd>010-1234-5678</PrescriptionTd>
-                </tr>
-                <tr>
-                  <PrescriptionTh>동물의 종류</PrescriptionTh>
-                  <PrescriptionTd>{data.pet.species}</PrescriptionTd>
-                  <PrescriptionTh>생년월일</PrescriptionTh>
-                  <PrescriptionTd>{data.pet.birth_date}</PrescriptionTd>
-                  <PrescriptionTh>농장명</PrescriptionTh>
-                  <PrescriptionTd>-</PrescriptionTd>
-                </tr>
-                <tr>
-                  <PrescriptionTh>성별/연령/체중 등</PrescriptionTh>
-                  <PrescriptionTd colSpan={5}>{data.pet.gender}</PrescriptionTd>
-                </tr>
-                <tr>
-                  <PrescriptionSideHeader rowSpan={2}>
-                    군별
-                    <br />
-                    [ ]
-                  </PrescriptionSideHeader>
-                  <PrescriptionTh>축사번호</PrescriptionTh>
-                  <PrescriptionTd colSpan={5}>-</PrescriptionTd>
-                </tr>
-                <tr>
-                  <PrescriptionTd colSpan={6} className="h-8" />
-                </tr>
-                <tr>
-                  <PrescriptionSideHeader rowSpan={3}>
-                    동물병원
-                    <br />
-                    [√]
-                  </PrescriptionSideHeader>
-                  <PrescriptionTh>명칭</PrescriptionTh>
-                  <PrescriptionTd colSpan={2}>{data.hospital.name}</PrescriptionTd>
-                  <PrescriptionTh>전화번호</PrescriptionTh>
-                  <PrescriptionTd colSpan={2}>{data.hospital.phone}</PrescriptionTd>
-                </tr>
-                <tr>
-                  <PrescriptionTh>동물의 종류</PrescriptionTh>
-                  <PrescriptionTd colSpan={2}>{data.pet.species}</PrescriptionTd>
-                  <PrescriptionTh>사업자</PrescriptionTh>
-                  <PrescriptionTd colSpan={2}>
-                    {data.hospital.business_number}
-                  </PrescriptionTd>
-                </tr>
-                <tr>
-                  <PrescriptionTh>마릿수</PrescriptionTh>
-                  <PrescriptionTd colSpan={2}>{data.hospital.address}</PrescriptionTd>
-                  <PrescriptionTh>동물번호</PrescriptionTh>
-                  <PrescriptionTd colSpan={2}>-</PrescriptionTd>
-                </tr>
-                <tr>
-                  <PrescriptionTh colSpan={2}>처방 수의사 성명</PrescriptionTh>
-                  <PrescriptionTd colSpan={2}>{data.doctor.name} (서명)</PrescriptionTd>
-                  <PrescriptionTh>수의사 면허번호</PrescriptionTh>
-                  <PrescriptionTd colSpan={2}>제 {data.doctor.license_number} 호</PrescriptionTd>
+                  </td>
                 </tr>
               </tbody>
             </table>
 
-            <table className="mt-1 w-full border-collapse text-center text-[11px]">
-              <thead>
-                <tr>
-                  <PrescriptionTh>성분명</PrescriptionTh>
-                  <PrescriptionTh>용량<br />(1회 투약량)</PrescriptionTh>
-                  <PrescriptionTh>용법</PrescriptionTh>
-                  <PrescriptionTh>처방일수<br />(투약일수)</PrescriptionTh>
-                  <PrescriptionTh>판매 수량<br />(포장 단위)</PrescriptionTh>
-                  <PrescriptionTh>비고</PrescriptionTh>
-                  <PrescriptionTh>권장 제품명</PrescriptionTh>
-                </tr>
-              </thead>
+            <table className="form-table subject-table">
+              <colgroup>
+                <col className="w-[8%]" />
+                <col className="w-[18%]" />
+                <col className="w-[28%]" />
+                <col className="w-[12%]" />
+                <col className="w-[14%]" />
+                <col className="w-[20%]" />
+              </colgroup>
               <tbody>
+                <tr>
+                  <th rowSpan={3} className="side-head">
+                    개별 처방
+                    <br />
+                    [ ]
+                  </th>
+                  <th>동물의 이름</th>
+                  <td>{data.pet.name}</td>
+                  <th rowSpan={3} className="side-head">
+                    동물의
+                    <br />
+                    소유자[ ]
+                    <br />
+                    관리인[ ]
+                  </th>
+                  <th>성명</th>
+                  <td>{data.pet.owner_name}</td>
+                </tr>
+                <tr>
+                  <th>동물의 종류</th>
+                  <td>{data.pet.species}</td>
+                  <th>전화번호</th>
+                  <td>010-1234-5678</td>
+                </tr>
+                <tr>
+                  <th>성별/연령/체중 등</th>
+                  <td>{data.pet.gender}</td>
+                  <th>생년월일</th>
+                  <td>{data.pet.birth_date}</td>
+                </tr>
+                <tr>
+                  <th rowSpan={3} className="side-head">
+                    군별
+                    <br />
+                    처방
+                    <br />
+                    [ ]
+                  </th>
+                  <th>축사번호</th>
+                  <td>-</td>
+                  <th rowSpan={3} className="side-head shade">
+                    동물병원[ ]
+                    <br />
+                    축산농장[ ]
+                  </th>
+                  <th className="shade">명칭</th>
+                  <td className="shade">{data.hospital.name}</td>
+                </tr>
+                <tr>
+                  <th>동물의 종류</th>
+                  <td>{data.pet.species}</td>
+                  <th className="shade">전화번호</th>
+                  <td className="shade">{data.hospital.phone}</td>
+                </tr>
+                <tr>
+                  <th>마릿수</th>
+                  <td>총&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;마리</td>
+                  <th className="shade">사업자 등록번호</th>
+                  <td className="shade">
+                    {data.hospital.business_number}
+                  </td>
+                </tr>
+                <tr>
+                  <th colSpan={2} className="shade">
+                    처방 수의사
+                  </th>
+                  <td>성명&nbsp;&nbsp; {data.doctor.name}</td>
+                  <td>(서명 또는 날인)</td>
+                  <th>수의사 면허번호</th>
+                  <td>제 {data.doctor.license_number} 호</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <table className="form-table medicine-table">
+              <colgroup>
+                <col className="w-[5%]" />
+                <col className="w-[31%]" />
+                <col className="w-[17%]" />
+                <col className="w-[8%]" />
+                <col className="w-[9%]" />
+                <col className="w-[11%]" />
+                <col className="w-[12%]" />
+                <col className="w-[7%]" />
+              </colgroup>
+              <tbody>
+                <tr>
+                  <th rowSpan={medicineRows + data.prescriptions.length + 1} className="side-head">
+                    필/선
+                  </th>
+                  <th>성분명</th>
+                  <th>권장 제품명</th>
+                  <th>용량<br />(1회 투약량)</th>
+                  <th>용법</th>
+                  <th>처방일수<br />(투약일수)</th>
+                  <th>판매 수량<br />(포장 단위)</th>
+                  <th>비고</th>
+                </tr>
                 {data.prescriptions.map((prescription) => (
                   <tr key={prescription.ingredient}>
-                    <PrescriptionTd className="font-bold">
+                    <td className="ingredient-cell">
                       {prescription.ingredient}
-                    </PrescriptionTd>
-                    <PrescriptionTd>{prescription.dosage}</PrescriptionTd>
-                    <PrescriptionTd>{prescription.frequency}</PrescriptionTd>
-                    <PrescriptionTd>{prescription.duration_days}일</PrescriptionTd>
-                    <PrescriptionTd>{prescription.quantity}</PrescriptionTd>
-                    <PrescriptionTd>-</PrescriptionTd>
-                    <PrescriptionTd>{prescription.product_name}</PrescriptionTd>
+                    </td>
+                    <td>{prescription.product_name}</td>
+                    <td>{prescription.dosage}</td>
+                    <td>{prescription.frequency}</td>
+                    <td>{prescription.duration_days}일</td>
+                    <td>{prescription.quantity}</td>
+                    <td>-</td>
                   </tr>
                 ))}
-                {Array.from({
-                  length: Math.max(0, 5 - data.prescriptions.length),
-                }).map((_, index) => (
+                {Array.from({ length: medicineRows }).map((_, index) => (
                   <tr key={`empty-${index}`}>
                     {Array.from({ length: 7 }).map((__, cellIndex) => (
-                      <PrescriptionTd key={cellIndex} className="h-7" />
+                      <td key={cellIndex} className="blank-medicine-cell" />
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
 
-            <table className="mt-1 w-full border-collapse text-[11px]">
+            <table className="form-table sale-summary-table">
+              <colgroup>
+                <col className="w-[17%]" />
+                <col className="w-[9%]" />
+                <col className="w-[34%]" />
+                <col className="w-[14%]" />
+                <col className="w-[26%]" />
+              </colgroup>
               <tbody>
                 <tr>
-                  <PrescriptionTh colSpan={7} className="text-center">
+                  <th colSpan={5} className="section-title">
                     의약품 판매 내용
-                  </PrescriptionTh>
+                  </th>
                 </tr>
                 <tr>
-                  <PrescriptionTh>판매기관 [ ] 명칭</PrescriptionTh>
-                  <PrescriptionTd colSpan={2} />
-                  <PrescriptionTh>대표자 성명</PrescriptionTh>
-                  <PrescriptionTd colSpan={3} />
+                  <th>판매기관</th>
+                  <th>명칭</th>
+                  <td />
+                  <th>대표자 성명</th>
+                  <td />
                 </tr>
                 <tr>
-                  <PrescriptionTh>판매 약사 성명</PrescriptionTh>
-                  <PrescriptionTd colSpan={2} />
-                  <PrescriptionTh>면허번호</PrescriptionTh>
-                  <PrescriptionTd colSpan={3} />
+                  <th>판매 약사</th>
+                  <th>성명</th>
+                  <td>(서명 또는 날인)</td>
+                  <th>면허번호</th>
+                  <td />
                 </tr>
                 <tr>
-                  <PrescriptionTh>판매 연월일</PrescriptionTh>
-                  <PrescriptionTd colSpan={2} />
-                  <PrescriptionTh>비고</PrescriptionTh>
-                  <PrescriptionTd colSpan={3} />
+                  <th>판매 연월일</th>
+                  <td colSpan={2} />
+                  <th>비고</th>
+                  <td />
                 </tr>
               </tbody>
             </table>
 
-            <table className="mt-1 w-full border-collapse text-center text-[11px]">
+            <table className="form-table sale-detail-table">
+              <colgroup>
+                <col className="w-[5%]" />
+                <col className="w-[33%]" />
+                <col className="w-[17%]" />
+                <col className="w-[11%]" />
+                <col className="w-[12%]" />
+                <col className="w-[11%]" />
+                <col className="w-[11%]" />
+              </colgroup>
               <tbody>
                 <tr>
-                  <PrescriptionTh>판매 제품명(제조사)</PrescriptionTh>
-                  <PrescriptionTh>규격(포장 단위)</PrescriptionTh>
-                  <PrescriptionTh>판매량</PrescriptionTh>
-                  <PrescriptionTh>유통기한</PrescriptionTh>
-                  <PrescriptionTh>휴약기간</PrescriptionTh>
-                  <PrescriptionTh>비고</PrescriptionTh>
+                  <th rowSpan={5} className="side-head">필/선</th>
+                  <th>판매 제품명(제조사)</th>
+                  <th>규격(포장 단위)</th>
+                  <th>판매량</th>
+                  <th>유통기한</th>
+                  <th>휴약기간</th>
+                  <th>비고</th>
                 </tr>
                 {Array.from({ length: 3 }).map((_, index) => (
                   <tr key={index}>
                     {Array.from({ length: 6 }).map((__, cellIndex) => (
-                      <PrescriptionTd key={cellIndex} className="h-7" />
+                      <td key={cellIndex} className="blank-sale-cell" />
                     ))}
                   </tr>
                 ))}
               </tbody>
             </table>
-            <p className="mt-3 text-right text-[10px] font-bold">
-              210mm×297mm[일반용지 60g/㎡(재활용품)]
+            <p className="paper-note">
+              210mm×297mm(일반용지 60g/㎡(재활용품))
             </p>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-function PrescriptionMetaRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <tr>
-      <PrescriptionTh>{label}</PrescriptionTh>
-      <PrescriptionTd>{value}</PrescriptionTd>
-    </tr>
-  );
-}
-
-function PrescriptionSideHeader({
-  children,
-  rowSpan,
-}: {
-  children: React.ReactNode;
-  rowSpan?: number;
-}) {
-  return (
-    <th
-      rowSpan={rowSpan}
-      className="border border-[#111827] bg-white px-2 py-1 text-center text-[11px] font-extrabold leading-5"
-    >
-      {children}
-    </th>
-  );
-}
-
-function PrescriptionTh({
-  children,
-  className = "",
-  colSpan,
-}: {
-  children?: React.ReactNode;
-  className?: string;
-  colSpan?: number;
-}) {
-  return (
-    <th
-      colSpan={colSpan}
-      className={`border border-[#111827] bg-[#f8fafc] px-2 py-1 text-left text-[11px] font-extrabold leading-5 ${className}`}
-    >
-      {children}
-    </th>
-  );
-}
-
-function PrescriptionTd({
-  children,
-  className = "",
-  colSpan,
-}: {
-  children?: React.ReactNode;
-  className?: string;
-  colSpan?: number;
-}) {
-  return (
-    <td
-      colSpan={colSpan}
-      className={`border border-[#111827] px-2 py-1 text-[11px] font-semibold leading-5 ${className}`}
-    >
-      {children}
-    </td>
   );
 }
