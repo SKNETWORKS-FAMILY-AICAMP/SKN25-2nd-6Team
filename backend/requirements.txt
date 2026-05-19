@@ -21,7 +21,7 @@ celery==5.4.0
 kombu==5.4.0
 
 # OpenAI + LangGraph
-openai==1.50.0
+openai>=1.54.0
 langgraph==0.2.50
 langchain==0.3.7
 langchain-openai==0.2.9
