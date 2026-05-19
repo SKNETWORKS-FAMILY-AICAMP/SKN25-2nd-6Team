@@ -5,6 +5,7 @@ from app.api.auth import router as auth_router
 from app.api.doctor_auth import router as doctor_auth_router
 from app.api.pets import router as pets_router
 from app.api.schedules import router as schedules_router
+from app.api.chat import router as chat_router
 
 app = FastAPI(title="MediPaw API")
 
@@ -25,3 +26,4 @@ app.include_router(auth_router)
 app.include_router(doctor_auth_router)
 app.include_router(pets_router)
 app.include_router(schedules_router)
+app.include_router(chat_router)
