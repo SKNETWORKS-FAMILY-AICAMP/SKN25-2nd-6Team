@@ -14,3 +14,4 @@ class Schedule(Base):
     status = Column(String, nullable=False, default="예약대기")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
