@@ -81,7 +81,8 @@ interface PasswordChangeResponse {
   message: string;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "/api";
 const SESSION_STORAGE_KEY = "medipaw_vet_session";
 const PASSWORD_CHANGED_USERS_STORAGE_KEY = "medipaw_vet_password_changed_users";
 
@@ -101,7 +102,7 @@ export async function changePassword(params: {
 }) {
   try {
     const { data } = await apiClient.put<PasswordChangeResponse>(
-      "/hospital/auth/password",
+      "/doctor/auth/password/change",
       {
         current_password: params.currentPassword,
         new_password: params.newPassword,

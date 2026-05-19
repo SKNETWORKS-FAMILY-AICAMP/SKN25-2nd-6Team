@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
+
 import {
   ArrowLeft,
   ChevronLeft,
@@ -7,18 +8,22 @@ import {
   Settings,
   X,
 } from "lucide-react";
+
 import { AuthSession } from "../../api/authApi";
+
 import {
   fetchDoctorPatientDetail,
   fetchDoctorPatientList,
+  updatePatient,
   PatientDetailResponse,
   PatientListItemResponse,
+  PatientUpdatePayload,
 } from "../../api/patientApi";
+
 import AppLayout, { AppMenuId } from "../../layouts/AppLayout";
+
 import {
   EmrHistoryRecord,
-  mockEmrHistoryByPatientId,
-  mockPatientProfiles,
   PatientProfile,
 } from "./patientsMockData";
 
@@ -28,30 +33,7 @@ interface PatientManagementPageProps {
   onNavigate: (menuId: AppMenuId) => void;
 }
 
-const PAGE_SIZE = 10;
-const MOCK_TOTAL_PATIENT_COUNT = 156;
 const speciesOptions = ["강아지", "고양이"];
-
-function buildPatientRows() {
-  return Array.from({ length: MOCK_TOTAL_PATIENT_COUNT }, (_, index) => {
-    const base = mockPatientProfiles[index % mockPatientProfiles.length];
-
-    if (index < mockPatientProfiles.length) {
-      return base;
-    }
-
-    const sequence = index + 1;
-
-    return {
-      ...base,
-      id: 1000 + sequence,
-      petName: `${base.petName}${sequence}`,
-      guardianName: `${base.guardianName}${sequence}`,
-      phone: `010-${String(1000 + (sequence % 9000)).padStart(4, "0")}-${String(2000 + (sequence % 7000)).padStart(4, "0")}`,
-      lastVisitDate: `2024.${String(1 + (sequence % 12)).padStart(2, "0")}.${String(1 + (sequence % 27)).padStart(2, "0")}`,
-    };
-  });
-}
 
 function normalizeDate(value: string) {
   return value.replace(/-/g, ".");
@@ -106,7 +88,7 @@ function mapDetailToPatient(
     guardianAddress: info.address,
     guardianMemo: info.notes,
     gender: info.gender === "female" ? "암컷" : info.gender === "male" ? "수컷" : info.gender,
-    isNeutered: false,
+    isNeutered: Boolean(info.is_neutered),
     birthDate: normalizeDate(info.birth_date),
     weight: `${info.weight_kg}kg`,
     weightMeasuredAt: detail.emr_history[0]?.visit_date
@@ -148,18 +130,14 @@ export default function PatientManagementPage({
   const [searchValue, setSearchValue] = useState("");
   const [selectedSpecies, setSelectedSpecies] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pagePatients, setPagePatients] = useState<PatientProfile[]>(() =>
-    buildPatientRows().slice(0, PAGE_SIZE)
-  );
-  const [totalCount, setTotalCount] = useState(MOCK_TOTAL_PATIENT_COUNT);
-  const [totalPages, setTotalPages] = useState(
-    Math.ceil(MOCK_TOTAL_PATIENT_COUNT / PAGE_SIZE)
-  );
+  const [pagePatients, setPagePatients] = useState<PatientProfile[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<PatientProfile | null>(null);
   const [selectedHistory, setSelectedHistory] = useState<EmrHistoryRecord[]>([]);
+  const [listRefreshKey, setListRefreshKey] = useState(0);
 
-  const fallbackRows = useMemo(() => buildPatientRows(), []);
 
   useEffect(() => {
     let isMounted = true;
@@ -181,31 +159,12 @@ export default function PatientManagementPage({
         setPagePatients(result.patient_list.map(mapListItemToPatient));
         setTotalCount(result.total_count ?? result.patient_list.length);
         setTotalPages(result.pagination?.total_page ?? 1);
-      } catch {
-        if (!isMounted) {
-          return;
-        }
+      } catch (error) {
+        console.error(error)
 
-        const normalizedSearch = searchValue.trim().toLowerCase();
-        const filteredFallbackRows = fallbackRows.filter((patient) => {
-          const matchesSearch =
-            normalizedSearch.length === 0 ||
-            patient.petName.toLowerCase().includes(normalizedSearch) ||
-            patient.guardianName.toLowerCase().includes(normalizedSearch);
-          const matchesSpecies =
-            selectedSpecies === "all" || patient.species === selectedSpecies;
-
-          return matchesSearch && matchesSpecies;
-        });
-
-        setPagePatients(
-          filteredFallbackRows.slice(
-            (currentPage - 1) * PAGE_SIZE,
-            currentPage * PAGE_SIZE
-          )
-        );
-        setTotalCount(filteredFallbackRows.length);
-        setTotalPages(Math.max(1, Math.ceil(filteredFallbackRows.length / PAGE_SIZE)));
+        setPagePatients([])
+        setTotalCount(0)
+        setTotalPages(1)
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -218,8 +177,7 @@ export default function PatientManagementPage({
     return () => {
       isMounted = false;
     };
-  }, [currentPage, fallbackRows, searchValue, selectedSpecies, session.accessToken]);
-
+  }, [currentPage, searchValue, selectedSpecies, session.accessToken, listRefreshKey]);
   const updateSearch = (value: string) => {
     setSearchValue(value);
     setCurrentPage(1);
@@ -239,11 +197,8 @@ export default function PatientManagementPage({
 
       setSelectedPatient(mapDetailToPatient(detail));
       setSelectedHistory(mapDetailToHistory(detail));
-    } catch {
-      const fallbackPatient =
-        fallbackRows.find((row) => row.id === patient.id) ?? patient;
-      setSelectedPatient(fallbackPatient);
-      setSelectedHistory(mockEmrHistoryByPatientId[patient.id] ?? []);
+    } catch (error) {
+      console.error("환자 상세 조회 실패:", error);
     }
   };
 
@@ -257,11 +212,16 @@ export default function PatientManagementPage({
         onNavigate={onNavigate}
       >
         <PatientDetailView
+          accessToken={session.accessToken}
           patient={selectedPatient}
           history={selectedHistory}
           onBack={() => {
             setSelectedPatient(null);
             setSelectedHistory([]);
+          }}
+          onSaved={(updated) => {
+            setSelectedPatient(updated);
+            setListRefreshKey((prev) => prev + 1);
           }}
         />
       </AppLayout>
@@ -319,10 +279,14 @@ export default function PatientManagementPage({
             </select>
           </div>
 
-          {mockPatientProfiles.length === 0 ? (
-            <EmptyState text="등록된 환자가 없습니다." />
-          ) : pagePatients.length === 0 ? (
-            <EmptyState text="검색 결과가 없습니다." />
+          {pagePatients.length === 0 ? (
+            <EmptyState
+              text={
+                searchValue.trim()
+                  ? "검색 결과가 없습니다."
+                  : "환자가 없습니다."
+              }
+            />
           ) : (
             <>
               <div className="min-h-0 flex-1 overflow-y-auto">
@@ -462,26 +426,68 @@ function Pagination({
 }
 
 function PatientDetailView({
+  accessToken,
   patient,
   history,
   onBack,
+  onSaved,
 }: {
+  accessToken: string;
   patient: PatientProfile;
   history: EmrHistoryRecord[];
   onBack: () => void;
+  onSaved: (updated: PatientProfile) => void;
 }) {
   const [localPatient, setLocalPatient] = useState(patient);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(patient);
+  const [isSaving, setIsSaving] = useState(false);
 
   const openEdit = () => {
     setDraft(localPatient);
     setIsEditing(true);
   };
 
-  const saveEdit = () => {
-    setLocalPatient(draft);
-    setIsEditing(false);
+  const saveEdit = async () => {
+    const payload: PatientUpdatePayload = {
+      petname: draft.petName,
+      species: draft.species,
+      breed: draft.breed,
+      gender:
+        draft.gender === "수컷"
+          ? "male"
+          : draft.gender === "암컷"
+          ? "female"
+          : undefined,
+      is_neutered: draft.isNeutered,
+      birth_date:
+        draft.birthDate && draft.birthDate !== "-"
+          ? draft.birthDate.replace(/\./g, "-")
+          : undefined,
+      weight_kg: (() => {
+        const parsed = parseFloat(draft.weight);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      })(),
+      notes: draft.notes,
+    };
+
+    setIsSaving(true);
+    try {
+      await updatePatient({
+        accessToken,
+        petid: localPatient.id,
+        payload,
+      });
+
+      setLocalPatient(draft);
+      onSaved(draft);
+      setIsEditing(false);
+    } catch (error) {
+      console.error("환자 수정 실패:", error);
+      alert("환자 정보 수정에 실패했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateDraft = (field: keyof PatientProfile, value: string | boolean) => {
@@ -493,6 +499,7 @@ function PatientDetailView({
       {isEditing && (
         <EditPatientModal
           draft={draft}
+          isSaving={isSaving}
           onChange={updateDraft}
           onSave={saveEdit}
           onCancel={() => setIsEditing(false)}
@@ -677,11 +684,13 @@ const textareaCls =
 
 function EditPatientModal({
   draft,
+  isSaving,
   onChange,
   onSave,
   onCancel,
 }: {
   draft: PatientProfile;
+  isSaving: boolean;
   onChange: (field: keyof PatientProfile, value: string | boolean) => void;
   onSave: () => void;
   onCancel: () => void;
@@ -790,16 +799,18 @@ function EditPatientModal({
           <button
             type="button"
             onClick={onCancel}
-            className="h-10 rounded-lg border border-[#dfe6f1] px-5 text-sm font-extrabold text-[#52607a] transition hover:bg-[#f0f4fa]"
+            disabled={isSaving}
+            className="h-10 rounded-lg border border-[#dfe6f1] px-5 text-sm font-extrabold text-[#52607a] transition hover:bg-[#f0f4fa] disabled:cursor-not-allowed disabled:opacity-60"
           >
             취소
           </button>
           <button
             type="button"
             onClick={onSave}
-            className="h-10 rounded-lg bg-[#2f7df6] px-5 text-sm font-extrabold text-white transition hover:bg-[#1a6de8]"
+            disabled={isSaving}
+            className="h-10 rounded-lg bg-[#2f7df6] px-5 text-sm font-extrabold text-white transition hover:bg-[#1a6de8] disabled:cursor-wait disabled:opacity-60"
           >
-            저장
+            {isSaving ? "저장 중..." : "저장"}
           </button>
         </div>
       </div>
