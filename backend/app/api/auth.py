@@ -4,12 +4,15 @@ from app.db.session import get_db
 from jose import JWTError, jwt
 
 from app.schemas.user import UserCreate, UserResponse
-from app.schemas.auth import LoginRequest, TokenResponse, TokenRefreshRequest, TokenRefreshResponse
+from app.schemas.auth import LoginRequest, TokenResponse, TokenRefreshRequest, TokenRefreshResponse, FindIdRequest, FindPasswordRequest
 from app.crud.user import get_user_by_loginid, create_user
 from app.core.security import verify_password, create_access_token, create_refresh_token
 from app.core.dependencies import get_current_user
 from app.core.config import settings
 from app.models.user import User
+
+import secrets
+import string
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -95,4 +98,59 @@ def logout(current_user = Depends(get_current_user)):
     return {
         "code": 200,
         "message": "로그아웃 되었습니다."
+    }
+
+# 아이디 찾기
+@router.post("/find-id")
+def find_id(request: FindIdRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(
+        User.name == request.name,
+        User.phone == request.phone
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="입력하신 정보와 일치하는 계정을 찾을 수 없습니다."
+        )
+
+    return {
+        "code": 200,
+        "message": "아이디를 찾았습니다.",
+        "result": {
+            "loginid": user.loginid
+        }
+    }
+
+# 비밀번호 찾기
+@router.post("/find-password")
+def find_password(request: FindPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(
+        User.loginid == request.loginid,
+        User.name == request.name,
+        User.phone == request.phone
+    ).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="입력하신 정보와 일치하는 계정을 찾을 수 없습니다."
+        )
+
+    # 임시 비밀번호 생성
+    temp_password = ''.join(
+        secrets.choice(string.ascii_letters + string.digits + "!@#$%")
+        for _ in range(10)
+    )
+
+    # 비밀번호 변경
+    user.password = hash_password(temp_password)
+    db.commit()
+
+    return {
+        "code": 200,
+        "message": "임시 비밀번호가 발급되었습니다.",
+        "result": {
+            "temp_password": temp_password
+        }
     }
