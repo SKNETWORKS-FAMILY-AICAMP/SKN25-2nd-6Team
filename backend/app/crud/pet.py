@@ -44,12 +44,13 @@ def update_pet(db: Session, pet: Pet, pet_data: PetUpdate):
         pet.is_neutered = True if pet_data.is_neutered == "예" else False if pet_data.is_neutered == "아니요" else None
     if pet_data.is_birth_unknown == True:
         pet.birth_date = None
+    elif pet_data.birth_date is not None:
+        pet.birth_date = pet_data.birth_date
+
     if pet_data.is_checkup_unknown == True:
         pet.checkup_date = None
     elif pet_data.checkup_date is not None:
         pet.checkup_date = pet_data.checkup_date
-    elif pet_data.birth_date is not None:
-        pet.birth_date = pet_data.birth_date
     if pet_data.weight_kg is not None:
         pet.weight_kg = pet_data.weight_kg
     if pet_data.notes is not None:

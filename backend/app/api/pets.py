@@ -63,17 +63,19 @@ def get_pet(
             "species": pet.species,
             "breed": pet.breed,
             "gender": pet.gender,
-            "is_neutered": "예" if pet.is_neutered == True else "아니요" if pet.is_neutered == False else "모름",
+            "is_neutered": "예" if pet.is_neutered == True else "아니오" if pet.is_neutered == False else "모름",
             "birth_date": str(pet.birth_date) if pet.birth_date else None,
+            "is_birth_unknown": pet.birth_date is None,
             "weight_kg": float(pet.weight_kg) if pet.weight_kg else None,
             "checkup_date": str(pet.checkup_date) if pet.checkup_date else None,
+            "is_checkup_unknown": pet.checkup_date is None,
             "notes": pet.notes,
             "profile_image": pet.profile_image
         }
     }
 
 # 반려동물 수정
-@router.patch("/{pet_id}", status_code=200)
+@router.put("/{pet_id}", status_code=200)
 def modify_pet(
     pet_id: int,
     pet_data: PetUpdate,
