@@ -136,6 +136,7 @@ const ChatbotPage = () => {
     selectedHistoryId,
     selectedHistory,
     isLoadingHistories,
+    isLoadingHistoryMessages,
     creatingPetId,
     resetSessionStateForPetChange,
     handleCreateSession,
@@ -288,12 +289,21 @@ const ChatbotPage = () => {
                     </button>
                   </div>
 
-                  <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5 sm:p-7">
+                  {isLoadingHistoryMessages ? (
+                    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5 sm:p-7">
                     <div className="flex-1" />
                     <div className="max-w-[82%] rounded-3xl rounded-bl-lg bg-slate-100 px-5 py-4 text-sm font-semibold leading-6 text-slate-700">
                       이전 상담 내용을 불러오는 중입니다.
                     </div>
-                  </div>
+                    </div>
+                  ) : (
+                    <ChatMessageList
+                      messages={messages}
+                      quickReplies={[]}
+                      isStreaming={false}
+                      onSendMessage={handleSendMessage}
+                    />
+                  )}
                 </>
               ) : (
                 <>

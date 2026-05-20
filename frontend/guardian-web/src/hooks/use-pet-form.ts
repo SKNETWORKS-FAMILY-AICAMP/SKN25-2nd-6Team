@@ -99,7 +99,7 @@ export const getFormFromPet = (pet: Pet): PetFormState => {
     isNeutered: normalizeNeutered(pet.is_neutered),
     birthDate: normalizeDate(pet.birth_date),
     isBirthUnknown: Boolean(pet.is_birth_unknown),
-    weight: pet.weight ? String(pet.weight) : "",
+    weight: pet.weight_kg ? String(pet.weight_kg) : "",
     checkupDate: normalizeDate(pet.checkup_date),
     isCheckupUnknown: Boolean(pet.is_checkup_unknown),
     notes: pet.notes || "",
@@ -121,7 +121,7 @@ export const getPayloadFromForm = (
   birth_date:
     !formState.isBirthUnknown && formState.birthDate ? formState.birthDate : "",
   is_birth_unknown: formState.isBirthUnknown,
-  weight: Number(formState.weight),
+  weight_kg: Number(formState.weight),
   checkup_date:
     !formState.isCheckupUnknown && formState.checkupDate
       ? formState.checkupDate

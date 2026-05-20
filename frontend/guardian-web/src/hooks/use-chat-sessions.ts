@@ -9,6 +9,7 @@ import {
 import {
   createChatSession,
   deleteChatSession,
+  getChatSession,
   getChatSessions,
   type ChatSessionHistory,
   type ChatSessionResult,
@@ -40,6 +41,8 @@ export const useChatSessions = ({
     null,
   );
   const [isLoadingHistories, setIsLoadingHistories] = useState(false);
+  const [isLoadingHistoryMessages, setIsLoadingHistoryMessages] =
+    useState(false);
   const [creatingPetId, setCreatingPetId] = useState<number | null>(null);
 
   const selectedHistory = useMemo(
@@ -99,6 +102,7 @@ export const useChatSessions = ({
   const resetSessionStateForPetChange = () => {
     setSelectedHistoryId(null);
     setChatHistories([]);
+    setIsLoadingHistoryMessages(false);
     resetConversationState();
     setErrorMessage("");
   };
@@ -143,9 +147,37 @@ export const useChatSessions = ({
     }
   };
 
-  const handleSelectHistory = (historyId: number) => {
+  const handleSelectHistory = async (historyId: number) => {
     setSelectedHistoryId(historyId);
     resetConversationState();
+    setErrorMessage("");
+    setIsLoadingHistoryMessages(true);
+
+    try {
+      const response = await getChatSession(historyId);
+
+      if (response.code !== 200 || !response.result) {
+        setErrorMessage(response.message || "상담 기록을 불러오지 못했습니다.");
+        setMessages([]);
+        return;
+      }
+
+      setMessages(
+        response.result.messages.map((message, index) => ({
+          id: historyId * 100000 + index,
+          role: message.role,
+          content: message.content,
+          attachmentUrl: message.image_url || undefined,
+        })),
+      );
+    } catch (error) {
+      setErrorMessage(
+        getErrorMessage(error, "상담 기록을 불러오지 못했습니다."),
+      );
+      setMessages([]);
+    } finally {
+      setIsLoadingHistoryMessages(false);
+    }
   };
 
   const handleDeleteHistory = async (history: ChatSessionHistory) => {
@@ -172,6 +204,7 @@ export const useChatSessions = ({
 
       if (selectedHistoryId === history.session_id) {
         setSelectedHistoryId(null);
+        setIsLoadingHistoryMessages(false);
         resetConversationState();
       }
     } catch (error) {
@@ -186,6 +219,7 @@ export const useChatSessions = ({
     selectedHistoryId,
     selectedHistory,
     isLoadingHistories,
+    isLoadingHistoryMessages,
     creatingPetId,
     resetSessionStateForPetChange,
     handleCreateSession,
