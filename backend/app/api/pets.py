@@ -75,7 +75,7 @@ def get_pet(
     }
 
 # 반려동물 수정
-@router.patch("/{pet_id}", status_code=200)
+@router.put("/{pet_id}", status_code=200)
 def modify_pet(
     pet_id: int,
     pet_data: PetUpdate,

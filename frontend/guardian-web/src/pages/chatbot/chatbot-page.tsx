@@ -201,6 +201,10 @@ const ChatbotPage = () => {
   }, []);
 
   const handleSelectPet = (petId: number) => {
+    if (petId === selectedPetId) {
+      return;
+    }
+
     setSelectedPetId(petId);
     resetSessionStateForPetChange();
   };

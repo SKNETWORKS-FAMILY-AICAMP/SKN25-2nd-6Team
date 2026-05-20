@@ -49,7 +49,6 @@ export interface PatientDetailResponse {
       weight_kg: number;
       owner_name: string;
       phone: string;
-      address: string;
       notes: string;
       profile_image?: string;
     };

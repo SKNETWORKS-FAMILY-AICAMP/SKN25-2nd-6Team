@@ -35,8 +35,8 @@ const PetRegisterPage = () => {
   const isValidPetId =
     isPetDataRoute && Number.isFinite(parsedPetId) && parsedPetId > 0;
   const selectedPetId = isValidPetId ? parsedPetId : undefined;
-  const isDetailMode = isDetailRoute && isValidPetId;
-  const isEditMode = isEditRoute && isValidPetId;
+  const isDetailMode = false;
+  const isEditMode = isPetDataRoute && isValidPetId;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const customSpeciesInputRef = useRef<HTMLInputElement | null>(null);
   const {
@@ -268,18 +268,18 @@ const PetRegisterPage = () => {
           <div>
             <h1
               className={`font-black text-slate-950 ${
-                isDetailMode ? "text-xl" : "text-2xl"
+                isDetailRoute ? "text-xl" : "text-2xl"
               }`}
             >
-              {isDetailMode
+              {isDetailRoute
                 ? "반려동물 상세 정보"
-                : isEditRoute
+                : isEditMode
                   ? "반려동물 수정하기"
                   : "반려동물 등록하기"}
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              {isDetailMode
-                ? "등록된 반려동물 정보를 확인해주세요."
+              {isDetailRoute
+                ? "등록된 정보를 확인하고 필요한 항목을 수정해주세요."
                 : "반려동물 정보를 입력해주세요."}
             </p>
           </div>
@@ -322,9 +322,9 @@ const PetRegisterPage = () => {
                 <h2 className="text-lg font-black">안내사항</h2>
               </div>
               <ul className="mt-6 space-y-4 pr-6 text-sm font-semibold leading-6 text-slate-700">
-                {isDetailMode ? (
+                {isEditMode ? (
                   <>
-                    <li>수정이 필요한 정보가 있다면 하단의 수정하기 버튼을 눌러주세요.</li>
+                    <li>수정이 필요한 항목을 변경한 뒤 하단의 수정하기 버튼을 눌러주세요.</li>
                     <li>정확한 정보는 AI 상담과 진료 예약 정확도 향상에 도움이 됩니다.</li>
                   </>
                 ) : (

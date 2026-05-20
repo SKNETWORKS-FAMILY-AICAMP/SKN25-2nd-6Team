@@ -85,7 +85,7 @@ function mapDetailToPatient(
       info.profile_image ||
       "https://images.unsplash.com/photo-1583511655826-05700d52f4d9?auto=format&fit=crop&w=360&q=80",
     guardianEmail: "-",
-    guardianAddress: info.address,
+    guardianAddress: "-",
     guardianMemo: info.notes,
     gender: info.gender === "female" ? "암컷" : info.gender === "male" ? "수컷" : info.gender,
     isNeutered: Boolean(info.is_neutered),
@@ -540,18 +540,16 @@ function PatientDetailView({
           rows={[
             ["보호자 이름", localPatient.guardianName],
             ["전화번호", localPatient.phone],
-            ["이메일", localPatient.guardianEmail],
-            ["주소", localPatient.guardianAddress],
-            ["메모", localPatient.guardianMemo],
           ]}
         />
 
         <InfoGrid
           rows={[
             ["품종", localPatient.breed],
-            ["성별", `${localPatient.gender} / 중성화 ${localPatient.isNeutered ? "O" : "X"}`],
+            ["성별", localPatient.gender],
+            ["중성화", localPatient.isNeutered ? "O" : "X"],
             ["생년월일", `${localPatient.birthDate} (${localPatient.age})`],
-            ["체중", `${localPatient.weight} (${localPatient.weightMeasuredAt} 기준)`],
+            ["체중", localPatient.weight],
             ["특이사항", localPatient.notes],
           ]}
         />

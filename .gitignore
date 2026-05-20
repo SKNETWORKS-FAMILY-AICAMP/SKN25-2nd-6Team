@@ -26,3 +26,7 @@ venv/
 
 # Local agent instructions
 AGENTS.md
+
+
+*.log
+frontend/guardian-web/*.log

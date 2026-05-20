@@ -179,7 +179,6 @@ def patient_detail(
                 ),
                 "owner_name": user.name,
                 "phone": user.phone,
-                "address": user.address or "",
                 "notes": pet.notes or "",
                 "profile_image": pet.profile_image,
             },

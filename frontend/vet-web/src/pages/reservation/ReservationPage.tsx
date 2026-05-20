@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import axios from "axios";
 import {
   AlertTriangle,
   CalendarDays,
@@ -15,16 +16,11 @@ import {
 import { AuthSession } from "../../api/authApi";
 import AppLayout, { AppMenuId } from "../../layouts/AppLayout";
 import {
-  doctorOptions,
-  mockReservationPatients,
-  mockReservations,
-  ReservationItem,
-  ReservationPatient,
-  reservationStatusMeta,
-  ReservationStatus,
-  reservationTimes,
-  visitReasonOptions,
-} from "./reservationMockData";
+  getReservations,
+  createReservation,
+  updateReservation,
+  deleteReservation,
+} from "../../api/reservationApi"
 
 interface ReservationPageProps {
   session: AuthSession;
@@ -35,6 +31,149 @@ interface ReservationPageProps {
 type ModalMode = "add" | "edit" | null;
 type ReservationViewMode = "day" | "week" | "month";
 
+export type ReservationStatus =
+  | "emergency"
+  | "semiEmergency"
+  | "normal";
+
+export interface ReservationPatient {
+  id: number;
+  petName: string;
+  guardianName: string;
+  phone: string;
+  species: "강아지" | "고양이";
+  breed: string;
+  birthDate: string;
+  age: string;
+  weight: string;
+  gender: "남아" | "여아";
+  isNeutered: boolean;
+  lastCheckupDate: string;
+  imageUrl: string;
+}
+
+export interface ReservationItem {
+  id: number;
+  patientId: number;
+  date: string;
+  start: string;
+  end: string;
+  status: ReservationStatus;
+  visitReason: string;
+  doctorName: string;
+  memo: string;
+}
+
+type PatientsById = Record<number, ReservationPatient>;
+
+const reservationStatusMeta: Record<
+  ReservationStatus,
+  { label: string; badgeClass: string; softClass: string }
+> = {
+  emergency: {
+    label: "응급",
+    badgeClass: "bg-[#fdecee] text-[#c95f69]",
+    softClass: "bg-[#fdecee] text-[#c95f69]",
+  },
+  semiEmergency: {
+    label: "준응급",
+    badgeClass: "bg-[#fff0df] text-[#c87832]",
+    softClass: "bg-[#fff0df] text-[#c87832]",
+  },
+  normal: {
+    label: "일반",
+    badgeClass: "bg-[#edf4ff] text-[#4b76c8]",
+    softClass: "bg-[#edf4ff] text-[#4b76c8]",
+  },
+};
+
+const reservationTimes = [
+  "09:00",
+  "10:00",
+  "11:00",
+  "12:00",
+  "13:00",
+  "14:00",
+  "15:00",
+  "16:00",
+  "17:00",
+];
+
+const DEFAULT_PET_IMAGE =
+  "https://images.unsplash.com/photo-1583511655826-05700d52f4d9?auto=format&fit=crop&w=240&q=80";
+
+interface ApiReservation {
+  schedule_id: number;
+  petid: number;
+  pet_name: string;
+  species: string;
+  breed: string;
+  birth_date: string;
+  age: string;
+  weight_kg: number;
+  gender: string;
+  is_neutered: boolean;
+  profile_image: string | null;
+  last_checkup_date: string;
+  owner_name: string;
+  phone: string;
+  doctor_name: string;
+  visit_reason: string;
+  triage: ReservationStatus;
+  date: string;
+  start: string;
+  end: string;
+  duration_min: number;
+  memo: string;
+  status: string;
+}
+
+function dotDate(value: string) {
+  return value ? value.replace(/-/g, ".") : "";
+}
+
+function mapApiReservations(items: ApiReservation[]): {
+  reservations: ReservationItem[];
+  patientsById: PatientsById;
+} {
+  const reservations: ReservationItem[] = [];
+  const patientsById: PatientsById = {};
+
+  for (const item of items) {
+    reservations.push({
+      id: item.schedule_id,
+      patientId: item.petid,
+      date: item.date,
+      start: item.start,
+      end: item.end,
+      status: item.triage ?? "normal",
+      visitReason: item.visit_reason,
+      doctorName: item.doctor_name,
+      memo: item.memo,
+    });
+
+    if (!patientsById[item.petid]) {
+      patientsById[item.petid] = {
+        id: item.petid,
+        petName: item.pet_name,
+        guardianName: item.owner_name,
+        phone: item.phone,
+        species: item.species === "고양이" ? "고양이" : "강아지",
+        breed: item.breed,
+        birthDate: dotDate(item.birth_date),
+        age: item.age,
+        weight: item.weight_kg ? `${item.weight_kg}kg` : "",
+        gender: item.gender === "female" ? "여아" : "남아",
+        isNeutered: item.is_neutered,
+        lastCheckupDate: dotDate(item.last_checkup_date),
+        imageUrl: item.profile_image || DEFAULT_PET_IMAGE,
+      };
+    }
+  }
+
+  return { reservations, patientsById };
+}
+
 const TODAY = new Date(2026, 4, 19);
 const dayLabels = ["일", "월", "화", "수", "목", "금", "토"];
 const weekDayLabels = ["월", "화", "수", "목", "금", "토", "일"];
@@ -43,22 +182,10 @@ const statusOrder: ReservationStatus[] = [
   "emergency",
   "semiEmergency",
   "normal",
-  "checkup",
 ];
-
-function getPatient(patientId: number) {
-  return mockReservationPatients.find((patient) => patient.id === patientId);
-}
 
 function getReservationAt(reservations: ReservationItem[], start: string) {
   return reservations.find((reservation) => reservation.start === start);
-}
-
-function getNextEndTime(start: string) {
-  const [hour, minute] = start.split(":").map(Number);
-  const nextMinute = minute + 30;
-  const nextHour = hour + Math.floor(nextMinute / 60);
-  return `${String(nextHour).padStart(2, "0")}:${String(nextMinute % 60).padStart(2, "0")}`;
 }
 
 function startOfDay(date: Date) {
@@ -137,31 +264,58 @@ function getControlLabel(viewMode: ReservationViewMode, selectedDate: Date) {
   return formatDateWithWeekday(selectedDate);
 }
 
-function getDayReservations(reservations: ReservationItem[]) {
-  return reservations.filter((reservation) => reservation.start !== "12:00");
-}
-
 export default function ReservationPage({
   session,
   onLogout,
   onNavigate,
 }: ReservationPageProps) {
-  const [reservations, setReservations] = useState(mockReservations);
+  const [reservations, setReservations] = useState<ReservationItem[]>([]);
+  const [patientsById, setPatientsById] = useState<PatientsById>({});
   const [selectedDate, setSelectedDate] = useState(TODAY);
   const [viewMode, setViewMode] = useState<ReservationViewMode>("day");
-  const [selectedReservationId, setSelectedReservationId] = useState(109);
+  const [selectedReservationId, setSelectedReservationId] = useState(0);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadReservations = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getReservations();
+      const items: ApiReservation[] = data?.result ?? [];
+      const mapped = mapApiReservations(items);
+      setReservations(mapped.reservations);
+      setPatientsById(mapped.patientsById);
+    } catch (error) {
+      console.error("예약 목록 조회 실패:", error);
+      setReservations([]);
+      setPatientsById({});
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadReservations();
+  }, [loadReservations]);
+
+  const dayKey = getDateKey(selectedDate);
   const visibleReservations = useMemo(
-    () => getDayReservations(reservations),
-    [reservations]
+    () =>
+      reservations
+        .filter(
+          (reservation) =>
+            reservation.date === dayKey && reservation.start !== "12:00"
+        )
+        .sort((a, b) => a.start.localeCompare(b.start)),
+    [reservations, dayKey]
   );
 
   const selectedReservation =
     visibleReservations.find((reservation) => reservation.id === selectedReservationId) ??
     visibleReservations[0];
   const selectedPatient = selectedReservation
-    ? getPatient(selectedReservation.patientId)
+    ? patientsById[selectedReservation.patientId]
     : undefined;
 
   const controlLabel = useMemo(
@@ -169,15 +323,30 @@ export default function ReservationPage({
     [selectedDate, viewMode]
   );
 
+  const patientOptions = useMemo(
+    () => Object.values(patientsById),
+    [patientsById]
+  );
+
+  const doctorOptions = useMemo(() => {
+    const names = new Set<string>();
+    reservations.forEach((reservation) => {
+      if (reservation.doctorName) {
+        names.add(reservation.doctorName);
+      }
+    });
+    return Array.from(names);
+  }, [reservations]);
+
   const statusCounts = useMemo(
     () =>
       statusOrder.reduce<Record<ReservationStatus, number>>((acc, status) => {
-        acc[status] = reservations.filter(
+        acc[status] = visibleReservations.filter(
           (reservation) => reservation.status === status
         ).length;
         return acc;
       }, {} as Record<ReservationStatus, number>),
-    [reservations]
+    [visibleReservations]
   );
 
   const handlePrev = () => {
@@ -208,59 +377,53 @@ export default function ReservationPage({
     });
   };
 
-  const handleSaveReservation = (
+  const handleSaveReservation = async (
     patient: ReservationPatient,
     form: ReservationFormState
   ) => {
-    if (modalMode === "edit" && selectedReservation) {
-      setReservations((current) =>
-        current.map((reservation) =>
-          reservation.id === selectedReservation.id
-            ? {
-                ...reservation,
-                patientId: patient.id,
-                start: form.time,
-                end: getNextEndTime(form.time),
-                doctorName: form.doctorName,
-                visitReason: form.visitReason,
-                memo: form.memo,
-              }
-            : reservation
-        )
-      );
+    try {
+      if (modalMode === "edit" && selectedReservation) {
+        await updateReservation(selectedReservation.id, {
+          date: form.dateKey,
+          time: form.time,
+          doctor_name: form.doctorName || undefined,
+          memo: form.memo,
+        });
+      } else {
+        await createReservation({
+          pet_id: patient.id,
+          date: form.dateKey,
+          time: form.time,
+          doctor_name: form.doctorName || undefined,
+          memo: form.memo,
+        });
+      }
+
       setModalMode(null);
-      return;
+      await loadReservations();
+    } catch (error) {
+      console.error("예약 저장 실패:", error);
+      const message =
+        (axios.isAxiosError(error) && error.response?.data?.detail) ||
+        "예약 저장에 실패했습니다.";
+      alert(message);
     }
-
-    const nextReservation: ReservationItem = {
-      id: Date.now(),
-      patientId: patient.id,
-      start: form.time,
-      end: getNextEndTime(form.time),
-      status: "normal",
-      doctorName: form.doctorName,
-      visitReason: form.visitReason,
-      memo: form.memo,
-    };
-
-    setReservations((current) =>
-      [...current, nextReservation].sort((a, b) => a.start.localeCompare(b.start))
-    );
-    setSelectedReservationId(nextReservation.id);
-    setModalMode(null);
   };
 
-  const handleCancelReservation = () => {
+  const handleCancelReservation = async () => {
     if (!selectedReservation) {
       return;
     }
 
-    const nextReservations = reservations.filter(
-      (reservation) => reservation.id !== selectedReservation.id
-    );
-    setReservations(nextReservations);
-    setSelectedReservationId(getDayReservations(nextReservations)[0]?.id ?? 0);
-    setIsCancelOpen(false);
+    try {
+      await deleteReservation(selectedReservation.id);
+      setSelectedReservationId(0);
+      setIsCancelOpen(false);
+      await loadReservations();
+    } catch (error) {
+      console.error("예약 취소 실패:", error);
+      alert("예약 취소에 실패했습니다.");
+    }
   };
 
   return (
@@ -275,11 +438,13 @@ export default function ReservationPage({
         <TopControls
           controlLabel={controlLabel}
           viewMode={viewMode}
+          isLoading={isLoading}
           onChangeViewMode={setViewMode}
           onAdd={() => setModalMode("add")}
           onPrev={handlePrev}
           onNext={handleNext}
           onToday={() => setSelectedDate(TODAY)}
+          onRefresh={loadReservations}
         />
 
         {viewMode === "day" && (
@@ -292,6 +457,7 @@ export default function ReservationPage({
             <DailyTimeline
               selectedDate={selectedDate}
               reservations={visibleReservations}
+              patientsById={patientsById}
               selectedReservationId={selectedReservationId}
               onSelect={setSelectedReservationId}
             />
@@ -309,13 +475,10 @@ export default function ReservationPage({
         {viewMode === "week" && (
           <WeeklySchedule
             selectedDate={selectedDate}
+            reservations={reservations}
+            patientsById={patientsById}
             onSelectReservation={(reservation, reservationDate) => {
               setSelectedDate(reservationDate);
-              setReservations((current) =>
-                current.some((item) => item.id === reservation.id)
-                  ? current
-                  : [...current, reservation].sort((a, b) => a.start.localeCompare(b.start))
-              );
               setSelectedReservationId(reservation.id);
               setViewMode("day");
             }}
@@ -325,6 +488,7 @@ export default function ReservationPage({
         {viewMode === "month" && (
           <MonthlyCalendar
             selectedDate={selectedDate}
+            reservations={reservations}
             onSelectDate={(date) => {
               setSelectedDate(date);
               setViewMode("day");
@@ -339,6 +503,8 @@ export default function ReservationPage({
           selectedDate={selectedDate}
           reservation={modalMode === "edit" ? selectedReservation : undefined}
           patient={modalMode === "edit" ? selectedPatient : undefined}
+          patientOptions={patientOptions}
+          doctorOptions={doctorOptions}
           onClose={() => setModalMode(null)}
           onSave={handleSaveReservation}
         />
@@ -358,19 +524,23 @@ export default function ReservationPage({
 function TopControls({
   controlLabel,
   viewMode,
+  isLoading,
   onChangeViewMode,
   onAdd,
   onPrev,
   onNext,
   onToday,
+  onRefresh,
 }: {
   controlLabel: string;
   viewMode: ReservationViewMode;
+  isLoading: boolean;
   onChangeViewMode: (mode: ReservationViewMode) => void;
   onAdd: () => void;
   onPrev: () => void;
   onNext: () => void;
   onToday: () => void;
+  onRefresh: () => void;
 }) {
   return (
     <div className="grid h-[68px] grid-cols-[1fr_auto_1fr] items-center border-b border-[#edf1f6] bg-white px-4">
@@ -422,9 +592,11 @@ function TopControls({
       <div className="flex items-center justify-end gap-3">
         <button
           type="button"
-          className="flex h-10 items-center gap-2 rounded-lg border border-[#dfe6f1] bg-white px-4 text-sm font-extrabold text-[#4d5874]"
+          onClick={onRefresh}
+          disabled={isLoading}
+          className="flex h-10 items-center gap-2 rounded-lg border border-[#dfe6f1] bg-white px-4 text-sm font-extrabold text-[#4d5874] disabled:cursor-wait disabled:opacity-60"
         >
-          <RefreshCcw className="h-4 w-4" />
+          <RefreshCcw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
           새로고침
         </button>
         <button
@@ -548,11 +720,13 @@ function StatusFilter({ counts }: { counts: Record<ReservationStatus, number> })
 function DailyTimeline({
   selectedDate,
   reservations,
+  patientsById,
   selectedReservationId,
   onSelect,
 }: {
   selectedDate: Date;
   reservations: ReservationItem[];
+  patientsById: PatientsById;
   selectedReservationId: number;
   onSelect: (id: number) => void;
 }) {
@@ -570,7 +744,7 @@ function DailyTimeline({
       <div className="space-y-1.5">
         {reservationTimes.map((time) => {
           const reservation = getReservationAt(reservations, time);
-          const patient = reservation ? getPatient(reservation.patientId) : undefined;
+          const patient = reservation ? patientsById[reservation.patientId] : undefined;
           const isLunch = time === "12:00";
 
           return (
@@ -624,72 +798,27 @@ function DailyTimeline({
   );
 }
 
-function getGeneratedReservation(date: Date, time: string): ReservationItem | null {
-  if (time === "12:00") {
-    return null;
-  }
-
-  const hour = Number(time.slice(0, 2));
-  const daySeed = date.getDate() + date.getDay() * 3 + hour;
-  const hasReservation =
-    ["09:00", "10:00", "13:00", "16:00"].includes(time) ||
-    (["11:00", "14:00"].includes(time) && daySeed % 2 === 0);
-
-  if (!hasReservation) {
-    return null;
-  }
-
-  const statuses: ReservationStatus[] = [
-    "checkup",
-    "semiEmergency",
-    "normal",
-    "checkup",
-    "normal",
-    "semiEmergency",
-    "emergency",
-  ];
-  const reasons = [
-    "건강검진",
-    "피부 질환",
-    "예방접종",
-    "슬개골 탈구 검진",
-    "귀 염증",
-    "구토 증상",
-    "중성화 상담",
-  ];
-  const patient = mockReservationPatients[daySeed % mockReservationPatients.length];
-
-  return {
-    id: Number(`${date.getMonth() + 1}${date.getDate()}${hour}${patient.id}`),
-    patientId: patient.id,
-    start: time,
-    end: getNextEndTime(time),
-    status: statuses[daySeed % statuses.length],
-    visitReason: reasons[daySeed % reasons.length],
-    doctorName: doctorOptions[daySeed % doctorOptions.length],
-    memo: "주간 보기에서 선택한 예약입니다.",
-  };
-}
-
 const weeklyCardClass: Record<ReservationStatus, string> = {
   emergency: "border-[#f4cfd5] bg-[#fffafb] text-[#20283a] before:bg-[#e7a6af]",
   semiEmergency: "border-[#f3d8bc] bg-[#fffaf4] text-[#20283a] before:bg-[#e8b77f]",
   normal: "border-[#cedcf5] bg-[#fbfdff] text-[#20283a] before:bg-[#9eb8ea]",
-  checkup: "border-[#cce6d4] bg-[#fbfffc] text-[#20283a] before:bg-[#9bcfad]",
 };
 
 const weeklyBadgeClass: Record<ReservationStatus, string> = {
   emergency: "bg-[#fdecee] text-[#c95f69]",
   semiEmergency: "bg-[#fff0df] text-[#c87832]",
   normal: "bg-[#edf4ff] text-[#4b76c8]",
-  checkup: "bg-[#edf8f1] text-[#4b9a66]",
 };
 
 function WeeklySchedule({
   selectedDate,
+  reservations,
+  patientsById,
   onSelectReservation,
 }: {
   selectedDate: Date;
+  reservations: ReservationItem[];
+  patientsById: PatientsById;
   onSelectReservation: (reservation: ReservationItem, reservationDate: Date) => void;
 }) {
   const weekDays = getWeekDays(selectedDate);
@@ -753,8 +882,13 @@ function WeeklySchedule({
                 {time}
               </div>
               {weekDays.map((day) => {
-                const reservation = getGeneratedReservation(day, time);
-                const patient = reservation ? getPatient(reservation.patientId) : undefined;
+                const dayKey = getDateKey(day);
+                const reservation = reservations.find(
+                  (item) => item.date === dayKey && item.start === time
+                );
+                const patient = reservation
+                  ? patientsById[reservation.patientId]
+                  : undefined;
 
                 return (
                   <div
@@ -802,7 +936,6 @@ function Legend() {
     { label: "응급", className: "bg-[#e7a6af]" },
     { label: "준응급", className: "bg-[#e8b77f]" },
     { label: "일반", className: "bg-[#9eb8ea]" },
-    { label: "건강검진", className: "bg-[#9bcfad]" },
     { label: "예약 없음", className: "bg-[#e7ebf2]" },
   ];
 
@@ -869,18 +1002,24 @@ function getHolidayName(date: Date) {
   return koreanHolidays[getDateKey(date)];
 }
 
-function getMonthlyCount(date: Date) {
-  return 8 + ((date.getDate() * 7 + date.getDay()) % 6);
-}
-
 function MonthlyCalendar({
   selectedDate,
+  reservations,
   onSelectDate,
 }: {
   selectedDate: Date;
+  reservations: ReservationItem[];
   onSelectDate: (date: Date) => void;
 }) {
   const monthDays = getMonthGrid(selectedDate);
+
+  const countByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const reservation of reservations) {
+      map[reservation.date] = (map[reservation.date] ?? 0) + 1;
+    }
+    return map;
+  }, [reservations]);
 
   return (
     <div className="px-4 pb-4">
@@ -948,7 +1087,7 @@ function MonthlyCalendar({
                       : "bg-[#f7f8fa] text-[#a4adbd]",
                   ].join(" ")}
                 >
-                  총 {getMonthlyCount(day)}건
+                  총 {countByDate[getDateKey(day)] ?? 0}건
                 </span>
               </button>
             );
@@ -1066,9 +1205,9 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 interface ReservationFormState {
   date: string;
+  dateKey: string;
   time: string;
   doctorName: string;
-  visitReason: string;
   memo: string;
 }
 
@@ -1077,6 +1216,8 @@ function ReservationFormModal({
   selectedDate,
   reservation,
   patient,
+  patientOptions,
+  doctorOptions,
   onClose,
   onSave,
 }: {
@@ -1084,6 +1225,8 @@ function ReservationFormModal({
   selectedDate: Date;
   reservation?: ReservationItem;
   patient?: ReservationPatient;
+  patientOptions: ReservationPatient[];
+  doctorOptions: string[];
   onClose: () => void;
   onSave: (patient: ReservationPatient, form: ReservationFormState) => void;
 }) {
@@ -1095,9 +1238,9 @@ function ReservationFormModal({
   const [reservationDate, setReservationDate] = useState(selectedDate);
   const [form, setForm] = useState<ReservationFormState>({
     date: formatDateWithWeekday(selectedDate),
+    dateKey: getDateKey(selectedDate),
     time: reservation?.start ?? "17:00",
-    doctorName: reservation?.doctorName ?? "이지수 수의사",
-    visitReason: reservation?.visitReason ?? "",
+    doctorName: reservation?.doctorName ?? doctorOptions[0] ?? "",
     memo: reservation?.memo ?? "",
   });
 
@@ -1107,10 +1250,10 @@ function ReservationFormModal({
       return [];
     }
 
-    return mockReservationPatients.filter((item) =>
+    return patientOptions.filter((item) =>
       `${item.petName} ${item.guardianName} ${item.phone}`.includes(keyword)
     );
-  }, [searchText]);
+  }, [searchText, patientOptions]);
   const shouldShowSearchResults = isSearchFocused && searchText.trim().length > 0;
   const canSaveReservation = selectedPatient !== null;
 
@@ -1223,6 +1366,7 @@ function ReservationFormModal({
                   setForm((current) => ({
                     ...current,
                     date: formatDateWithWeekday(date),
+                    dateKey: getDateKey(date),
                   }));
                 }}
               />
@@ -1238,14 +1382,6 @@ function ReservationFormModal({
                 options={doctorOptions}
                 onChange={(value) =>
                   setForm((current) => ({ ...current, doctorName: value }))
-                }
-              />
-              <SelectField
-                label="진료 항목"
-                value={form.visitReason}
-                options={visitReasonOptions}
-                onChange={(value) =>
-                  setForm((current) => ({ ...current, visitReason: value }))
                 }
               />
             </div>
@@ -1303,32 +1439,6 @@ function ReadonlyField({ label, value }: { label: string; value: string }) {
         value={value}
         className="h-8 w-full min-w-0 rounded-lg border border-[#edf1f6] bg-[#f8fafc] px-3 text-xs font-bold text-[#53617c] outline-none"
       />
-    </label>
-  );
-}
-
-function InputField({
-  label,
-  value,
-  icon,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  icon?: ReactNode;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label className="block min-w-0 text-xs font-extrabold text-[#1d2a57]">
-      <span className="mb-1 block">{label}</span>
-      <span className="flex h-8 min-w-0 items-center rounded-lg border border-[#dfe6f1] px-3">
-        <input
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-xs font-bold text-[#1d2a57] outline-none"
-        />
-        {icon}
-      </span>
     </label>
   );
 }
