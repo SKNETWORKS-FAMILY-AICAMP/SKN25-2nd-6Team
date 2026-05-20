@@ -7,62 +7,17 @@ import {
   createPet,
   getPet,
   updatePet,
-  type CreatePetPayload,
-  type Pet,
 } from "../../api/pets-api";
 import GuardianNavbar from "../../components/guardian-navbar";
+import {
+  genderOptions,
+  maxNotesLength,
+  neuteredOptions,
+  speciesOptions,
+  usePetForm,
+} from "../../hooks/use-pet-form";
 
-const speciesOptions = ["강아지", "고양이", "기타"];
-const genderOptions = ["수컷", "암컷", "모름"];
-const neuteredOptions = ["예", "아니오", "모름"];
-const defaultProfileImages = [
-  "/assets/profile1.png",
-  "/assets/profile2.png",
-  "/assets/profile3.png",
-  "/assets/profile4.png",
-  "/assets/profile5.png",
-  "/assets/profile6.png",
-];
 const maxImageSize = 5 * 1024 * 1024;
-const maxNotesLength = 200;
-
-interface FormState {
-  petname: string;
-  species: string;
-  customSpecies: string;
-  breed: string;
-  gender: string;
-  isNeutered: string;
-  birthDate: string;
-  isBirthUnknown: boolean;
-  weight: string;
-  checkupDate: string;
-  isCheckupUnknown: boolean;
-  notes: string;
-}
-
-type FormErrors = Partial<Record<keyof FormState | "profileImage", string>>;
-type PetPayload = CreatePetPayload & {
-  breed?: string;
-  birth_date?: string;
-  checkup_date?: string;
-  notes?: string;
-};
-
-const initialForm: FormState = {
-  petname: "",
-  species: "",
-  customSpecies: "",
-  breed: "",
-  gender: "",
-  isNeutered: "",
-  birthDate: "",
-  isBirthUnknown: false,
-  weight: "",
-  checkupDate: "",
-  isCheckupUnknown: false,
-  notes: "",
-};
 
 const inputClass =
   "h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
@@ -75,86 +30,6 @@ const FieldError = ({ message }: { message?: string }) =>
   message ? <p className="mt-1 text-[10px] font-semibold text-red-500">{message}</p> : null;
 
 const RequiredMark = () => <span className="ml-0.5 text-red-500">*</span>;
-
-const getRandomDefaultProfileImage = () => {
-  const randomIndex = Math.floor(Math.random() * defaultProfileImages.length);
-  return defaultProfileImages[randomIndex];
-};
-
-const normalizeDate = (date?: string) => date?.slice(0, 10) || "";
-
-const normalizeGender = (gender?: string) => {
-  if (gender === "male" || gender === "남아") {
-    return "수컷";
-  }
-
-  if (gender === "female" || gender === "여아") {
-    return "암컷";
-  }
-
-  return genderOptions.includes(gender || "") ? gender || "" : "";
-};
-
-const normalizeNeutered = (isNeutered?: string) =>
-  neuteredOptions.includes(isNeutered || "") ? isNeutered || "" : "";
-
-const getFormFromPet = (pet: Pet): FormState => {
-  const isKnownSpecies = speciesOptions.includes(pet.species || "");
-
-  return {
-    petname: pet.petname || "",
-    species: isKnownSpecies ? pet.species || "" : pet.species ? "기타" : "",
-    customSpecies: isKnownSpecies ? "" : pet.species || "",
-    breed: pet.breed || "",
-    gender: normalizeGender(pet.gender),
-    isNeutered: normalizeNeutered(pet.is_neutered),
-    birthDate: normalizeDate(pet.birth_date),
-    isBirthUnknown: Boolean(pet.is_birth_unknown),
-    weight: pet.weight ? String(pet.weight) : "",
-    checkupDate: normalizeDate(pet.checkup_date),
-    isCheckupUnknown: Boolean(pet.is_checkup_unknown),
-    notes: pet.notes || "",
-  };
-};
-
-const getPayloadFromForm = (
-  formState: FormState,
-  profileImage?: string,
-): PetPayload => ({
-  petname: formState.petname.trim(),
-  species:
-    formState.species === "기타"
-      ? formState.customSpecies.trim()
-      : formState.species,
-  breed: formState.breed.trim(),
-  gender: formState.gender,
-  is_neutered: formState.isNeutered,
-  birth_date:
-    !formState.isBirthUnknown && formState.birthDate ? formState.birthDate : "",
-  is_birth_unknown: formState.isBirthUnknown,
-  weight: Number(formState.weight),
-  checkup_date:
-    !formState.isCheckupUnknown && formState.checkupDate
-      ? formState.checkupDate
-      : "",
-  is_checkup_unknown: formState.isCheckupUnknown,
-  notes: formState.notes.trim(),
-  ...(profileImage ? { profile_image: profileImage } : {}),
-});
-
-const getChangedPayload = (
-  currentPayload: PetPayload,
-  originalPayload: PetPayload,
-) =>
-  (Object.keys(currentPayload) as Array<keyof PetPayload>).reduce<
-    Partial<CreatePetPayload>
-  >((changedPayload, key) => {
-    if (currentPayload[key] !== originalPayload[key]) {
-      return { ...changedPayload, [key]: currentPayload[key] };
-    }
-
-    return changedPayload;
-  }, {});
 
 const PawIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
@@ -214,11 +89,21 @@ const PetRegisterPage = () => {
   const isEditMode = isEditRoute && isValidPetId;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const customSpeciesInputRef = useRef<HTMLInputElement | null>(null);
-  const [form, setForm] = useState<FormState>(initialForm);
-  const [originalForm, setOriginalForm] = useState<FormState | null>(null);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [originalPreviewUrl, setOriginalPreviewUrl] = useState("");
+  const {
+    form,
+    errors,
+    previewUrl,
+    setErrors,
+    setPreviewUrl,
+    resetPetFormState,
+    applyPetToForm,
+    updateForm,
+    handleNameChange,
+    handleNotesChange,
+    validateForm,
+    buildPayload,
+    buildUpdatePayload,
+  } = usePetForm({ customSpeciesInputRef });
   const [submitMessage, setSubmitMessage] = useState("");
   const [loadMessage, setLoadMessage] = useState(
     isPetDataRoute && !isValidPetId ? "잘못된 접근입니다." : "",
@@ -228,20 +113,14 @@ const PetRegisterPage = () => {
 
   useEffect(() => {
     if (isPetDataRoute && !isValidPetId) {
-      setForm(initialForm);
-      setOriginalForm(null);
-      setPreviewUrl("");
-      setOriginalPreviewUrl("");
+      resetPetFormState();
       setLoadMessage("잘못된 접근입니다.");
       setIsLoading(false);
       return;
     }
 
     if (!isPetDataRoute) {
-      setForm(initialForm);
-      setOriginalForm(null);
-      setPreviewUrl("");
-      setOriginalPreviewUrl("");
+      resetPetFormState();
       setLoadMessage("");
       setIsLoading(false);
       return;
@@ -268,13 +147,7 @@ const PetRegisterPage = () => {
           return;
         }
 
-        const loadedForm = getFormFromPet(response.result);
-        const loadedProfileImage = response.result.profile_image || "";
-
-        setForm(loadedForm);
-        setOriginalForm(loadedForm);
-        setPreviewUrl(loadedProfileImage);
-        setOriginalPreviewUrl(loadedProfileImage);
+        applyPetToForm(response.result);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -301,29 +174,10 @@ const PetRegisterPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [isPetDataRoute, isValidPetId, selectedPetId]);
+  }, [applyPetToForm, isPetDataRoute, isValidPetId, resetPetFormState, selectedPetId]);
 
   const closeModal = () => {
     navigate("/home");
-  };
-
-  const updateForm = <Key extends keyof FormState>(
-    key: Key,
-    value: FormState[Key],
-  ) => {
-    setForm((current) => ({ ...current, [key]: value }));
-
-    if (errors[key]) {
-      setErrors((current) => ({ ...current, [key]: undefined }));
-    }
-  };
-
-  const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
-    updateForm("petname", event.target.value.slice(0, 15));
-  };
-
-  const handleNotesChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    updateForm("notes", event.target.value.slice(0, maxNotesLength));
   };
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -367,67 +221,6 @@ const PetRegisterPage = () => {
       }
     };
     reader.readAsDataURL(file);
-  };
-
-  const validateForm = () => {
-    const nextErrors: FormErrors = {};
-
-    if (!form.petname.trim()) {
-      nextErrors.petname = "반려동물 이름을 입력해주세요.";
-    }
-
-    if (!form.species) {
-      nextErrors.species = "종을 선택해주세요.";
-    }
-
-    if (form.species === "기타" && !form.customSpecies.trim()) {
-      nextErrors.customSpecies = "종 정보를 입력해주세요.";
-    }
-
-    if (!form.gender) {
-      nextErrors.gender = "성별을 선택해주세요.";
-    }
-
-    if (!form.isNeutered) {
-      nextErrors.isNeutered = "중성화 여부를 선택해주세요.";
-    }
-
-    if (!form.weight.trim()) {
-      nextErrors.weight = "몸무게를 입력해주세요.";
-    } else if (Number.isNaN(Number(form.weight)) || Number(form.weight) <= 0) {
-      nextErrors.weight = "몸무게를 올바르게 입력해주세요.";
-    }
-
-    setErrors(nextErrors);
-
-    if (nextErrors.customSpecies) {
-      window.setTimeout(() => customSpeciesInputRef.current?.focus(), 0);
-    }
-
-    return Object.keys(nextErrors).length === 0;
-  };
-
-  const buildPayload = (): CreatePetPayload => {
-    const payload = getPayloadFromForm(form);
-
-    if (!previewUrl) {
-      payload.profile_image = getRandomDefaultProfileImage();
-    } else {
-      payload.profile_image = previewUrl;
-    }
-
-    return payload;
-  };
-
-  const buildUpdatePayload = (): Partial<CreatePetPayload> => {
-    if (!originalForm) {
-      return getPayloadFromForm(form, previewUrl);
-    }
-
-    const originalPayload = getPayloadFromForm(originalForm, originalPreviewUrl);
-    const currentPayload = getPayloadFromForm(form, previewUrl);
-
-    return getChangedPayload(currentPayload, originalPayload);
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
