@@ -177,11 +177,11 @@ const ScheduleCard = ({
   const canManage = canManageSchedule(schedule);
   const badgeClassName =
     schedule.status === "CONFIRMED"
-      ? "bg-blue-50 text-blue-600 ring-blue-100"
+      ? "bg-blue-100 text-blue-600 ring-blue-200"
       : "bg-slate-100 text-slate-500 ring-slate-200";
 
   return (
-    <article className="grid gap-5 rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:border-blue-100 hover:shadow-lg hover:shadow-blue-100/50 lg:grid-cols-[76px_1fr_240px_190px] lg:items-center">
+    <article className="grid gap-4 rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm transition hover:border-blue-100 hover:shadow-lg hover:shadow-blue-100/50 lg:grid-cols-[76px_1fr_360px] lg:items-center">
       <div className="h-16 w-16 overflow-hidden rounded-full bg-slate-100">
         <img
           src={getProfileImage(schedule)}
@@ -202,7 +202,7 @@ const ScheduleCard = ({
         <p className="mt-2 text-lg font-black text-slate-900">
           {schedule.category}
         </p>
-        <p className="mt-2 text-sm font-bold text-blue-600">
+        <p className="mt-1.5 text-sm font-bold text-blue-600">
           {formatScheduleTimeRange(
             schedule.confirmed_time,
             schedule.confirmed_end_time,
@@ -210,43 +210,31 @@ const ScheduleCard = ({
         </p>
       </div>
 
-      <div className="min-w-0">
-        <p className="truncate text-sm font-black text-slate-900">
-          {schedule.hospital_name}
-        </p>
-        <p className="mt-1 line-clamp-2 text-sm font-semibold leading-6 text-slate-500">
-          {schedule.hospital_address}
-        </p>
-        <p className="mt-1 text-xs font-bold text-slate-400">
-          담당: {schedule.doctor_name}
-        </p>
-      </div>
-
-      <div className="flex flex-col items-start gap-3 lg:items-end">
-        <span
-          className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-black ring-1 ${badgeClassName}`}
-        >
-          {scheduleStatusLabel[schedule.status]}
-        </span>
-
+      <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
         {canManage ? (
-          <div className="flex gap-2">
+          <>
             <button
               type="button"
               onClick={() => onOpenChange(schedule)}
-              className="h-10 rounded-lg border border-blue-200 px-4 text-sm font-black text-blue-600 transition hover:bg-blue-50"
+              className="h-10 min-w-[96px] whitespace-nowrap rounded-lg border border-blue-200 px-4 text-sm font-black text-blue-600 transition hover:bg-blue-50"
             >
               예약 변경
             </button>
             <button
               type="button"
               onClick={() => onOpenCancel(schedule)}
-              className="h-10 rounded-lg border border-rose-200 px-4 text-sm font-black text-rose-500 transition hover:bg-rose-50"
+              className="h-10 min-w-[96px] whitespace-nowrap rounded-lg border border-rose-200 px-4 text-sm font-black text-rose-500 transition hover:bg-rose-50"
             >
               예약 취소
             </button>
-          </div>
+          </>
         ) : null}
+
+        <span
+          className={`inline-flex h-10 items-center rounded-full px-4 text-xs font-black ring-1 ${badgeClassName}`}
+        >
+          {scheduleStatusLabel[schedule.status]}
+        </span>
       </div>
     </article>
   );
