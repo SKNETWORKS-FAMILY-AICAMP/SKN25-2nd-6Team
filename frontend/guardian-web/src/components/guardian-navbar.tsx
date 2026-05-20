@@ -1,6 +1,7 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 
 import { useAuthStore } from "../stores/auth-store";
+import medipawSymbol from "../../../shared/assets/logo/medipaw-symbol.png";
 
 const navItems = [
   { label: "홈", to: "/home" },
@@ -24,7 +25,7 @@ const GuardianNavbar = () => {
     <header className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
         <Link to="/home" className="flex items-center">
-          <img src="/assets/medi-paw-logo.png" alt="MediPaw" className="h-9 w-auto" />
+          <img src={medipawSymbol} alt="MediPaw" className="h-9 w-auto" />
         </Link>
 
         <nav className="hidden h-full items-center gap-8 md:flex">
