@@ -29,19 +29,19 @@ const initialFormState: SignupFormState = {
 
 const serviceItems = [
   {
-    title: "AI triage guidance",
+    title: "AI 문진 안내",
     description:
-      "Start with symptom details and get clear next-step guidance before visiting a clinic.",
+      "증상을 입력하면 병원 방문 전 필요한 다음 단계를 차분하게 안내합니다.",
   },
   {
-    title: "Reservation support",
+    title: "예약 지원",
     description:
-      "Keep consultation context ready so care can move smoothly into a clinic reservation.",
+      "상담 내용을 바탕으로 진료 예약까지 자연스럽게 이어질 수 있도록 돕습니다.",
   },
   {
-    title: "Care history",
+    title: "건강 기록 관리",
     description:
-      "Manage pet health records and consultation notes from one guardian dashboard.",
+      "반려동물 건강 기록과 상담 내용을 보호자 대시보드에서 한 번에 관리합니다.",
   },
 ];
 
@@ -60,7 +60,7 @@ const helperClassName = (hasError?: boolean) =>
   ].join(" ");
 
 const getFallbackErrorMessage = (message?: string) =>
-  message || "Signup failed. Please check your information and try again.";
+  message || "회원가입에 실패했습니다. 입력 정보를 확인하고 다시 시도해주세요.";
 
 const getApiFieldError = (message: string): SignupFieldErrors | null => {
   const lowerMessage = message.toLowerCase();
@@ -128,29 +128,29 @@ const SignupPage = () => {
     const nextFieldErrors: SignupFieldErrors = {};
 
     if (!form.name.trim()) {
-      nextFieldErrors.name = "Please enter your name.";
+      nextFieldErrors.name = "이름을 입력해주세요.";
     } else if (form.name.trim().length > 30) {
-      nextFieldErrors.name = "Name can be up to 30 characters.";
+      nextFieldErrors.name = "이름은 30자 이하로 입력해주세요.";
     }
 
     if (!isLoginIdValid) {
       nextFieldErrors.loginid =
-        "Use 4-20 letters and numbers, including at least one of each.";
+        "영문과 숫자를 각각 1개 이상 포함해 4-20자로 입력해주세요.";
     }
 
     if (!isPhoneValid) {
-      nextFieldErrors.phone = "Enter a valid mobile number, such as 010-1234-5678.";
+      nextFieldErrors.phone = "010-1234-5678 형식의 휴대폰 번호를 입력해주세요.";
     }
 
     if (!isPasswordValid) {
       nextFieldErrors.password =
-        "Use at least 8 characters with letters, numbers, and a special character.";
+        "영문, 숫자, 특수문자를 포함해 8자 이상 입력해주세요.";
     }
 
     if (!form.passwordConfirm) {
-      nextFieldErrors.passwordConfirm = "Please confirm your password.";
+      nextFieldErrors.passwordConfirm = "비밀번호 확인을 입력해주세요.";
     } else if (form.password !== form.passwordConfirm) {
-      nextFieldErrors.passwordConfirm = "Passwords do not match.";
+      nextFieldErrors.passwordConfirm = "비밀번호가 일치하지 않습니다.";
     }
 
     return nextFieldErrors;
@@ -189,7 +189,7 @@ const SignupPage = () => {
         return;
       }
 
-      setSuccessMessage(response.message || "Signup complete. Moving to login.");
+      setSuccessMessage(response.message || "회원가입이 완료되었습니다. 로그인 화면으로 이동합니다.");
       window.setTimeout(() => navigate("/login"), 800);
     } catch (error) {
       if (isAxiosError<SignupErrorResponse>(error)) {
@@ -211,7 +211,7 @@ const SignupPage = () => {
         return;
       }
 
-      setErrorMessage("A network error occurred. Please try again.");
+      setErrorMessage("네트워크 오류가 발생했습니다. 다시 시도해주세요.");
     } finally {
       setIsSubmitting(false);
     }
@@ -227,7 +227,7 @@ const SignupPage = () => {
           <div>
             <p className="text-lg font-bold text-blue-700">MediPaw</p>
             <p className="hidden text-xs font-semibold text-slate-500 sm:block">
-              Guardian care dashboard
+              보호자 케어 대시보드
             </p>
           </div>
         </Link>
@@ -236,7 +236,7 @@ const SignupPage = () => {
           to="/login"
           className="rounded-2xl border border-blue-500 px-4 py-2 text-sm font-bold text-blue-600 transition hover:bg-blue-50"
         >
-          Log in
+          로그인
         </Link>
       </header>
 
@@ -244,14 +244,14 @@ const SignupPage = () => {
         <section className="space-y-5 py-2 sm:py-6">
           <div>
             <p className="text-sm font-bold text-blue-600">
-              MediPaw guardian service
+              MediPaw 보호자 서비스
             </p>
             <h1 className="mt-3 text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">
-              Create a calmer care routine for every pet.
+              반려동물을 위한 더 차분한 케어 루틴을 시작하세요.
             </h1>
             <p className="mt-4 max-w-xl text-sm leading-6 text-slate-600 sm:text-base">
-              Sign up to use AI triage, reservation support, and health record
-              tools designed for pet guardians.
+              AI 문진, 예약 지원, 건강 기록 관리까지 보호자를 위한 MediPaw 기능을
+              이용해보세요.
             </p>
           </div>
 
@@ -276,10 +276,10 @@ const SignupPage = () => {
               M
             </div>
             <h2 className="mt-3 text-2xl font-bold text-slate-950">
-              Guardian signup
+              보호자 회원가입
             </h2>
             <p className="mt-2 text-sm font-medium text-slate-500">
-              Enter your account details to start using MediPaw.
+              MediPaw 이용을 시작할 계정 정보를 입력해주세요.
             </p>
           </div>
 
@@ -287,14 +287,14 @@ const SignupPage = () => {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="text-sm font-bold text-slate-800" htmlFor="name">
-                  Name
+                  이름
                 </label>
                 <input
                   id="name"
                   autoComplete="name"
                   value={form.name}
                   onChange={handleChange("name")}
-                  placeholder="Your name"
+                  placeholder="홍길동"
                   aria-invalid={Boolean(fieldErrors.name)}
                   className={inputClassName(Boolean(fieldErrors.name))}
                 />
@@ -308,7 +308,7 @@ const SignupPage = () => {
                   className="text-sm font-bold text-slate-800"
                   htmlFor="loginid"
                 >
-                  Login ID
+                  아이디
                 </label>
                 <input
                   id="loginid"
@@ -320,14 +320,14 @@ const SignupPage = () => {
                   className={inputClassName(Boolean(fieldErrors.loginid))}
                 />
                 <p className={helperClassName(Boolean(fieldErrors.loginid))}>
-                  {fieldErrors.loginid || "4-20 letters and numbers."}
+                  {fieldErrors.loginid || "영문과 숫자를 포함해 4-20자로 입력해주세요."}
                 </p>
               </div>
             </div>
 
             <div>
               <label className="text-sm font-bold text-slate-800" htmlFor="phone">
-                Phone
+                휴대폰 번호
               </label>
               <input
                 id="phone"
@@ -340,7 +340,7 @@ const SignupPage = () => {
                 className={inputClassName(Boolean(fieldErrors.phone))}
               />
               <p className={helperClassName(Boolean(fieldErrors.phone))}>
-                {fieldErrors.phone || "Use your mobile phone number."}
+                {fieldErrors.phone || "본인 휴대폰 번호를 입력해주세요."}
               </p>
             </div>
 
@@ -350,7 +350,7 @@ const SignupPage = () => {
                   className="text-sm font-bold text-slate-800"
                   htmlFor="password"
                 >
-                  Password
+                  비밀번호
                 </label>
                 <input
                   id="password"
@@ -358,12 +358,12 @@ const SignupPage = () => {
                   autoComplete="new-password"
                   value={form.password}
                   onChange={handleChange("password")}
-                  placeholder="Password"
+                  placeholder="비밀번호"
                   aria-invalid={Boolean(fieldErrors.password)}
                   className={inputClassName(Boolean(fieldErrors.password))}
                 />
                 <p className={helperClassName(Boolean(fieldErrors.password))}>
-                  {fieldErrors.password || "8+ characters with letters, numbers, and symbols."}
+                  {fieldErrors.password || "영문, 숫자, 특수문자를 포함해 8자 이상 입력해주세요."}
                 </p>
               </div>
 
@@ -372,7 +372,7 @@ const SignupPage = () => {
                   className="text-sm font-bold text-slate-800"
                   htmlFor="passwordConfirm"
                 >
-                  Confirm password
+                  비밀번호 확인
                 </label>
                 <input
                   id="passwordConfirm"
@@ -380,12 +380,12 @@ const SignupPage = () => {
                   autoComplete="new-password"
                   value={form.passwordConfirm}
                   onChange={handleChange("passwordConfirm")}
-                  placeholder="Confirm password"
+                  placeholder="비밀번호 확인"
                   aria-invalid={Boolean(fieldErrors.passwordConfirm)}
                   className={inputClassName(Boolean(fieldErrors.passwordConfirm))}
                 />
                 <p className={helperClassName(Boolean(fieldErrors.passwordConfirm))}>
-                  {fieldErrors.passwordConfirm || "Re-enter the same password."}
+                  {fieldErrors.passwordConfirm || "동일한 비밀번호를 한 번 더 입력해주세요."}
                 </p>
               </div>
             </div>
@@ -407,13 +407,13 @@ const SignupPage = () => {
               disabled={isSubmitting}
               className="h-12 w-full rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-lg shadow-blue-200 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
             >
-              {isSubmitting ? "Creating account..." : "Create account"}
+              {isSubmitting ? "가입 처리 중..." : "회원가입"}
             </button>
 
             <p className="text-center text-sm font-medium text-slate-500">
-              Already have an account?{" "}
+              이미 계정이 있으신가요?{" "}
               <Link to="/login" className="font-bold text-blue-600 hover:text-blue-700">
-                Log in
+                로그인
               </Link>
             </p>
           </form>
