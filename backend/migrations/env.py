@@ -18,6 +18,7 @@ from app.models.pet import Pet
 from app.models.guardian import Guardian
 from app.models.schedule import Schedule
 from app.models.master import TriageMaster, CategoryMaster
+from app.models.chat_history import ChatHistory
 from app.models.alarm import DoctorAlarm
 from app.models.drug import Drug
 from app.models.prescription import Prescription

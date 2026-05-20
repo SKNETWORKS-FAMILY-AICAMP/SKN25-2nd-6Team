@@ -11,6 +11,8 @@ class PetCreate(BaseModel):
     is_neutered: Optional[str] = None
     birth_date: Optional[date] = None
     is_birth_unknown: Optional[bool] = False
+    checkup_date: Optional[date] = None
+    is_checkup_unknown: Optional[bool] = False
     weight_kg: float
     notes: Optional[str] = None
     profile_image: Optional[str] = None
@@ -48,6 +50,7 @@ class PetDetailResponse(BaseModel):
     gender: Optional[str]
     is_neutered: Optional[bool]
     birth_date: Optional[date]
+    checkup_date: Optional[date] = None
     weight_kg: Optional[float]
     notes: Optional[str]
     profile_image: Optional[str]
@@ -65,5 +68,7 @@ class PetUpdate(BaseModel):
     birth_date: Optional[date] = None
     is_birth_unknown: Optional[bool] = None
     weight_kg: Optional[float] = None
+    checkup_date: Optional[date] = None       
+    is_checkup_unknown: Optional[bool] = None 
     notes: Optional[str] = None
     profile_image: Optional[str] = None
