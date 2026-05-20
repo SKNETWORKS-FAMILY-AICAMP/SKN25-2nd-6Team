@@ -1,6 +1,6 @@
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { useMatch, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import pawOnlyLogo from "../../../../shared/assets/logo/medipaw-pawonly.png";
 import {
@@ -23,20 +23,14 @@ const PawIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
 
 const PetRegisterPage = () => {
   const navigate = useNavigate();
-  const detailRouteMatch = useMatch("/pets/:petId");
-  const editRouteMatch = useMatch("/pets/:petId/edit");
-  const isEditRoute = Boolean(editRouteMatch);
-  const detailPetId = detailRouteMatch?.params.petId;
-  const editPetId = editRouteMatch?.params.petId;
-  const isDetailRoute = Boolean(detailRouteMatch && detailPetId !== "register");
-  const routePetId = isEditRoute ? editPetId : isDetailRoute ? detailPetId : undefined;
-  const parsedPetId = routePetId ? Number(routePetId) : NaN;
-  const isPetDataRoute = isDetailRoute || isEditRoute;
+  const { petId } = useParams();
+  const parsedPetId = petId ? Number(petId) : NaN;
+  const isPetDataRoute = Boolean(petId);
   const isValidPetId =
     isPetDataRoute && Number.isFinite(parsedPetId) && parsedPetId > 0;
   const selectedPetId = isValidPetId ? parsedPetId : undefined;
   const isDetailMode = false;
-  const isEditMode = isPetDataRoute && isValidPetId;
+  const isEditMode = isValidPetId;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const customSpeciesInputRef = useRef<HTMLInputElement | null>(null);
   const {
@@ -131,10 +125,6 @@ const PetRegisterPage = () => {
   };
 
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
-    if (isDetailMode) {
-      return;
-    }
-
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -176,10 +166,6 @@ const PetRegisterPage = () => {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitMessage("");
-
-    if (isDetailMode) {
-      return;
-    }
 
     if (!validateForm()) {
       return;
@@ -268,17 +254,15 @@ const PetRegisterPage = () => {
           <div>
             <h1
               className={`font-black text-slate-950 ${
-                isDetailRoute ? "text-xl" : "text-2xl"
+                isEditMode ? "text-xl" : "text-2xl"
               }`}
             >
-              {isDetailRoute
+              {isEditMode
                 ? "반려동물 상세 정보"
-                : isEditMode
-                  ? "반려동물 수정하기"
-                  : "반려동물 등록하기"}
+                : "반려동물 등록하기"}
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              {isDetailRoute
+              {isEditMode
                 ? "등록된 정보를 확인하고 필요한 항목을 수정해주세요."
                 : "반려동물 정보를 입력해주세요."}
             </p>
@@ -367,33 +351,22 @@ const PetRegisterPage = () => {
                 onClick={closeModal}
                 className="h-11 min-w-32 rounded-xl border border-slate-200 bg-white px-6 text-sm font-black text-slate-700 transition hover:bg-slate-50"
               >
-                {isDetailMode ? "목록으로" : "취소"}
+                취소
               </button>
-              {isDetailMode ? (
-                <button
-                  type="button"
-                  onClick={() => navigate(`/pets/${selectedPetId}/edit`)}
-                  className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700"
-                >
-                  <PawIcon className="h-4 w-4" />
-                  수정하기
-                </button>
-              ) : (
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:from-violet-300 disabled:to-indigo-300"
-                >
-                  <PawIcon className="h-4 w-4" />
-                  {isSubmitting
-                    ? isEditMode
-                      ? "수정 중..."
-                      : "등록 중..."
-                    : isEditMode
-                      ? "수정하기"
-                      : "등록하기"}
-                </button>
-              )}
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:from-violet-300 disabled:to-indigo-300"
+              >
+                <PawIcon className="h-4 w-4" />
+                {isSubmitting
+                  ? isEditMode
+                    ? "수정 중..."
+                    : "등록 중..."
+                  : isEditMode
+                    ? "수정하기"
+                    : "등록하기"}
+              </button>
             </footer>
           </form>
         </div>
