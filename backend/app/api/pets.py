@@ -66,6 +66,7 @@ def get_pet(
             "is_neutered": "예" if pet.is_neutered == True else "아니요" if pet.is_neutered == False else "모름",
             "birth_date": str(pet.birth_date) if pet.birth_date else None,
             "weight_kg": float(pet.weight_kg) if pet.weight_kg else None,
+            "checkup_date": str(pet.checkup_date) if pet.checkup_date else None,
             "notes": pet.notes,
             "profile_image": pet.profile_image
         }

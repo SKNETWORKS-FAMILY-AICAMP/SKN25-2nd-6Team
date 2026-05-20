@@ -142,6 +142,30 @@ def get_chat_sessions(
         ]
     }
 
+# 특정 세션 상세 조회
+@router.get("/sessions/{session_id}")
+def get_chat_session_detail(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    session = get_chat_session(db, session_id, current_user.userid)
+
+    if not session:
+        raise HTTPException(status_code=404, detail="상담 기록을 찾을 수 없습니다.")
+
+    return {
+        "code": 200,
+        "result": {
+            "session_id": session.id,
+            "pet_id": session.petid,
+            "messages": session.messages or [],
+            "keywords": session.keywords or [],
+            "is_complete": session.is_complete,
+            "created_at": str(session.created_at)
+        }
+    }
+
 # 상담 기록 삭제
 @router.delete("/sessions/{session_id}")
 def delete_session(
