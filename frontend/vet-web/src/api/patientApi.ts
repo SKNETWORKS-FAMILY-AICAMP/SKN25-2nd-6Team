@@ -1,15 +1,5 @@
 import axios, { AxiosError } from "axios";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "/api";
-
-const patientApiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 8000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
+import { API_BASE_URL, apiClient } from "./client";
 
 export interface PatientListItemResponse {
   petid: number;
@@ -80,7 +70,7 @@ export async function fetchDoctorPatientList(params: {
   keyword?: string;
   species?: string;
 }) {
-  const { data } = await patientApiClient.get<PatientListResponse>(
+  const { data } = await apiClient.get<PatientListResponse>(
     "/doctor/patient/list",
     {
       headers: {
@@ -105,7 +95,7 @@ export async function fetchDoctorPatientDetail(params: {
   accessToken: string;
   petid: number;
 }) {
-  const { data } = await patientApiClient.get<PatientDetailResponse>(
+  const { data } = await apiClient.get<PatientDetailResponse>(
     `/doctor/patient/${params.petid}`,
     {
       headers: {
@@ -169,7 +159,7 @@ export async function updatePatient(params: {
   payload: PatientUpdatePayload
 }) {
 
-  const { data } = await patientApiClient.put(
+  const { data } = await apiClient.put(
     `/doctor/patient/${params.petid}`,
     params.payload,
     {

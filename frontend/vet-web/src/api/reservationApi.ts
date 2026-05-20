@@ -1,10 +1,8 @@
-import axios from "axios"
-
-const BASE_URL = "http://localhost:8000"
+import { apiClient } from "./client"
 
 export const getReservations = async () => {
-  const response = await axios.get(
-    `${BASE_URL}/doctor/reservations`
+  const response = await apiClient.get(
+    "/doctor/reservations"
   )
 
   return response.data
@@ -15,8 +13,8 @@ export const updateReservationStatus = async (
   status: string
 ) => {
 
-  const response = await axios.patch(
-    `${BASE_URL}/doctor/reservations/${scheduleId}`,
+  const response = await apiClient.patch(
+    `/doctor/reservations/${scheduleId}`,
     { status }
   )
 
@@ -42,8 +40,8 @@ export const createReservation = async (
   payload: ReservationCreatePayload
 ) => {
 
-  const response = await axios.post(
-    `${BASE_URL}/doctor/reservations`,
+  const response = await apiClient.post(
+    "/doctor/reservations",
     payload
   )
 
@@ -55,8 +53,8 @@ export const updateReservation = async (
   payload: ReservationUpdatePayload
 ) => {
 
-  const response = await axios.put(
-    `${BASE_URL}/doctor/reservations/${scheduleId}`,
+  const response = await apiClient.put(
+    `/doctor/reservations/${scheduleId}`,
     payload
   )
 
@@ -65,8 +63,8 @@ export const updateReservation = async (
 
 export const deleteReservation = async (scheduleId: number) => {
 
-  const response = await axios.delete(
-    `${BASE_URL}/doctor/reservations/${scheduleId}`
+  const response = await apiClient.delete(
+    `/doctor/reservations/${scheduleId}`
   )
 
   return response.data

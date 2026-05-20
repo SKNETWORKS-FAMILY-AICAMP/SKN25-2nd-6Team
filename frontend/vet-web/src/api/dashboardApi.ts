@@ -1,4 +1,5 @@
 import axios, { AxiosError } from "axios";
+import { API_BASE_URL, apiClient } from "./client";
 
 export type VisitType = "emergency" | "semiEmergency" | "normal" | "checkup";
 
@@ -33,15 +34,12 @@ interface TodayDashboardResponse {
   result: TodayDashboardResult;
 }
 
-const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "/api";
-
 export async function getTodayDashboard(
   accessToken: string,
   date: string
 ): Promise<TodayDashboardResult> {
-  const { data } = await axios.get<TodayDashboardResponse>(
-    `${BASE_URL}/dashboard/today`,
+  const { data } = await apiClient.get<TodayDashboardResponse>(
+    "/dashboard/today",
     {
       headers: { Authorization: `Bearer ${accessToken}` },
       params: { date },
@@ -77,7 +75,7 @@ export function getDashboardApiErrorMessage(err: unknown) {
   }
 
   if (!axiosError.response) {
-    return `백엔드 서버에 연결할 수 없습니다. ${BASE_URL} 서버가 실행 중인지 확인해주세요.`;
+    return `백엔드 서버에 연결할 수 없습니다. ${API_BASE_URL} 서버가 실행 중인지 확인해주세요.`;
   }
 
   return (
