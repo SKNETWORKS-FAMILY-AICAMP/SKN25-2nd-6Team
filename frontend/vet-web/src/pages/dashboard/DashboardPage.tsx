@@ -1,18 +1,30 @@
-import { useMemo, useState } from "react";
-import { AuthSession } from "../../api/authApi";
-import AppLayout, { AppMenuId } from "../../layouts/AppLayout";
+import { useEffect, useMemo, useState } from "react";
 import {
-  DashboardSummary,
-  mockDashboardSummaries,
-  mockScheduleItems,
-  ScheduleItem,
+  getDashboardApiErrorMessage,
+  getDashboardApiErrorStatus,
+  getTodayDashboard,
+} from "../../api/dashboardApi";
+import type {
+  DashboardScheduleItem,
+  DashboardSummaries,
   VisitType,
-} from "./dashboardMockData";
+} from "../../api/dashboardApi";
+import type { AuthSession } from "../../api/authApi";
+import AppLayout, { type AppMenuId } from "../../layouts/AppLayout";
 
 interface DashboardPageProps {
   session: AuthSession;
   onLogout: () => void;
   onNavigate: (menuId: AppMenuId) => void;
+}
+
+type SummaryToneKey = "blue" | "orange" | "red" | "green";
+
+interface SummaryViewModel {
+  id: keyof DashboardSummaries;
+  label: string;
+  value: number;
+  tone: SummaryToneKey;
 }
 
 const timelineHours = [
@@ -29,7 +41,7 @@ const timelineHours = [
 ];
 
 const summaryToneStyle: Record<
-  DashboardSummary["tone"],
+  SummaryToneKey,
   { wrapper: string; value: string }
 > = {
   blue: {
@@ -86,8 +98,12 @@ function formatSelectedDate(date: Date) {
   return `${year}.${month}.${day} (${dayLabels[date.getDay()]})`;
 }
 
-function getItemByStartTime(startTime: string) {
-  return mockScheduleItems.find((item) => item.start === startTime);
+function formatApiDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function addDays(date: Date, amount: number) {
@@ -102,10 +118,85 @@ export default function DashboardPage({
   onNavigate,
 }: DashboardPageProps) {
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [summaries, setSummaries] = useState<DashboardSummaries>({
+    total: 0,
+    waiting: 0,
+    emergency: 0,
+    completed: 0,
+  });
+  const [scheduleItems, setScheduleItems] = useState<DashboardScheduleItem[]>(
+    []
+  );
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+
   const formattedDate = useMemo(
     () => formatSelectedDate(selectedDate),
     [selectedDate]
   );
+  const apiDate = useMemo(() => formatApiDate(selectedDate), [selectedDate]);
+
+  const schedulesByHour = useMemo(() => {
+    return scheduleItems.reduce<Record<string, DashboardScheduleItem[]>>(
+      (acc, item) => {
+        const [hour] = item.start.split(":");
+        const hourKey = `${hour}:00`;
+
+        acc[hourKey] = [...(acc[hourKey] ?? []), item];
+        return acc;
+      },
+      {}
+    );
+  }, [scheduleItems]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    getTodayDashboard(session.accessToken, apiDate)
+      .then((result) => {
+        if (cancelled) return;
+        setSummaries(result.summaries);
+        setScheduleItems(result.schedules);
+      })
+      .catch((err) => {
+        console.error("[dashboard] load failed", err);
+        if (!cancelled) {
+          const status = getDashboardApiErrorStatus(err);
+
+          setSummaries({
+            total: 0,
+            waiting: 0,
+            emergency: 0,
+            completed: 0,
+          });
+          setScheduleItems([]);
+          setErrorMessage(getDashboardApiErrorMessage(err));
+
+          if (status === 401) {
+            onLogout();
+          }
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session.accessToken, apiDate, onLogout]);
+
+  const summaryCards: SummaryViewModel[] = [
+    { id: "total", label: "전체 예약", value: summaries.total, tone: "blue" },
+    { id: "waiting", label: "대기 중", value: summaries.waiting, tone: "orange" },
+    { id: "emergency", label: "응급", value: summaries.emergency, tone: "red" },
+    { id: "completed", label: "진료 완료", value: summaries.completed, tone: "green" },
+  ];
 
   return (
     <AppLayout
@@ -127,7 +218,7 @@ export default function DashboardPage({
             </div>
 
             <div className="grid max-w-[780px] flex-1 grid-cols-4 gap-3">
-              {mockDashboardSummaries.map((summary) => (
+              {summaryCards.map((summary) => (
                 <SummaryCard key={summary.id} summary={summary} />
               ))}
             </div>
@@ -190,8 +281,20 @@ export default function DashboardPage({
             </div>
 
             <div className="px-5 py-3">
+              {errorMessage ? (
+                <div className="mb-3 rounded-lg border border-[#ffd5dc] bg-[#fff7f8] px-4 py-3 text-sm font-bold text-[#c9283e]">
+                  {errorMessage}
+                </div>
+              ) : null}
+
+              {isLoading ? (
+                <div className="mb-3 rounded-lg border border-[#edf1f6] bg-[#f8fafc] px-4 py-3 text-sm font-bold text-[#657188]">
+                  일정을 불러오는 중입니다.
+                </div>
+              ) : null}
+
               {timelineHours.map((hour) => {
-                const item = getItemByStartTime(hour);
+                const items = schedulesByHour[hour] ?? [];
                 const isLunchTime = hour === "13:00";
 
                 return (
@@ -205,8 +308,12 @@ export default function DashboardPage({
                           13:00 - 14:00
                           <span className="ml-5">점심시간</span>
                         </div>
-                      ) : item ? (
-                        <ScheduleRow item={item} />
+                      ) : items.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {items.map((item) => (
+                            <ScheduleRow key={item.id} item={item} />
+                          ))}
+                        </div>
                       ) : (
                         <div className="h-10 rounded-lg border border-[#edf1f6] bg-white" />
                       )}
@@ -234,7 +341,7 @@ export default function DashboardPage({
   );
 }
 
-function SummaryCard({ summary }: { summary: DashboardSummary }) {
+function SummaryCard({ summary }: { summary: SummaryViewModel }) {
   const tone = summaryToneStyle[summary.tone];
 
   return (
@@ -249,7 +356,7 @@ function SummaryCard({ summary }: { summary: DashboardSummary }) {
   );
 }
 
-function ScheduleRow({ item }: { item: ScheduleItem }) {
+function ScheduleRow({ item }: { item: DashboardScheduleItem }) {
   const type = visitTypeStyle[item.type];
 
   return (
