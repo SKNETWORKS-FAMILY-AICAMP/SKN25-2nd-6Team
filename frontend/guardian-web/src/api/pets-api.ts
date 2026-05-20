@@ -11,7 +11,6 @@ export interface Pet {
   age?: number;
   birth_date?: string;
   is_birth_unknown?: boolean;
-  weight?: number;
   weight_kg?: number;
   checkup_date?: string;
   is_checkup_unknown?: boolean;
@@ -39,7 +38,7 @@ const demoPets: Pet[] = [
     age: 4,
     birth_date: "2021-03-12",
     is_birth_unknown: false,
-    weight: 4.2,
+    weight_kg: 4.2,
     checkup_date: "2026-03-20",
     is_checkup_unknown: false,
     notes: "피부가 예민해서 간식 변경 시 알레르기 반응을 확인해주세요.",
@@ -55,7 +54,7 @@ const demoPets: Pet[] = [
     age: 3,
     birth_date: "2022-08-04",
     is_birth_unknown: false,
-    weight: 3.8,
+    weight_kg: 3.8,
     checkup_date: "2026-02-14",
     is_checkup_unknown: false,
     notes: "낯선 환경에서 긴장하는 편이라 이동장 적응 시간이 필요합니다.",
@@ -71,7 +70,7 @@ const demoPets: Pet[] = [
     age: 1,
     birth_date: "2024-11-18",
     is_birth_unknown: false,
-    weight: 2.9,
+    weight_kg: 2.9,
     checkup_date: "",
     is_checkup_unknown: true,
     notes: "예방접종 일정 확인이 필요합니다.",
@@ -105,7 +104,6 @@ const writeDemoPets = (pets: Pet[]) => {
 
 const normalizePet = (pet: Pet): Pet => ({
   ...pet,
-  weight: pet.weight ?? pet.weight_kg,
 });
 
 const normalizePetsResponse = <Response extends { result: Pet | Pet[] }>(
@@ -161,7 +159,7 @@ export interface CreatePetPayload {
   is_neutered: string;
   birth_date?: string;
   is_birth_unknown?: boolean;
-  weight: number;
+  weight_kg: number;
   checkup_date?: string;
   is_checkup_unknown?: boolean;
   notes?: string;

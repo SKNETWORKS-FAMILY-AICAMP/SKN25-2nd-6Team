@@ -32,6 +32,27 @@ export interface ChatSessionsResponse {
   result: ChatSessionHistory[];
 }
 
+export interface ChatSessionMessage {
+  role: "user" | "assistant";
+  content: string;
+  image_url?: string | null;
+}
+
+export interface ChatSessionDetailResult {
+  session_id: number;
+  pet_id: number;
+  messages: ChatSessionMessage[];
+  keywords: string[];
+  is_complete: boolean;
+  created_at: string;
+}
+
+export interface ChatSessionDetailResponse {
+  code: number;
+  message?: string;
+  result?: ChatSessionDetailResult;
+}
+
 export interface DeleteChatSessionResponse {
   code: number;
   message?: string;
@@ -141,6 +162,40 @@ export const getChatSessions = async (
       pet_id: petId,
     },
   });
+  return response.data;
+};
+
+export const getChatSession = async (
+  sessionId: number,
+): Promise<ChatSessionDetailResponse> => {
+  if (isDemoGuardian()) {
+    return {
+      code: 200,
+      result: {
+        session_id: sessionId,
+        pet_id: Math.floor(sessionId / 10),
+        messages: [
+          {
+            role: "user",
+            content: "코코가 지금 헐떡거려요",
+            image_url: null,
+          },
+          {
+            role: "assistant",
+            content: "안녕하세요! 반려동물의 증상에 대해 말씀해 주세요.",
+            image_url: null,
+          },
+        ],
+        keywords: ["헐떡거림"],
+        is_complete: false,
+        created_at: "2026-05-19 13:50:47",
+      },
+    };
+  }
+
+  const response = await apiClient.get<ChatSessionDetailResponse>(
+    `/chat/sessions/${sessionId}`,
+  );
   return response.data;
 };
 

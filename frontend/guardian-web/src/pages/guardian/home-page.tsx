@@ -268,10 +268,10 @@ const HomePage = () => {
                       <div className="mt-4 border-t border-slate-100 pt-4">
                         <div className="grid gap-2 sm:max-w-[620px] sm:grid-cols-3">
                           <Link
-                            to={`/pets/${pet.pet_id}/edit`}
+                            to={`/pets/${pet.pet_id}`}
                             className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
                           >
-                            정보 수정
+                            상세 보기
                           </Link>
                           <Link
                             to={`/chatbot?petId=${pet.pet_id}`}

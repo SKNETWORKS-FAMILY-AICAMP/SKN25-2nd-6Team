@@ -1,160 +1,19 @@
 import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { isAxiosError } from "axios";
-import { useMatch, useNavigate, useParams } from "react-router-dom";
+import { useMatch, useNavigate } from "react-router-dom";
 
 import pawOnlyLogo from "../../../../shared/assets/logo/medipaw-pawonly.png";
 import {
   createPet,
   getPet,
   updatePet,
-  type CreatePetPayload,
-  type Pet,
 } from "../../api/pets-api";
 import GuardianNavbar from "../../components/guardian-navbar";
+import PetForm from "../../components/pets/pet-form";
+import PetImageUploader from "../../components/pets/pet-image-uploader";
+import { usePetForm } from "../../hooks/use-pet-form";
 
-const speciesOptions = ["강아지", "고양이", "기타"];
-const genderOptions = ["수컷", "암컷", "모름"];
-const neuteredOptions = ["예", "아니오", "모름"];
-const defaultProfileImages = [
-  "/assets/profile1.png",
-  "/assets/profile2.png",
-  "/assets/profile3.png",
-  "/assets/profile4.png",
-  "/assets/profile5.png",
-  "/assets/profile6.png",
-];
 const maxImageSize = 5 * 1024 * 1024;
-const maxNotesLength = 200;
-
-interface FormState {
-  petname: string;
-  species: string;
-  customSpecies: string;
-  breed: string;
-  gender: string;
-  isNeutered: string;
-  birthDate: string;
-  isBirthUnknown: boolean;
-  weight: string;
-  checkupDate: string;
-  isCheckupUnknown: boolean;
-  notes: string;
-}
-
-type FormErrors = Partial<Record<keyof FormState | "profileImage", string>>;
-type PetPayload = CreatePetPayload & {
-  breed?: string;
-  birth_date?: string;
-  checkup_date?: string;
-  notes?: string;
-};
-
-const initialForm: FormState = {
-  petname: "",
-  species: "",
-  customSpecies: "",
-  breed: "",
-  gender: "",
-  isNeutered: "",
-  birthDate: "",
-  isBirthUnknown: false,
-  weight: "",
-  checkupDate: "",
-  isCheckupUnknown: false,
-  notes: "",
-};
-
-const inputClass =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
-const selectClass =
-  "h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100";
-const errorInputClass = "border-red-400 focus:border-red-500 focus:ring-red-100";
-const labelClass = "text-sm font-black text-slate-800";
-
-const FieldError = ({ message }: { message?: string }) =>
-  message ? <p className="mt-1 text-[10px] font-semibold text-red-500">{message}</p> : null;
-
-const RequiredMark = () => <span className="ml-0.5 text-red-500">*</span>;
-
-const getRandomDefaultProfileImage = () => {
-  const randomIndex = Math.floor(Math.random() * defaultProfileImages.length);
-  return defaultProfileImages[randomIndex];
-};
-
-const normalizeDate = (date?: string) => date?.slice(0, 10) || "";
-
-const normalizeGender = (gender?: string) => {
-  if (gender === "male" || gender === "남아") {
-    return "수컷";
-  }
-
-  if (gender === "female" || gender === "여아") {
-    return "암컷";
-  }
-
-  return genderOptions.includes(gender || "") ? gender || "" : "";
-};
-
-const normalizeNeutered = (isNeutered?: string) =>
-  neuteredOptions.includes(isNeutered || "") ? isNeutered || "" : "";
-
-const getFormFromPet = (pet: Pet): FormState => {
-  const isKnownSpecies = speciesOptions.includes(pet.species || "");
-
-  return {
-    petname: pet.petname || "",
-    species: isKnownSpecies ? pet.species || "" : pet.species ? "기타" : "",
-    customSpecies: isKnownSpecies ? "" : pet.species || "",
-    breed: pet.breed || "",
-    gender: normalizeGender(pet.gender),
-    isNeutered: normalizeNeutered(pet.is_neutered),
-    birthDate: normalizeDate(pet.birth_date),
-    isBirthUnknown: Boolean(pet.is_birth_unknown),
-    weight: pet.weight ? String(pet.weight) : "",
-    checkupDate: normalizeDate(pet.checkup_date),
-    isCheckupUnknown: Boolean(pet.is_checkup_unknown),
-    notes: pet.notes || "",
-  };
-};
-
-const getPayloadFromForm = (
-  formState: FormState,
-  profileImage?: string,
-): PetPayload => ({
-  petname: formState.petname.trim(),
-  species:
-    formState.species === "기타"
-      ? formState.customSpecies.trim()
-      : formState.species,
-  breed: formState.breed.trim(),
-  gender: formState.gender,
-  is_neutered: formState.isNeutered,
-  birth_date:
-    !formState.isBirthUnknown && formState.birthDate ? formState.birthDate : "",
-  is_birth_unknown: formState.isBirthUnknown,
-  weight: Number(formState.weight),
-  checkup_date:
-    !formState.isCheckupUnknown && formState.checkupDate
-      ? formState.checkupDate
-      : "",
-  is_checkup_unknown: formState.isCheckupUnknown,
-  notes: formState.notes.trim(),
-  ...(profileImage ? { profile_image: profileImage } : {}),
-});
-
-const getChangedPayload = (
-  currentPayload: PetPayload,
-  originalPayload: PetPayload,
-) =>
-  (Object.keys(currentPayload) as Array<keyof PetPayload>).reduce<
-    Partial<CreatePetPayload>
-  >((changedPayload, key) => {
-    if (currentPayload[key] !== originalPayload[key]) {
-      return { ...changedPayload, [key]: currentPayload[key] };
-    }
-
-    return changedPayload;
-  }, {});
 
 const PawIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
   <svg viewBox="0 0 24 24" aria-hidden="true" className={className} fill="currentColor">
@@ -162,86 +21,62 @@ const PawIcon = ({ className = "h-3.5 w-3.5" }: { className?: string }) => (
   </svg>
 );
 
-const CameraIcon = () => (
-  <svg
-    viewBox="0 0 24 24"
-    aria-hidden="true"
-    className="h-5 w-5"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <path d="M4 8h3l1.5-2h7L17 8h3v10H4V8Z" />
-    <path d="M9 13a3 3 0 1 0 6 0 3 3 0 0 0-6 0Z" />
-  </svg>
-);
-
-const choiceTone = {
-  blue: "border-blue-300 bg-blue-50 text-blue-700",
-  pink: "border-pink-300 bg-pink-50 text-pink-700",
-  green: "border-emerald-300 bg-emerald-50 text-emerald-700",
-  orange: "border-orange-300 bg-orange-50 text-orange-700",
-  purple: "border-indigo-300 bg-indigo-50 text-indigo-700",
-  slate: "border-slate-300 bg-slate-50 text-slate-700",
-};
-
-const getChoiceClass = (
-  isSelected: boolean,
-  tone: keyof typeof choiceTone = "slate",
-) =>
-  [
-    "flex h-11 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-black transition",
-    isSelected
-      ? choiceTone[tone]
-      : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/60",
-  ].join(" ");
-
 const PetRegisterPage = () => {
   const navigate = useNavigate();
+  const detailRouteMatch = useMatch("/pets/:petId");
   const editRouteMatch = useMatch("/pets/:petId/edit");
-  const { petId } = useParams();
   const isEditRoute = Boolean(editRouteMatch);
-  const parsedPetId = petId ? Number(petId) : NaN;
-  const isValidEditPetId =
-    isEditRoute && Number.isFinite(parsedPetId) && parsedPetId > 0;
-  const editPetId = isValidEditPetId ? parsedPetId : undefined;
-  const isEditMode = isEditRoute && isValidEditPetId;
+  const detailPetId = detailRouteMatch?.params.petId;
+  const editPetId = editRouteMatch?.params.petId;
+  const isDetailRoute = Boolean(detailRouteMatch && detailPetId !== "register");
+  const routePetId = isEditRoute ? editPetId : isDetailRoute ? detailPetId : undefined;
+  const parsedPetId = routePetId ? Number(routePetId) : NaN;
+  const isPetDataRoute = isDetailRoute || isEditRoute;
+  const isValidPetId =
+    isPetDataRoute && Number.isFinite(parsedPetId) && parsedPetId > 0;
+  const selectedPetId = isValidPetId ? parsedPetId : undefined;
+  const isDetailMode = isDetailRoute && isValidPetId;
+  const isEditMode = isEditRoute && isValidPetId;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const customSpeciesInputRef = useRef<HTMLInputElement | null>(null);
-  const [form, setForm] = useState<FormState>(initialForm);
-  const [originalForm, setOriginalForm] = useState<FormState | null>(null);
-  const [errors, setErrors] = useState<FormErrors>({});
-  const [previewUrl, setPreviewUrl] = useState("");
-  const [originalPreviewUrl, setOriginalPreviewUrl] = useState("");
+  const {
+    form,
+    errors,
+    previewUrl,
+    setErrors,
+    setPreviewUrl,
+    resetPetFormState,
+    applyPetToForm,
+    updateForm,
+    handleNameChange,
+    handleNotesChange,
+    validateForm,
+    buildPayload,
+    buildUpdatePayload,
+  } = usePetForm({ customSpeciesInputRef });
   const [submitMessage, setSubmitMessage] = useState("");
   const [loadMessage, setLoadMessage] = useState(
-    isEditRoute && !isValidEditPetId ? "잘못된 접근입니다." : "",
+    isPetDataRoute && !isValidPetId ? "잘못된 접근입니다." : "",
   );
-  const [isLoading, setIsLoading] = useState(Boolean(isEditMode));
+  const [isLoading, setIsLoading] = useState(Boolean(isDetailMode || isEditMode));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (isEditRoute && !isValidEditPetId) {
-      setForm(initialForm);
-      setOriginalForm(null);
-      setPreviewUrl("");
-      setOriginalPreviewUrl("");
+    if (isPetDataRoute && !isValidPetId) {
+      resetPetFormState();
       setLoadMessage("잘못된 접근입니다.");
       setIsLoading(false);
       return;
     }
 
-    if (!isEditRoute) {
-      setForm(initialForm);
-      setOriginalForm(null);
-      setPreviewUrl("");
-      setOriginalPreviewUrl("");
+    if (!isPetDataRoute) {
+      resetPetFormState();
       setLoadMessage("");
       setIsLoading(false);
       return;
     }
 
-    if (!editPetId) {
+    if (!selectedPetId) {
       return;
     }
 
@@ -252,7 +87,7 @@ const PetRegisterPage = () => {
         setIsLoading(true);
         setLoadMessage("");
 
-        const response = await getPet(editPetId);
+        const response = await getPet(selectedPetId);
         if (!isMounted) {
           return;
         }
@@ -262,13 +97,7 @@ const PetRegisterPage = () => {
           return;
         }
 
-        const loadedForm = getFormFromPet(response.result);
-        const loadedProfileImage = response.result.profile_image || "";
-
-        setForm(loadedForm);
-        setOriginalForm(loadedForm);
-        setPreviewUrl(loadedProfileImage);
-        setOriginalPreviewUrl(loadedProfileImage);
+        applyPetToForm(response.result);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -295,32 +124,17 @@ const PetRegisterPage = () => {
     return () => {
       isMounted = false;
     };
-  }, [editPetId, isEditRoute, isValidEditPetId]);
+  }, [applyPetToForm, isPetDataRoute, isValidPetId, resetPetFormState, selectedPetId]);
 
   const closeModal = () => {
     navigate("/home");
   };
 
-  const updateForm = <Key extends keyof FormState>(
-    key: Key,
-    value: FormState[Key],
-  ) => {
-    setForm((current) => ({ ...current, [key]: value }));
-
-    if (errors[key]) {
-      setErrors((current) => ({ ...current, [key]: undefined }));
-    }
-  };
-
-  const handleNameChange = (event: ChangeEvent<HTMLInputElement>) => {
-    updateForm("petname", event.target.value.slice(0, 15));
-  };
-
-  const handleNotesChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
-    updateForm("notes", event.target.value.slice(0, maxNotesLength));
-  };
-
   const handleImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (isDetailMode) {
+      return;
+    }
+
     const file = event.target.files?.[0];
 
     if (!file) {
@@ -359,70 +173,13 @@ const PetRegisterPage = () => {
     reader.readAsDataURL(file);
   };
 
-  const validateForm = () => {
-    const nextErrors: FormErrors = {};
-
-    if (!form.petname.trim()) {
-      nextErrors.petname = "반려동물 이름을 입력해주세요.";
-    }
-
-    if (!form.species) {
-      nextErrors.species = "종을 선택해주세요.";
-    }
-
-    if (form.species === "기타" && !form.customSpecies.trim()) {
-      nextErrors.customSpecies = "종 정보를 입력해주세요.";
-    }
-
-    if (!form.gender) {
-      nextErrors.gender = "성별을 선택해주세요.";
-    }
-
-    if (!form.isNeutered) {
-      nextErrors.isNeutered = "중성화 여부를 선택해주세요.";
-    }
-
-    if (!form.weight.trim()) {
-      nextErrors.weight = "몸무게를 입력해주세요.";
-    } else if (Number.isNaN(Number(form.weight)) || Number(form.weight) <= 0) {
-      nextErrors.weight = "몸무게를 올바르게 입력해주세요.";
-    }
-
-    setErrors(nextErrors);
-
-    if (nextErrors.customSpecies) {
-      window.setTimeout(() => customSpeciesInputRef.current?.focus(), 0);
-    }
-
-    return Object.keys(nextErrors).length === 0;
-  };
-
-  const buildPayload = (): CreatePetPayload => {
-    const payload = getPayloadFromForm(form);
-
-    if (!previewUrl) {
-      payload.profile_image = getRandomDefaultProfileImage();
-    } else {
-      payload.profile_image = previewUrl;
-    }
-
-    return payload;
-  };
-
-  const buildUpdatePayload = (): Partial<CreatePetPayload> => {
-    if (!originalForm) {
-      return getPayloadFromForm(form, previewUrl);
-    }
-
-    const originalPayload = getPayloadFromForm(originalForm, originalPreviewUrl);
-    const currentPayload = getPayloadFromForm(form, previewUrl);
-
-    return getChangedPayload(currentPayload, originalPayload);
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setSubmitMessage("");
+
+    if (isDetailMode) {
+      return;
+    }
 
     if (!validateForm()) {
       return;
@@ -442,12 +199,12 @@ const PetRegisterPage = () => {
 
       let petIdToRefresh: number | undefined;
       const response =
-        isEditMode && editPetId
-          ? await updatePet(editPetId, updatePayload || {})
+        isEditMode && selectedPetId
+          ? await updatePet(selectedPetId, updatePayload || {})
           : await createPet(buildPayload());
 
       if (isEditMode) {
-        petIdToRefresh = editPetId;
+        petIdToRefresh = selectedPetId;
       } else {
         petIdToRefresh = (response as { result?: { pet_id?: number } }).result
           ?.pet_id;
@@ -509,11 +266,21 @@ const PetRegisterPage = () => {
             />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-slate-950">
-              {isEditRoute ? "반려동물 수정하기" : "반려동물 등록하기"}
+            <h1
+              className={`font-black text-slate-950 ${
+                isDetailMode ? "text-xl" : "text-2xl"
+              }`}
+            >
+              {isDetailMode
+                ? "반려동물 상세 정보"
+                : isEditRoute
+                  ? "반려동물 수정하기"
+                  : "반려동물 등록하기"}
             </h1>
             <p className="mt-1 text-sm font-semibold text-slate-500">
-              반려동물 정보를 입력해주세요.
+              {isDetailMode
+                ? "등록된 반려동물 정보를 확인해주세요."
+                : "반려동물 정보를 입력해주세요."}
             </p>
           </div>
         </section>
@@ -541,48 +308,13 @@ const PetRegisterPage = () => {
         ) : (
         <div className="mt-6 grid gap-6 lg:grid-cols-[340px_1fr]">
           <aside className="space-y-6">
-            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-black text-slate-900">대표 사진</h2>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="relative mt-5 flex h-72 w-full flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed border-violet-200 bg-gradient-to-b from-violet-50 to-white text-center transition hover:border-violet-300 hover:bg-violet-50"
-              >
-                {previewUrl ? (
-                  <img
-                    src={previewUrl}
-                    alt="대표 사진 미리보기"
-                    className="h-full w-full object-contain"
-                  />
-                ) : (
-                  <>
-                    <span className="absolute left-6 top-6 text-4xl text-violet-100">
-                      ♡
-                    </span>
-                    <span className="absolute bottom-7 right-7 text-4xl text-violet-100">
-                      <PawIcon className="h-9 w-9" />
-                    </span>
-                    <span className="flex h-20 w-20 items-center justify-center rounded-full bg-violet-100 text-violet-600">
-                      <CameraIcon />
-                    </span>
-                    <span className="mt-6 text-base font-black text-slate-800">
-                      사진을 업로드해주세요
-                    </span>
-                    <span className="mt-2 text-sm font-semibold text-slate-500">
-                      JPG, PNG 최대 5MB
-                    </span>
-                  </>
-                )}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png"
-                onChange={handleImageChange}
-                className="hidden"
-              />
-              <FieldError message={errors.profileImage} />
-            </section>
+            <PetImageUploader
+              previewUrl={previewUrl}
+              isDetailMode={isDetailMode}
+              fileInputRef={fileInputRef}
+              onImageChange={handleImageChange}
+              errorMessage={errors.profileImage}
+            />
 
             <section className="relative overflow-hidden rounded-2xl bg-violet-50 p-6 ring-1 ring-violet-100">
               <div className="flex items-center gap-2 text-violet-700">
@@ -590,8 +322,17 @@ const PetRegisterPage = () => {
                 <h2 className="text-lg font-black">안내사항</h2>
               </div>
               <ul className="mt-6 space-y-4 pr-6 text-sm font-semibold leading-6 text-slate-700">
-                <li>입력하지 않은 항목은 나중에 반려동물 관리에서 수정할 수 있습니다.</li>
-                <li>정확한 정보는 AI 상담과 진료 예약 정확도 향상에 도움이 됩니다.</li>
+                {isDetailMode ? (
+                  <>
+                    <li>수정이 필요한 정보가 있다면 하단의 수정하기 버튼을 눌러주세요.</li>
+                    <li>정확한 정보는 AI 상담과 진료 예약 정확도 향상에 도움이 됩니다.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>입력하지 않은 항목은 나중에 반려동물 관리에서 수정할 수 있습니다.</li>
+                    <li>정확한 정보는 AI 상담과 진료 예약 정확도 향상에 도움이 됩니다.</li>
+                  </>
+                )}
               </ul>
               <div className="pointer-events-none mt-8 flex justify-center gap-3 text-6xl leading-none">
                 <span>🐶</span>
@@ -604,262 +345,15 @@ const PetRegisterPage = () => {
             onSubmit={handleSubmit}
             className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
           >
-            <section className="p-6">
-              <div className="mb-5 flex items-center gap-2 text-violet-700">
-                <PawIcon className="h-5 w-5" />
-                <h2 className="text-lg font-black">기본 정보</h2>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label htmlFor="petname" className={labelClass}>
-                    이름
-                    <RequiredMark />
-                  </label>
-                  <input
-                    id="petname"
-                    value={form.petname}
-                    onChange={handleNameChange}
-                    placeholder="예시) 몽몽이"
-                    className={`${inputClass} mt-2 ${
-                      errors.petname ? errorInputClass : ""
-                    }`}
-                  />
-                  <FieldError message={errors.petname} />
-                </div>
-
-                <div>
-                  <label htmlFor="gender" className={labelClass}>
-                    성별
-                    <RequiredMark />
-                  </label>
-                  <select
-                    id="gender"
-                    value={form.gender}
-                    onChange={(event) => updateForm("gender", event.target.value)}
-                    className={`${selectClass} mt-2 ${
-                      errors.gender ? errorInputClass : ""
-                    }`}
-                  >
-                    <option value="">선택해주세요</option>
-                    {genderOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <FieldError message={errors.gender} />
-                </div>
-
-                <div>
-                  <label htmlFor="weight" className={labelClass}>
-                    몸무게
-                    <RequiredMark />
-                  </label>
-                  <div className="relative mt-2">
-                    <input
-                      id="weight"
-                      type="number"
-                      min="0"
-                      step="0.1"
-                      value={form.weight}
-                      onChange={(event) => updateForm("weight", event.target.value)}
-                      placeholder="예) 4.2"
-                      className={`${inputClass} pr-12 ${
-                        errors.weight ? errorInputClass : ""
-                      }`}
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
-                      kg
-                    </span>
-                  </div>
-                  <FieldError message={errors.weight} />
-                </div>
-
-                <div>
-                  <label htmlFor="is-neutered" className={labelClass}>
-                    중성화 여부
-                    <RequiredMark />
-                  </label>
-                  <select
-                    id="is-neutered"
-                    value={form.isNeutered}
-                    onChange={(event) =>
-                      updateForm("isNeutered", event.target.value)
-                    }
-                    className={`${selectClass} mt-2 ${
-                      errors.isNeutered ? errorInputClass : ""
-                    }`}
-                  >
-                    <option value="">선택해주세요</option>
-                    {neuteredOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                  <FieldError message={errors.isNeutered} />
-                </div>
-              </div>
-            </section>
-
-            <section className="border-t border-slate-100 p-6">
-              <div className="mb-5 flex items-center gap-2 text-violet-700">
-                <PawIcon className="h-5 w-5" />
-                <h2 className="text-lg font-black">종류</h2>
-              </div>
-
-              <div>
-                <label className={labelClass}>
-                  종
-                  <RequiredMark />
-                </label>
-                <div className="mt-2 grid gap-3 sm:grid-cols-3">
-                  {speciesOptions.map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => {
-                        updateForm("species", option);
-                        if (option !== "기타") {
-                          updateForm("customSpecies", "");
-                        }
-                      }}
-                      className={getChoiceClass(
-                        form.species === option,
-                        option === "기타" ? "purple" : "slate",
-                      )}
-                    >
-                      <span>
-                        {option === "강아지"
-                          ? "🐶"
-                          : option === "고양이"
-                            ? "🐱"
-                            : "+"}
-                      </span>
-                      {option}
-                    </button>
-                  ))}
-                </div>
-                <FieldError message={errors.species} />
-              </div>
-
-              <div className="mt-4">
-                <input
-                  ref={customSpeciesInputRef}
-                  value={form.customSpecies}
-                  disabled={form.species !== "기타"}
-                  onChange={(event) =>
-                    updateForm("customSpecies", event.target.value)
-                  }
-                  placeholder="직접 입력해주세요. 예: 카피바라"
-                  className={`${inputClass} disabled:bg-slate-50 disabled:text-slate-400 ${
-                    errors.customSpecies ? errorInputClass : ""
-                  }`}
-                />
-                <FieldError message={errors.customSpecies} />
-              </div>
-
-              <div className="mt-4">
-                <label htmlFor="breed" className={labelClass}>
-                  품종 (선택)
-                </label>
-                <input
-                  id="breed"
-                  value={form.breed}
-                  onChange={(event) => updateForm("breed", event.target.value)}
-                  placeholder="예) 말티즈, 코리안숏헤어 등"
-                  className={`${inputClass} mt-2`}
-                />
-              </div>
-            </section>
-
-            <section className="border-t border-slate-100 p-6">
-              <div className="mb-5 flex items-center gap-2 text-violet-700">
-                <PawIcon className="h-5 w-5" />
-                <h2 className="text-lg font-black">건강 정보</h2>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <label htmlFor="birth-date" className={labelClass}>
-                    생년월일
-                  </label>
-                  <input
-                    id="birth-date"
-                    type="date"
-                    value={form.birthDate}
-                    disabled={form.isBirthUnknown}
-                    onChange={(event) => updateForm("birthDate", event.target.value)}
-                    className={`${inputClass} mt-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:placeholder:text-slate-400`}
-                  />
-                  <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={form.isBirthUnknown}
-                      onChange={(event) => {
-                        updateForm("isBirthUnknown", event.target.checked);
-                        if (event.target.checked) {
-                          updateForm("birthDate", "");
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
-                    />
-                    날짜를 모르겠어요
-                  </label>
-                </div>
-
-                <div>
-                  <label htmlFor="checkup-date" className={labelClass}>
-                    마지막 정기검진
-                  </label>
-                  <input
-                    id="checkup-date"
-                    type="date"
-                    value={form.checkupDate}
-                    disabled={form.isCheckupUnknown}
-                    onChange={(event) =>
-                      updateForm("checkupDate", event.target.value)
-                    }
-                    className={`${inputClass} mt-2 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 disabled:placeholder:text-slate-400`}
-                  />
-                  <label className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={form.isCheckupUnknown}
-                      onChange={(event) => {
-                        updateForm("isCheckupUnknown", event.target.checked);
-                        if (event.target.checked) {
-                          updateForm("checkupDate", "");
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
-                    />
-                    검진 날짜를 모르겠어요
-                  </label>
-                </div>
-
-                <div className="md:col-span-2">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor="notes" className={labelClass}>
-                      특이사항 (선택)
-                    </label>
-                  </div>
-                  <div className="relative mt-2">
-                    <textarea
-                      id="notes"
-                      value={form.notes}
-                      onChange={handleNotesChange}
-                      placeholder="알레르기, 질병 이력, 성격 등 간단히 입력해주세요."
-                      className="h-[88px] w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 pb-7 text-sm font-semibold leading-5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                    />
-                    <span className="absolute bottom-3 right-4 text-xs font-bold text-slate-400">
-                      {form.notes.length} / {maxNotesLength}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </section>
+            <PetForm
+              form={form}
+              errors={errors}
+              isDetailMode={isDetailMode}
+              customSpeciesInputRef={customSpeciesInputRef}
+              updateForm={updateForm}
+              handleNameChange={handleNameChange}
+              handleNotesChange={handleNotesChange}
+            />
 
             {submitMessage ? (
               <p className="mx-6 mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-bold text-red-600">
@@ -873,22 +367,33 @@ const PetRegisterPage = () => {
                 onClick={closeModal}
                 className="h-11 min-w-32 rounded-xl border border-slate-200 bg-white px-6 text-sm font-black text-slate-700 transition hover:bg-slate-50"
               >
-                취소
+                {isDetailMode ? "목록으로" : "취소"}
               </button>
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:from-violet-300 disabled:to-indigo-300"
-              >
-                <PawIcon className="h-4 w-4" />
-                {isSubmitting
-                  ? isEditMode
-                    ? "수정 중..."
-                    : "등록 중..."
-                  : isEditMode
-                    ? "수정하기"
-                    : "등록하기"}
-              </button>
+              {isDetailMode ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/pets/${selectedPetId}/edit`)}
+                  className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700"
+                >
+                  <PawIcon className="h-4 w-4" />
+                  수정하기
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex h-11 min-w-40 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 text-sm font-black text-white shadow-sm transition hover:from-violet-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:from-violet-300 disabled:to-indigo-300"
+                >
+                  <PawIcon className="h-4 w-4" />
+                  {isSubmitting
+                    ? isEditMode
+                      ? "수정 중..."
+                      : "등록 중..."
+                    : isEditMode
+                      ? "수정하기"
+                      : "등록하기"}
+                </button>
+              )}
             </footer>
           </form>
         </div>

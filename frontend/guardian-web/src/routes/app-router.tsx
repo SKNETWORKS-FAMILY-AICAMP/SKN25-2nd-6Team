@@ -21,6 +21,7 @@ const AppRouter = () => {
           <Route path="/home" element={<HomePage />} />
           <Route path="/chatbot" element={<ChatbotPage />} />
           <Route path="/pets/register" element={<PetRegisterPage />} />
+          <Route path="/pets/:petId" element={<PetRegisterPage />} />
           <Route path="/pets/:petId/edit" element={<PetRegisterPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/login" replace />} />
