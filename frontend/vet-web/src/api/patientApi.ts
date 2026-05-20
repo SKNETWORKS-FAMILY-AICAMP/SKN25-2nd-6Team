@@ -1,6 +1,7 @@
 import axios, { AxiosError } from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "/api";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "/api";
 
 const patientApiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -42,6 +43,7 @@ export interface PatientDetailResponse {
       species: "강아지" | "고양이" | string;
       breed: string;
       gender: "male" | "female" | string;
+      is_neutered: boolean;
       birth_date: string;
       age: string;
       weight_kg: number;
@@ -151,3 +153,32 @@ export function getPatientApiErrorMessage(err: unknown, fallbackMessage: string)
   );
 }
 
+export interface PatientUpdatePayload {
+  petname?: string
+  species?: string
+  breed?: string
+  gender?: string
+  is_neutered?: boolean
+  birth_date?: string
+  weight_kg?: number
+  notes?: string
+}
+
+export async function updatePatient(params: {
+  accessToken: string
+  petid: number
+  payload: PatientUpdatePayload
+}) {
+
+  const { data } = await patientApiClient.put(
+    `/doctor/patient/${params.petid}`,
+    params.payload,
+    {
+      headers: {
+        Authorization: `Bearer ${params.accessToken}`,
+      },
+    }
+  )
+
+  return data
+}
