@@ -162,3 +162,4 @@ async def find_password(request: FindPasswordRequest, db: AsyncSession = Depends
             "temp_password": temp_password
         }
     }
+
