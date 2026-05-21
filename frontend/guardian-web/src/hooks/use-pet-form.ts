@@ -119,13 +119,15 @@ export const getPayloadFromForm = (
   gender: formState.gender,
   is_neutered: formState.isNeutered,
   birth_date:
-    !formState.isBirthUnknown && formState.birthDate ? formState.birthDate : "",
+    !formState.isBirthUnknown && formState.birthDate
+      ? formState.birthDate
+      : undefined,
   is_birth_unknown: formState.isBirthUnknown,
   weight_kg: Number(formState.weight),
   checkup_date:
     !formState.isCheckupUnknown && formState.checkupDate
       ? formState.checkupDate
-      : "",
+      : undefined,
   is_checkup_unknown: formState.isCheckupUnknown,
   notes: formState.notes.trim(),
   ...(profileImage ? { profile_image: profileImage } : {}),

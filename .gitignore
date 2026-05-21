@@ -3,8 +3,12 @@ __pycache__/
 *.py[cod]
 *.pyo
 
-# Environment
+# Environment (절대 커밋 금지)
+.env
+.env.*
+!.env.example
 backend/.env
+ai/docker/.env
 
 # IDE
 .vscode/
@@ -26,6 +30,9 @@ venv/
 
 # Local agent instructions
 AGENTS.md
+
+# Claude Code AI 메모리 (로컬 전용)
+.claude/
 
 
 *.log

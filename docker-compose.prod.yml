@@ -1,0 +1,104 @@
+version: "3.9"
+
+# Windows PC / 운영 환경용 — 이미지를 Docker Hub에서 pull해서 실행
+# 사용법:
+#   1. .env 파일 준비 (아래 항목 채우기)
+#   2. docker compose -f docker-compose.prod.yml pull
+#   3. docker compose -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: medipaw
+      POSTGRES_USER: medipaw
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medipaw_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medipaw"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - medipaw_net
+
+  backend:
+    image: chany0812/medipaw-backend:latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://medipaw:${POSTGRES_PASSWORD:-medipaw_secret}@db:5432/medipaw
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 120
+      REFRESH_TOKEN_EXPIRE_DAYS: 14
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-medipaw-bucket}
+      CLOUDFRONT_URL: ${CLOUDFRONT_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      DEBUG: false
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads_data:/app/backend/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - medipaw_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  migrate:
+    image: chany0812/medipaw-backend:latest
+    command: bash -c "cd /app/backend && alembic upgrade head"
+    environment:
+      DATABASE_URL: postgresql://medipaw:${POSTGRES_PASSWORD:-medipaw_secret}@db:5432/medipaw
+      SECRET_KEY: ${SECRET_KEY:-change-me}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-dummy}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-dummy}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-medipaw-bucket}
+      CLOUDFRONT_URL: ${CLOUDFRONT_URL:-http://localhost}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - medipaw_net
+    restart: "no"
+
+  guardian:
+    image: chany0812/medipaw-guardian:latest
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - medipaw_net
+
+  vet:
+    image: chany0812/medipaw-vet:latest
+    restart: unless-stopped
+    ports:
+      - "5174:5174"
+    depends_on:
+      - backend
+    networks:
+      - medipaw_net
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  medipaw_net:
+    driver: bridge

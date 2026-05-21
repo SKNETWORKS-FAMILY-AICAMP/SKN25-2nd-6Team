@@ -1,0 +1,33 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 시스템 패키지 (psycopg2 빌드용)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 의존성 설치 (캐시 레이어)
+COPY backend/requirements.txt /tmp/requirements.txt
+COPY ai/requirements-ai.txt /tmp/requirements-ai.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+ && pip install --no-cache-dir -r /tmp/requirements-ai.txt
+
+# 소스 복사
+COPY backend/ /app/backend/
+COPY ai/ /app/ai/
+
+WORKDIR /app/backend
+
+# ai 패키지를 import할 수 있도록 /app을 PYTHONPATH에 추가
+ENV PYTHONPATH=/app
+
+# 업로드 디렉토리 생성
+RUN mkdir -p uploads
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD curl -f http://localhost:8000/docs || exit 1
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

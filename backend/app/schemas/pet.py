@@ -17,13 +17,20 @@ class PetCreate(BaseModel):
     notes: Optional[str] = None
     profile_image: Optional[str] = None
 
+    @field_validator("birth_date", "checkup_date", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        return None if v == "" else v
+
     @field_validator("petname")
+    @classmethod
     def petname_max_length(cls, v):
         if len(v) > 10:
             raise ValueError("반려동물 이름은 최대 10자입니다.")
         return v
 
     @field_validator("notes")
+    @classmethod
     def notes_max_length(cls, v):
         if v and len(v) > 200:
             raise ValueError("특이사항은 최대 200자입니다.")

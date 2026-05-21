@@ -22,9 +22,6 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str
     OPENAI_MODEL: str = "gpt-4o"
 
-    # RabbitMQ
-    RABBITMQ_URL: str
-
     # 서버 설정
     DEBUG: bool = True
     ALLOWED_ORIGINS: str = "http://localhost:3000"
