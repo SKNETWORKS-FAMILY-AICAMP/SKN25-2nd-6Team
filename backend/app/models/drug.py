@@ -9,4 +9,3 @@ class Drug(Base):
     name = Column(String, nullable=False)
     ingredient_kr = Column(String, nullable=False)
     ingredient_en = Column(String, nullable=False)
-    usage_method = Column(String, nullable=False)
