@@ -149,7 +149,7 @@ export default function ReservationPage({
     } catch (error) {
       console.error("예약 저장 실패:", error);
       const message =
-        (axios.isAxiosError(error) && error.response?.data?.detail) ||
+        (axios.isAxiosError(error) && (error.response?.data?.message || error.response?.data?.detail)) ||
         "예약 저장에 실패했습니다.";
       alert(message);
     }

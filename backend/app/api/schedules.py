@@ -153,6 +153,31 @@ async def get_schedules(
     }
 
 
+# 빈 슬롯 조회
+@router.get("/available")
+async def get_available(
+    date: str = Query(...),
+    duration_min: int = Query(...),
+    doctorid: int = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    slots = await get_available_slots(db, date, duration_min, doctorid)
+
+    return {
+        "code": 200,
+        "result": [
+            {
+                "start_time": slot.start_time,
+                "end_time": slot.end_time,
+                "doctorid": slot.doctorid,
+                "doctor_name": slot.doctor_name,
+            }
+            for slot in slots
+        ]
+    }
+
+
 # 예약 조회
 @router.get("/{schedule_id}", status_code=200)
 async def get_schedule(
@@ -249,44 +274,12 @@ async def update_schedule(
     if schedule.confirmed_time.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="이미 지난 예약은 변경할 수 없습니다.")
 
-    result = await update_schedule_time(db, schedule, request.confirmed_time, request.duration_min)
+    result = await update_schedule_time(db, schedule, request.confirmed_time, schedule.duration_min)
 
     if not result:
         raise HTTPException(status_code=409, detail="선택하신 시간에 이미 예약이 있습니다.")
 
     return {"code": 200, "message": "예약이 변경되었습니다."}
-
-
-# 빈 슬롯 조회
-@router.get("/available")
-async def get_available(
-    date: str = Query(...),
-    duration_min: int = Query(...),
-    doctorid: int = Query(None),
-    db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    slots = await get_available_slots(db, date, duration_min, doctorid)
-
-    doctor = None
-    if slots:
-        doctor_result = await db.execute(
-            select(Doctor).where(Doctor.doctorid == slots[0].doctorid)
-        )
-        doctor = doctor_result.scalar_one_or_none()
-
-    return {
-        "code": 200,
-        "result": [
-            {
-                "start_time": str(slot.start_time),
-                "end_time": str(slot.end_time),
-                "doctorid": slot.doctorid,
-                "doctor_name": doctor.doctor_name if doctor else None
-            }
-            for slot in slots
-        ]
-    }
 
 
 # 챗봇 예약 확정

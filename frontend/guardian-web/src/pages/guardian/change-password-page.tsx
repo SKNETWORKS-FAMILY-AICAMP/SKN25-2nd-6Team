@@ -3,7 +3,10 @@ import { isAxiosError } from "axios";
 import { Link } from "react-router-dom";
 
 import { changeMyPassword } from "../../api/user-api";
-import GuardianNavbar from "../../components/guardian-navbar";
+import ActionButton from "../../components/common/action-button";
+import PageHeader from "../../components/common/page-header";
+import SectionCard from "../../components/common/section-card";
+import GuardianLayout from "../../layouts/guardian-layout";
 
 interface ApiMessageResponse {
   code?: number;
@@ -138,20 +141,14 @@ const ChangePasswordPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
-      <GuardianNavbar />
+    <GuardianLayout>
+      <div className="mx-auto max-w-4xl">
+        <PageHeader
+          title="비밀번호 변경"
+          description="계정 보호를 위해 현재 비밀번호 확인 후 새 비밀번호를 설정합니다."
+        />
 
-      <main className="mx-auto w-full max-w-4xl px-4 py-7 sm:px-6">
-        <section className="mb-5">
-          <h1 className="text-2xl font-black text-slate-950">
-            비밀번호 변경
-          </h1>
-          <p className="mt-1.5 text-sm font-semibold text-slate-500">
-            계정 보호를 위해 현재 비밀번호 확인 후 새 비밀번호를 설정합니다.
-          </p>
-        </section>
-
-        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm sm:p-6 lg:p-7">
+        <SectionCard>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label
@@ -242,13 +239,12 @@ const ChangePasswordPage = () => {
             ) : null}
 
             <div className="grid gap-3 pt-1 sm:grid-cols-2">
-              <button
+              <ActionButton
                 type="submit"
                 disabled={isSubmitting}
-                className="h-11 rounded-xl bg-blue-600 px-6 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
               >
                 {isSubmitting ? "변경 중..." : "비밀번호 변경"}
-              </button>
+              </ActionButton>
               <Link
                 to="/mypage"
                 className="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-6 text-sm font-black text-slate-600 transition hover:bg-slate-50"
@@ -257,9 +253,9 @@ const ChangePasswordPage = () => {
               </Link>
             </div>
           </form>
-        </section>
-      </main>
-    </div>
+        </SectionCard>
+      </div>
+    </GuardianLayout>
   );
 };
 
