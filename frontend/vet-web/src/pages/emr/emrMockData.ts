@@ -174,6 +174,9 @@ function createEmrResponseFromSchedule(item: EmrMockScheduleItem): EmrResponse {
           `${item.breed}, ${item.age}, ${item.weight} 기본 정보를 확인했습니다.`,
           "보호자 문진 후 신체검사와 필요 처치를 진행할 예정입니다.",
         ],
+        preVisitReport:
+          "2023년 5월 25일: 두부가 발작함 (10초 정도 지속)",
+        suspectedKeywords: ["신경학적 문제", "전신성 질환", "발작 장애"],
         attachments: [
           profileImagesByPatientName[item.patientName] ??
             "https://images.unsplash.com/photo-1583511655826-05700d52f4d9?auto=format&fit=crop&w=320&q=80",
@@ -253,6 +256,9 @@ export const mockEmrResponsesByScheduleId: Record<number, EmrResponse> = {
           "식욕이 조금 떨어졌어요.",
           "특이사항: 산책 후 풀을 자주 먹는 경향이 있습니다.",
         ],
+        preVisitReport:
+          "2023년 5월 25일: 두부가 발작함 (10초 정도 지속)",
+        suspectedKeywords: ["신경학적 문제", "전신성 질환", "발작 장애"],
         attachments: [
           "https://images.unsplash.com/photo-1597633425046-08f5110420b5?auto=format&fit=crop&w=320&q=80",
           "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=320&q=80",
