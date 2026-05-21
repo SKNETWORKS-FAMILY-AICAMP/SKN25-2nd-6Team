@@ -10,7 +10,13 @@ const navItems = [
   { label: "마이페이지", to: "/mypage" },
 ];
 
-const GuardianNavbar = () => {
+interface GuardianNavbarProps {
+  contentClassName?: string;
+}
+
+const GuardianNavbar = ({
+  contentClassName = "max-w-6xl px-4 sm:px-6",
+}: GuardianNavbarProps) => {
   const navigate = useNavigate();
   const guardian = useAuthStore((state) => state.guardian);
   const clearAuth = useAuthStore((state) => state.clearAuth);
@@ -23,7 +29,12 @@ const GuardianNavbar = () => {
 
   return (
     <header className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div
+        className={[
+          "mx-auto flex h-16 items-center justify-between",
+          contentClassName,
+        ].join(" ")}
+      >
         <Link to="/home" className="flex items-center">
           <img src={medipawSymbol} alt="MediPaw" className="h-9 w-auto" />
         </Link>

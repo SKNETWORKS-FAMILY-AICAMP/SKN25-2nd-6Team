@@ -8,7 +8,10 @@ import {
   getSchedules,
   updateSchedule,
 } from "../../api/schedule-api";
-import GuardianNavbar from "../../components/guardian-navbar";
+import ActionButton from "../../components/common/action-button";
+import ListItemCard from "../../components/common/list-item-card";
+import PageHeader from "../../components/common/page-header";
+import GuardianLayout from "../../layouts/guardian-layout";
 import type {
   ApiErrorResponse,
   AvailableScheduleSlot,
@@ -141,9 +144,9 @@ const CloseIcon = () => (
 const ScheduleSkeleton = () => (
   <div className="space-y-4">
     {Array.from({ length: 3 }).map((_, index) => (
-      <div
+      <ListItemCard
         key={index}
-        className="grid animate-pulse grid-cols-[76px_1fr_200px_150px] items-center gap-6 rounded-2xl border border-slate-100 bg-white p-5"
+        className="grid animate-pulse grid-cols-[76px_1fr_200px_150px] items-center gap-6"
       >
         <div className="h-16 w-16 rounded-full bg-slate-100" />
         <div className="space-y-3">
@@ -158,7 +161,7 @@ const ScheduleSkeleton = () => (
           <div className="h-7 w-20 rounded-full bg-slate-100" />
           <div className="h-9 w-32 rounded bg-slate-100" />
         </div>
-      </div>
+      </ListItemCard>
     ))}
   </div>
 );
@@ -181,7 +184,7 @@ const ScheduleCard = ({
       : "bg-slate-100 text-slate-500 ring-slate-200";
 
   return (
-    <article className="grid gap-4 rounded-2xl border border-slate-100 bg-white px-5 py-4 shadow-sm transition hover:border-blue-100 hover:shadow-lg hover:shadow-blue-100/50 lg:grid-cols-[76px_1fr_360px] lg:items-center">
+    <ListItemCard className="grid gap-4 transition hover:border-blue-100 hover:shadow-lg hover:shadow-blue-100/50 lg:grid-cols-[76px_1fr_360px] lg:items-center">
       <div className="h-16 w-16 overflow-hidden rounded-full bg-slate-100">
         <img
           src={getProfileImage(schedule)}
@@ -213,20 +216,24 @@ const ScheduleCard = ({
       <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
         {canManage ? (
           <>
-            <button
+            <ActionButton
               type="button"
               onClick={() => onOpenChange(schedule)}
-              className="h-10 min-w-[96px] whitespace-nowrap rounded-lg border border-blue-200 px-4 text-sm font-black text-blue-600 transition hover:bg-blue-50"
+              variant="outlineBlue"
+              size="sm"
+              className="min-w-[96px] whitespace-nowrap rounded-lg"
             >
               예약 변경
-            </button>
-            <button
+            </ActionButton>
+            <ActionButton
               type="button"
               onClick={() => onOpenCancel(schedule)}
-              className="h-10 min-w-[96px] whitespace-nowrap rounded-lg border border-rose-200 px-4 text-sm font-black text-rose-500 transition hover:bg-rose-50"
+              variant="outlineDanger"
+              size="sm"
+              className="min-w-[96px] whitespace-nowrap rounded-lg"
             >
               예약 취소
-            </button>
+            </ActionButton>
           </>
         ) : null}
 
@@ -236,7 +243,7 @@ const ScheduleCard = ({
           {scheduleStatusLabel[schedule.status]}
         </span>
       </div>
-    </article>
+    </ListItemCard>
   );
 };
 
@@ -737,16 +744,11 @@ const ScheduleListPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-950">
-      <GuardianNavbar />
-
-      <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-        <section className="mb-7">
-          <h1 className="text-2xl font-black text-slate-950">예약 내역</h1>
-          <p className="mt-2 text-sm font-semibold text-slate-500">
-            예정된 예약과 지난 예약을 확인할 수 있습니다.
-          </p>
-        </section>
+    <GuardianLayout>
+      <PageHeader
+        title="예약 내역"
+        description="예정된 예약과 지난 예약을 확인할 수 있습니다."
+      />
 
         <section className="rounded-2xl border border-slate-100 bg-white px-5 shadow-sm">
           <div className="flex gap-8 border-b border-slate-100">
@@ -788,13 +790,14 @@ const ScheduleListPage = () => {
                   <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
                     AI 챗봇 상담을 통해 간편하게 예약을 진행해보세요.
                   </p>
-                  <button
+                  <ActionButton
                     type="button"
                     onClick={() => navigate("/chatbot")}
-                    className="mt-7 inline-flex h-12 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
+                    size="lg"
+                    className="mt-7"
                   >
                     챗봇 상담 시작하기
-                  </button>
+                  </ActionButton>
                 </div>
               </div>
             ) : (
@@ -812,20 +815,20 @@ const ScheduleListPage = () => {
 
             {!isLoading && hasNext ? (
               <div className="mt-6 flex justify-center">
-                <button
+                <ActionButton
                   type="button"
                   onClick={handleLoadMore}
                   disabled={isLoadingMore}
-                  className="h-11 rounded-xl border border-blue-200 px-7 text-sm font-black text-blue-600 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                  variant="outlineBlue"
+                  size="md"
+                  className="px-7"
                 >
                   {isLoadingMore ? "불러오는 중" : "더보기"}
-                </button>
+                </ActionButton>
               </div>
             ) : null}
           </div>
         </section>
-      </main>
-
       {changeTarget ? (
         <ChangeScheduleModal
           schedule={changeTarget}
@@ -841,7 +844,7 @@ const ScheduleListPage = () => {
           onCancelled={handleRefreshAfterMutation}
         />
       ) : null}
-    </div>
+    </GuardianLayout>
   );
 };
 
