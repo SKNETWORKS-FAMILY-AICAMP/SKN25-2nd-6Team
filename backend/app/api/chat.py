@@ -4,15 +4,43 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
 import asyncio
+from openai import AsyncOpenAI
 from app.db.session import get_db
 from app.schemas.chat import ChatSessionCreate, ChatMessageRequest
 from app.crud.chat import create_chat_session, get_chat_session, get_chat_sessions_by_petid, add_message, delete_chat_session
 from app.core.dependencies import get_current_user
+from app.core.config import settings
 from app.models.pet import Pet
 from app.models.followup import Followup
 from app.models.schedule import Schedule
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+def _build_triage_system_prompt(pet: Pet) -> str:
+    from datetime import date
+    age = None
+    if pet.birth_date:
+        age = date.today().year - pet.birth_date.year
+
+    return f"""당신은 MediPaw 동물병원의 AI 증상 상담사입니다.
+보호자가 반려동물의 증상을 설명하면 진단에 필요한 정보를 대화로 수집합니다.
+
+[반려동물 정보]
+이름: {pet.petname}
+종: {pet.species or "미상"}
+품종: {pet.breed or "미상"}
+나이: {f"{age}세" if age else "미상"}
+체중: {f"{pet.weight_kg}kg" if pet.weight_kg else "미상"}
+중성화: {pet.is_neutered if pet.is_neutered is not None else "미상"}
+
+[대화 지침]
+- 보호자의 말에 직접 반응하세요. 처음 인사를 반복하지 마세요.
+- 한 번에 질문 하나만 하세요.
+- 수집할 핵심 정보: 주요 증상, 증상 시작 시점, 심각도(1~10), 동반 증상(구토·설사·식욕저하 등)
+- 3~5번 대화 후 증상을 한 문장으로 요약하고 진료 예약을 권유하세요.
+- 응급 증상(호흡곤란·의식저하·과다출혈·경련)이 언급되면 즉시 응급실 방문을 권고하세요.
+- 2~4문장으로 간결하게 답변하세요. 한국어로만 답변하세요."""
 
 # 챗봇 세션 시작
 @router.post("/sessions", status_code=201)
@@ -59,27 +87,52 @@ async def send_message(
     if not session:
         raise HTTPException(status_code=404, detail="상담 세션을 찾을 수 없습니다.")
 
+    # 반려동물 정보 조회
+    pet_result = await db.execute(
+        select(Pet).where(Pet.petid == session.petid)
+    )
+    pet = pet_result.scalar_one_or_none()
+    if not pet:
+        raise HTTPException(status_code=404, detail="반려동물 정보를 찾을 수 없습니다.")
+
     # 보호자 메시지 저장
     await add_message(db, session, "user", request.content, request.image_url)
 
-    # AI 응답 미리 생성
-    test_response = "안녕하세요! 반려동물의 증상에 대해 말씀해 주세요."
+    # OpenAI 메시지 히스토리 구성 (저장된 메시지 전체 포함)
+    openai_messages = [
+        {"role": m["role"], "content": m["content"]}
+        for m in (session.messages or [])
+        if m.get("role") in ("user", "assistant") and m.get("content")
+    ]
 
-    # AI 응답 먼저 DB에 저장
-    await add_message(db, session, "assistant", test_response)
+    system_prompt = _build_triage_system_prompt(pet)
+    turn_count = sum(1 for m in openai_messages if m["role"] == "assistant")
 
     async def event_stream():
+        full_response = ""
         try:
-            # 텍스트 스트리밍
-            for char in test_response:
-                yield f"data: {json.dumps({'type': 'message', 'content': char}, ensure_ascii=False)}\n\n"
-                await asyncio.sleep(0.05)
+            client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            stream = await client.chat.completions.create(
+                model=settings.OPENAI_MODEL or "gpt-4o",
+                messages=[{"role": "system", "content": system_prompt}] + openai_messages,
+                stream=True,
+                max_tokens=400,
+                temperature=0.7,
+            )
+            async for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    full_response += delta
+                    yield f"data: {json.dumps({'type': 'message', 'content': delta}, ensure_ascii=False)}\n\n"
 
-            # 빠른 선택 버튼
-            quick_replies = ["구토가 있어요", "식욕이 없어요", "기침을 해요", "피부가 가려워요"]
-            yield f"data: {json.dumps({'type': 'quick_replies', 'options': quick_replies}, ensure_ascii=False)}\n\n"
+            # AI 응답 DB 저장
+            await add_message(db, session, "assistant", full_response)
 
-            # 완료
+            # 초반 대화(0~1턴)에는 빠른 선택 버튼 제공
+            if turn_count <= 1:
+                quick_replies = ["구토·설사가 있어요", "식욕이 없어요", "기침·호흡이 이상해요", "피부가 가렵거나 털이 빠져요", "다리를 절거나 움직이기 싫어해요"]
+                yield f"data: {json.dumps({'type': 'quick_replies', 'options': quick_replies}, ensure_ascii=False)}\n\n"
+
             yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
 
         except Exception as e:
