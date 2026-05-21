@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { isAxiosError } from "axios";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 import { getPets, type Pet } from "../../api/pets-api";
 import PageHeader from "../../components/common/page-header";
@@ -91,7 +91,6 @@ const PetIllustration = () => (
 );
 
 const HomePage = () => {
-  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const previewMode = import.meta.env.DEV ? searchParams.get("preview") : null;
@@ -145,7 +144,7 @@ const HomePage = () => {
         }
 
         if (response.result.length === 0) {
-          navigate(petRegisterPath, { replace: true });
+          setPets([]);
           return;
         }
 
@@ -176,7 +175,7 @@ const HomePage = () => {
     return () => {
       isMounted = false;
     };
-  }, [isEmptyPreview, isPetsPreview, navigate, refreshRequestedAt]);
+  }, [isEmptyPreview, isPetsPreview, refreshRequestedAt]);
 
   return (
     <GuardianLayout>

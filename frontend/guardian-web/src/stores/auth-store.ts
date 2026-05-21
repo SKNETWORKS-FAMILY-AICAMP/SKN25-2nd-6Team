@@ -46,7 +46,10 @@ const readStoredAuth = (): GuardianAuth | null => {
 };
 
 const getActiveStorage = (): Storage => {
-  if (typeof window === "undefined") return window.sessionStorage;
+  if (typeof window === "undefined") {
+    throw new Error("Storage is unavailable.");
+  }
+
   return window.localStorage.getItem(storageKey)
     ? window.localStorage
     : window.sessionStorage;
