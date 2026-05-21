@@ -29,7 +29,6 @@ const defaultProfileImages = [
 ];
 
 const scheduleTabs: Array<{ filter: ScheduleFilter; label: string }> = [
-  { filter: "all", label: "전체" },
   { filter: "upcoming", label: "예정된 예약" },
   { filter: "past", label: "지난 예약" },
   { filter: "cancelled", label: "취소된 예약" },
@@ -83,7 +82,6 @@ const formatScheduleDateTime = (isoDate: string) =>
   }).format(new Date(isoDate));
 
 const formatScheduleTimeRange = (startTime: string, endTime: string) => {
-  const start = new Date(startTime);
   const end = new Date(endTime);
 
   return `${formatScheduleDateTime(startTime)} - ${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
@@ -626,7 +624,7 @@ const CancelScheduleModal = ({
 
 const ScheduleListPage = () => {
   const navigate = useNavigate();
-  const [selectedFilter, setSelectedFilter] = useState<ScheduleFilter>("all");
+  const [selectedFilter, setSelectedFilter] = useState<ScheduleFilter>("upcoming");
   const [schedules, setSchedules] = useState<ScheduleListItem[]>([]);
   const [page, setPage] = useState(1);
   const [hasNext, setHasNext] = useState(false);
@@ -783,18 +781,24 @@ const ScheduleListPage = () => {
                     <CalendarIcon />
                   </div>
                   <h2 className="mt-6 text-xl font-black text-slate-950">
-                    아직 예약된 진료가 없습니다.
+                    {selectedFilter === "upcoming" && "아직 예정된 예약이 없습니다."}
+                    {selectedFilter === "past" && "지난 예약이 없습니다."}
+                    {selectedFilter === "cancelled" && "취소된 예약이 없습니다."}
                   </h2>
-                  <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
-                    AI 챗봇 상담을 통해 간편하게 예약을 진행해보세요.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate("/chatbot")}
-                    className="mt-7 inline-flex h-12 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
-                  >
-                    챗봇 상담 시작하기
-                  </button>
+                  {selectedFilter === "upcoming" ? (
+                    <>
+                      <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                        AI 챗봇 상담을 통해 간편하게 예약을 진행해보세요.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => navigate("/chatbot")}
+                        className="mt-7 inline-flex h-12 items-center justify-center rounded-xl bg-blue-600 px-6 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
+                      >
+                        챗봇 상담 시작하기
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               </div>
             ) : (

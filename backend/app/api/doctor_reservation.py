@@ -12,6 +12,7 @@ from app.crud.doctor_reservation import (
     update_reservation,
     delete_reservation,
     TimeSlotConflict,
+    DuplicatePetReservation,
 )
 
 from app.schemas.doctor_reservation import (
@@ -97,6 +98,11 @@ async def add_reservation(
             time_str=request.time,
             doctor_name=request.doctor_name,
             memo=request.memo,
+        )
+    except DuplicatePetReservation:
+        raise HTTPException(
+            status_code=409,
+            detail="해당 반려동물의 예약이 이미 존재합니다."
         )
     except TimeSlotConflict:
         raise HTTPException(

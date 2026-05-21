@@ -17,6 +17,11 @@ class TimeSlotConflict(Exception):
     pass
 
 
+class DuplicatePetReservation(Exception):
+    """같은 반려동물의 활성 예약이 이미 존재할 때"""
+    pass
+
+
 # 예약 추가/수정 시 진료항목 선택 UI를 없앴으므로 기본 카테고리(일반진료, code=2)를 사용
 DEFAULT_CATEGORY_CODE = 2
 # 예약 추가 시 기본 응급도(일반, code=3)
@@ -150,6 +155,19 @@ async def create_reservation(
 
     triage = await get_default_triage(db)
 
+    # 같은 반려동물 중복 예약 확인
+    dup_result = await db.execute(
+        select(Schedule)
+        .join(Guardian, Schedule.emrid == Guardian.emrid)
+        .where(
+            Guardian.petid == pet_id,
+            Schedule.status == "CONFIRMED",
+            Schedule.deleted_at.is_(None)
+        )
+    )
+    if dup_result.scalar_one_or_none():
+        raise DuplicatePetReservation()
+
     confirmed = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
     if await has_time_conflict(db, confirmed):
         raise TimeSlotConflict()
@@ -170,7 +188,7 @@ async def create_reservation(
         duration_min=DEFAULT_DURATION_MIN,
         confirmed_time=confirmed,
         confirmed_end_time=confirmed + timedelta(minutes=DEFAULT_DURATION_MIN),
-        status="예약대기",
+        status="CONFIRMED",
     )
     db.add(schedule)
     await db.commit()

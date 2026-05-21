@@ -4,7 +4,7 @@ export type ScheduleStatus =
   | "COMPLETED"
   | "CANCELLED";
 
-export type ScheduleFilter = "all" | "upcoming" | "past" | "cancelled";
+export type ScheduleFilter = "upcoming" | "past" | "cancelled";
 
 export interface ScheduleListItem {
   schedule_id: number;

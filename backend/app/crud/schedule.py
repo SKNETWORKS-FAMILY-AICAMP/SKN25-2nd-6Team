@@ -1,4 +1,4 @@
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from datetime import datetime, timedelta
@@ -40,7 +40,7 @@ async def create_checkup_schedule(db: AsyncSession, pet_id: int, date: str, time
         duration_min=30,
         confirmed_time=confirmed_time,
         confirmed_end_time=confirmed_end_time,
-        status="예약대기"
+        status="CONFIRMED"
     )
     db.add(schedule)
     await db.commit()
@@ -57,14 +57,30 @@ async def get_schedule_by_id(db: AsyncSession, schedule_id: int):
 
 
 # 예약 목록 조회 (페이지네이션)
-async def get_schedules_by_userid(db: AsyncSession, userid: int, page: int, size: int):
+async def get_schedules_by_userid(db: AsyncSession, userid: int, page: int, size: int, filter: str = "all"):
     offset = (page - 1) * size
+
+    conditions = [Pet.userid == userid]
+
+    if filter == "upcoming":
+        conditions.append(Schedule.status == "CONFIRMED")
+        conditions.append(Schedule.deleted_at.is_(None))
+    elif filter == "past":
+        conditions.append(Schedule.status == "COMPLETED")
+        conditions.append(Schedule.deleted_at.is_(None))
+    elif filter == "cancelled":
+        conditions.append(
+            or_(Schedule.status == "CANCELLED", Schedule.deleted_at.isnot(None))
+        )
+    else:
+        conditions.append(Schedule.status != "CANCELLED")
+        conditions.append(Schedule.deleted_at.is_(None))
 
     stmt = (
         select(Schedule)
         .join(Guardian, Schedule.emrid == Guardian.emrid)
         .join(Pet, Guardian.petid == Pet.petid)
-        .where(Pet.userid == userid, Schedule.status != "CANCELLED")
+        .where(*conditions)
         .order_by(Schedule.confirmed_time.desc())
         .offset(offset).limit(size + 1)
     )
@@ -180,7 +196,7 @@ async def confirm_schedule(db: AsyncSession, emrid: int, doctorid: int, confirme
         duration_min=duration_min,
         confirmed_time=new_time,
         confirmed_end_time=new_end_time,
-        status="PENDING"
+        status="CONFIRMED"
     )
     db.add(schedule)
     await db.commit()
