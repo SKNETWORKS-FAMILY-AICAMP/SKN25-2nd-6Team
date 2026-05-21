@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from jose import JWTError, jwt
 
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate
 from app.schemas.auth import LoginRequest, TokenResponse, TokenRefreshRequest, TokenRefreshResponse, FindIdRequest, FindPasswordRequest
 from app.crud.user import get_user_by_loginid, create_user
 from app.core.security import verify_password, create_access_token, create_refresh_token, hash_password
@@ -18,7 +18,7 @@ import string
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 # 회원가입
-@router.post("/signup", response_model=UserResponse, status_code=201)
+@router.post("/signup", status_code=200)
 async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
 
     # loginid 중복 확인
@@ -28,7 +28,8 @@ async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
             detail="이미 사용 중인 로그인 ID입니다."
         )
 
-    return await create_user(db, user)
+    await create_user(db, user)
+    return {"code": 200, "message": "회원가입이 완료되었습니다."}
 
 # 로그인
 @router.post("/login")
