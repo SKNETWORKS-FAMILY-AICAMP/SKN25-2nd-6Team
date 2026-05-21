@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useState } from "react";
 import type { PetInfo } from "../../types/emr";
 
 export function ProfileEditModal({
@@ -8,6 +9,8 @@ export function ProfileEditModal({
   patient: PetInfo;
   onClose: () => void;
 }) {
+  const [weight, setWeight] = useState(normalizeWeightInput(String(patient.weight_kg)));
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#111827]/40 px-4">
       <div className="w-full max-w-[520px] rounded-lg bg-white shadow-xl">
@@ -23,7 +26,24 @@ export function ProfileEditModal({
           <ProfileInput label="이름" value={patient.pet_name} />
           <ProfileInput label="종류" value={patient.species} />
           <ProfileInput label="성별" value={patient.gender} />
-          <ProfileInput label="체중" value={`${patient.weight_kg}kg`} />
+          <label>
+            <span className="mb-2 block text-sm font-extrabold text-[#4d5874]">
+              체중
+            </span>
+            <div className="flex items-center gap-2">
+              <input
+                value={weight}
+                inputMode="decimal"
+                onChange={(event) =>
+                  setWeight(normalizeWeightInput(event.target.value))
+                }
+                className="h-10 w-full rounded-lg border border-[#dfe6f1] px-3 text-sm font-bold text-[#20283a] outline-none focus:border-[#4a89ff]"
+              />
+              <span className="shrink-0 text-sm font-extrabold text-[#4d5874]">
+                kg
+              </span>
+            </div>
+          </label>
           <ProfileInput label="나이" value={`${patient.age}살`} />
           <ProfileInput label="생년월일" value={patient.birth_date} />
           <label className="col-span-2">
@@ -55,6 +75,15 @@ export function ProfileEditModal({
       </div>
     </div>
   );
+}
+
+function normalizeWeightInput(value: string) {
+  const withoutUnit = value.replace(/kg/gi, "");
+  const numeric = withoutUnit.replace(/[^\d.]/g, "");
+  const [integerPart, ...decimalParts] = numeric.split(".");
+  const decimalPart = decimalParts.join("");
+
+  return decimalParts.length > 0 ? `${integerPart}.${decimalPart}` : integerPart;
 }
 
 function ProfileInput({ label, value }: { label: string; value: string }) {

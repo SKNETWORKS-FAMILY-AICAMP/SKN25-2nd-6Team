@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  fetchDoctorPatientDetail,
   fetchDoctorPatientList,
   getPatientApiErrorMessage,
 } from "../api/patientApi";
@@ -8,9 +9,11 @@ import type {
   ApiReservation,
   PatientsById,
   ReservationItem,
+  ReservationPatient,
 } from "../types/reservation";
 import {
   mapApiReservations,
+  mapPatientDetailToReservationPatient,
   mapPatientListItemToReservationPatient,
 } from "../utils/reservationUtils";
 
@@ -71,6 +74,32 @@ export function useReservationData(accessToken: string) {
     }
   }, [accessToken]);
 
+  const resolvePatientOption = useCallback(
+    async (patient: ReservationPatient) => {
+      try {
+        const detail = await fetchDoctorPatientDetail({
+          accessToken,
+          petid: patient.id,
+        });
+        const resolvedPatient = mapPatientDetailToReservationPatient(
+          detail,
+          patient
+        );
+
+        setPatientOptionsById((current) => ({
+          ...current,
+          [resolvedPatient.id]: resolvedPatient,
+        }));
+
+        return resolvedPatient;
+      } catch (error) {
+        console.error("예약 환자 상세 조회 실패:", error);
+        return patient;
+      }
+    },
+    [accessToken]
+  );
+
   useEffect(() => {
     loadReservations();
     loadPatientOptions();
@@ -101,5 +130,6 @@ export function useReservationData(accessToken: string) {
     doctorOptions,
     isLoading,
     loadReservations,
+    resolvePatientOption,
   };
 }
