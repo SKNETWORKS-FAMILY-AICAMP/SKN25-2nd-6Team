@@ -96,10 +96,8 @@ const getProfileImage = (schedule: ScheduleListItem) =>
   schedule.pet_profile_image ||
   defaultProfileImages[Math.abs(schedule.pet_id) % defaultProfileImages.length];
 
-const getPetMeta = (schedule: ScheduleListItem) =>
-  [schedule.breed, `${schedule.age}살`, schedule.gender].filter(Boolean).join(" · ");
 
-const canManageSchedule = (schedule: ScheduleListItem) =>
+  const canManageSchedule = (schedule: ScheduleListItem) =>
   schedule.status === "CONFIRMED" &&
   new Date(schedule.confirmed_time).getTime() > Date.now();
 
@@ -168,24 +166,38 @@ const ScheduleSkeleton = () => (
 
 interface ScheduleCardProps {
   schedule: ScheduleListItem;
+  selectedFilter: ScheduleFilter;
   onOpenChange: (schedule: ScheduleListItem) => void;
   onOpenCancel: (schedule: ScheduleListItem) => void;
 }
-
 const ScheduleCard = ({
   schedule,
+  selectedFilter,
   onOpenChange,
   onOpenCancel,
 }: ScheduleCardProps) => {
   const canManage = canManageSchedule(schedule);
+
+const isInactive =
+  selectedFilter === "all" &&
+  (schedule.status === "COMPLETED" || schedule.status === "CANCELLED");
+
   const badgeClassName =
     schedule.status === "CONFIRMED"
       ? "bg-blue-100 text-blue-600 ring-blue-200"
-      : "bg-slate-100 text-slate-500 ring-slate-200";
+      : schedule.status === "CANCELLED"
+        ? "bg-rose-100 text-rose-500 ring-rose-100"
+        : "bg-slate-100 text-slate-500 ring-slate-200";
 
   return (
-    <ListItemCard className="grid gap-4 transition hover:border-blue-100 hover:shadow-lg hover:shadow-blue-100/50 lg:grid-cols-[76px_1fr_360px] lg:items-center">
-      <div className="h-16 w-16 overflow-hidden rounded-full bg-slate-100">
+    <ListItemCard
+      className={[
+        "grid gap-4 transition hover:border-blue-100 hover:shadow-lg hover:shadow-blue-100/50",
+        "lg:grid-cols-[72px_1fr_auto] lg:items-center lg:gap-6",
+        isInactive ? "opacity-45 grayscale" : "",
+      ].join(" ")}
+    >
+      <div className="h-16 w-16 overflow-hidden rounded-2xl bg-slate-100">
         <img
           src={getProfileImage(schedule)}
           alt={`${schedule.pet_name} 프로필`}
@@ -194,17 +206,22 @@ const ScheduleCard = ({
       </div>
 
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <h2 className="text-base font-black text-slate-950">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="text-lg font-black text-slate-950">
             {schedule.pet_name}
           </h2>
-          <span className="text-sm font-semibold text-slate-400">
-            {getPetMeta(schedule)}
+
+          <span
+            className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] font-bold ring-1 ${badgeClassName}`}
+          >
+            {scheduleStatusLabel[schedule.status]}
           </span>
         </div>
-        <p className="mt-2 text-lg font-black text-slate-900">
+
+        <p className="mt-2 text-base font-black text-slate-900">
           {schedule.category}
         </p>
+
         <p className="mt-1.5 text-sm font-bold text-blue-600">
           {formatScheduleTimeRange(
             schedule.confirmed_time,
@@ -213,36 +230,29 @@ const ScheduleCard = ({
         </p>
       </div>
 
-      <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
-        {canManage ? (
-          <>
-            <ActionButton
-              type="button"
-              onClick={() => onOpenChange(schedule)}
-              variant="outlineBlue"
-              size="sm"
-              className="min-w-[96px] whitespace-nowrap rounded-lg"
-            >
-              예약 변경
-            </ActionButton>
-            <ActionButton
-              type="button"
-              onClick={() => onOpenCancel(schedule)}
-              variant="outlineDanger"
-              size="sm"
-              className="min-w-[96px] whitespace-nowrap rounded-lg"
-            >
-              예약 취소
-            </ActionButton>
-          </>
-        ) : null}
+      {canManage ? (
+        <div className="flex flex-wrap items-center justify-start gap-2 lg:justify-end">
+          <ActionButton
+            type="button"
+            onClick={() => onOpenChange(schedule)}
+            variant="outlineBlue"
+            size="sm"
+            className="min-w-[96px] whitespace-nowrap rounded-lg"
+          >
+            예약 변경
+          </ActionButton>
 
-        <span
-          className={`inline-flex h-10 items-center rounded-full px-4 text-xs font-black ring-1 ${badgeClassName}`}
-        >
-          {scheduleStatusLabel[schedule.status]}
-        </span>
-      </div>
+          <ActionButton
+            type="button"
+            onClick={() => onOpenCancel(schedule)}
+            variant="outlineDanger"
+            size="sm"
+            className="min-w-[96px] whitespace-nowrap rounded-lg"
+          >
+            예약 취소
+          </ActionButton>
+        </div>
+      ) : null}
     </ListItemCard>
   );
 };
@@ -803,9 +813,11 @@ const ScheduleListPage = () => {
             ) : (
               <div className="space-y-4">
                 {visibleSchedules.map((schedule) => (
+                  
                   <ScheduleCard
-                    key={schedule.schedule_id}
+                    key={schedule.schedule_id} 
                     schedule={schedule}
+                    selectedFilter={selectedFilter}
                     onOpenChange={setChangeTarget}
                     onOpenCancel={setCancelTarget}
                   />

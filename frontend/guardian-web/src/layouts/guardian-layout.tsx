@@ -11,7 +11,7 @@ const GuardianLayout = ({ children }: GuardianLayoutProps) => {
     <div className="min-h-screen bg-slate-50 text-slate-950">
       <GuardianNavbar />
 
-      <main className="mx-auto w-full max-w-[1280px] px-8 pb-12 pt-10">
+      <main className="mx-auto w-full max-w-[1280px] px-8 pb-12 pt-7">
         {children}
       </main>
     </div>
