@@ -3,6 +3,7 @@ import { create } from "zustand";
 interface GuardianAuth {
   loginid: string;
   name?: string;
+  phone?: string;
   accessToken?: string;
   refreshToken?: string;
 }
@@ -16,6 +17,7 @@ interface AuthState {
   isAuthenticated: boolean;
   setAuth: (payload: SetAuthPayload) => void;
   updateAccessToken: (accessToken: string) => void;
+  updateGuardianProfile: (profile: Pick<GuardianAuth, "name" | "phone">) => void;
   clearAuth: () => void;
 }
 
@@ -65,6 +67,27 @@ export const useAuthStore = create<AuthState>((set) => ({
       const guardian = {
         ...current.guardian,
         accessToken,
+      };
+
+      if (window.localStorage.getItem(storageKey)) {
+        window.localStorage.setItem(storageKey, JSON.stringify(guardian));
+      }
+
+      return {
+        guardian,
+        isAuthenticated: true,
+      };
+    });
+  },
+  updateGuardianProfile: (profile) => {
+    set((current) => {
+      if (!current.guardian) {
+        return current;
+      }
+
+      const guardian = {
+        ...current.guardian,
+        ...profile,
       };
 
       if (window.localStorage.getItem(storageKey)) {
