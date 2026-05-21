@@ -1,6 +1,7 @@
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.schedule import Schedule
 from app.models.guardian import Guardian
@@ -8,40 +9,13 @@ from app.models.pet import Pet
 from app.models.user import User
 from app.models.doctor import Doctor
 from app.models.master import TriageMaster, CategoryMaster
-
-
-# triage_masterDB.code -> 프론트 응급도 키
-TRIAGE_CODE_TO_KEY = {
-    1: "emergency",
-    2: "semiEmergency",
-    3: "normal",
-}
+from app.utils.timezone import to_kst
 
 
 class TimeSlotConflict(Exception):
     """같은 날짜·시간에 이미 예약이 존재할 때"""
     pass
 
-
-def has_time_conflict(
-    db: Session,
-    confirmed: datetime,
-    exclude_schedule_id: int | None = None,
-) -> bool:
-
-    target_date = confirmed.date()
-    target_hm = confirmed.strftime("%H:%M")
-
-    query = db.query(Schedule).filter(Schedule.confirmed_time.isnot(None))
-    if exclude_schedule_id is not None:
-        query = query.filter(Schedule.scheduleid != exclude_schedule_id)
-
-    for schedule in query.all():
-        ct = schedule.confirmed_time
-        if ct and ct.date() == target_date and ct.strftime("%H:%M") == target_hm:
-            return True
-
-    return False
 
 # 예약 추가/수정 시 진료항목 선택 UI를 없앴으므로 기본 카테고리(일반진료, code=2)를 사용
 DEFAULT_CATEGORY_CODE = 2
@@ -50,150 +24,134 @@ DEFAULT_TRIAGE_CODE = 3
 DEFAULT_DURATION_MIN = 30
 
 
-def _resolve_doctor(db: Session, doctor_name: str | None) -> Doctor | None:
+async def _resolve_doctor(db: AsyncSession, doctor_name: str | None) -> Doctor | None:
     doctor = None
     if doctor_name:
-        doctor = (
-            db.query(Doctor)
-            .filter(Doctor.doctor_name == doctor_name)
-            .first()
+        result = await db.execute(
+            select(Doctor).where(Doctor.doctor_name == doctor_name)
         )
+        doctor = result.scalars().first()
     if not doctor:
-        doctor = db.query(Doctor).first()
+        result = await db.execute(select(Doctor))
+        doctor = result.scalars().first()
     return doctor
 
 
-def _calculate_age(birth_date) -> str:
+async def has_time_conflict(
+    db: AsyncSession,
+    confirmed: datetime,
+    exclude_schedule_id: int | None = None,
+) -> bool:
+    """소프트 삭제되지 않은 예약 중 같은 날짜·시각이 있는지 확인."""
+    target_date = confirmed.date()
+    target_hm = confirmed.strftime("%H:%M")
 
-    if not birth_date:
-        return ""
-
-    today = date.today()
-    years = today.year - birth_date.year - (
-        (today.month, today.day) < (birth_date.month, birth_date.day)
+    stmt = (
+        select(Schedule)
+        .where(Schedule.confirmed_time.isnot(None))
+        .where(Schedule.deleted_at.is_(None))
     )
+    if exclude_schedule_id is not None:
+        stmt = stmt.where(Schedule.scheduleid != exclude_schedule_id)
 
-    if years >= 1:
-        return f"{years}세"
+    result = await db.execute(stmt)
+    for schedule in result.scalars().all():
+        # 저장된 값은 asyncpg가 UTC로 반환하므로 KST로 변환 후 비교해야
+        # 새 예약("13:00")과 기존 예약이 같은 시각인지 올바르게 판정된다.
+        ct = to_kst(schedule.confirmed_time)
+        if ct and ct.date() == target_date and ct.strftime("%H:%M") == target_hm:
+            return True
 
-    months = (
-        (today.year - birth_date.year) * 12
-        + today.month
-        - birth_date.month
-    )
-    if today.day < birth_date.day:
-        months -= 1
-
-    return f"{max(months, 0)}개월"
+    return False
 
 
-def get_reservations(db: Session):
-
-    results = (
-        db.query(Schedule, Guardian, Pet, User, Doctor, TriageMaster, CategoryMaster)
+async def get_reservations(db: AsyncSession):
+    """예약 목록 조회용 조인 쿼리. 소프트 삭제된 예약/진료기록은 제외한다."""
+    result = await db.execute(
+        select(Schedule, Guardian, Pet, User, Doctor, TriageMaster, CategoryMaster)
         .join(Guardian, Schedule.emrid == Guardian.emrid)
         .join(Pet, Guardian.petid == Pet.petid)
         .join(User, Pet.userid == User.userid)
         .join(Doctor, Schedule.doctorid == Doctor.doctorid)
         .outerjoin(TriageMaster, Guardian.triage_id == TriageMaster.id)
         .outerjoin(CategoryMaster, Guardian.category_id == CategoryMaster.id)
+        .where(Schedule.deleted_at.is_(None))
+        .where(Guardian.deleted_at.is_(None))
         .order_by(Schedule.confirmed_time)
-        .all()
     )
-
-    reservation_list = []
-
-    for schedule, guardian, pet, user, doctor, triage, category in results:
-        confirmed = schedule.confirmed_time
-        end = schedule.confirmed_end_time
-
-        reservation_list.append({
-            "schedule_id": schedule.scheduleid,
-            "petid": pet.petid,
-            "pet_name": pet.petname,
-            "species": pet.species or "",
-            "breed": pet.breed or "",
-            "birth_date": pet.birth_date.isoformat() if pet.birth_date else "",
-            "age": _calculate_age(pet.birth_date),
-            "weight_kg": float(pet.weight_kg) if pet.weight_kg else 0,
-            "gender": pet.gender or "",
-            "is_neutered": bool(pet.is_neutered),
-            "profile_image": pet.profile_image,
-            "last_checkup_date": (
-                pet.checkup_date.isoformat() if pet.checkup_date else ""
-            ),
-            "owner_name": user.name,
-            "phone": user.phone,
-            "doctor_name": doctor.doctor_name,
-            "visit_reason": category.label if category else "",
-            "triage": (
-                TRIAGE_CODE_TO_KEY.get(triage.code, "normal")
-                if triage else "normal"
-            ),
-            "date": confirmed.date().isoformat() if confirmed else "",
-            "start": confirmed.strftime("%H:%M") if confirmed else "",
-            "end": end.strftime("%H:%M") if end else "",
-            "duration_min": schedule.duration_min,
-            "memo": guardian.memo or "",
-            "status": schedule.status,
-        })
-
-    return reservation_list
+    return result.all()
 
 
-def update_reservation_status(
-    db: Session,
-    schedule_id: int,
-    status: str
-):
-
-    schedule = (
-        db.query(Schedule)
-        .filter(Schedule.scheduleid == schedule_id)
-        .first()
+async def get_schedule(db: AsyncSession, schedule_id: int) -> Schedule | None:
+    """소프트 삭제되지 않은 예약 단건 조회."""
+    result = await db.execute(
+        select(Schedule).where(
+            Schedule.scheduleid == schedule_id,
+            Schedule.deleted_at.is_(None),
+        )
     )
+    return result.scalar_one_or_none()
 
+
+async def get_guardian_by_emrid(db: AsyncSession, emrid: int) -> Guardian | None:
+    result = await db.execute(
+        select(Guardian).where(
+            Guardian.emrid == emrid,
+            Guardian.deleted_at.is_(None),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_default_category(db: AsyncSession) -> CategoryMaster | None:
+    result = await db.execute(
+        select(CategoryMaster).where(CategoryMaster.code == DEFAULT_CATEGORY_CODE)
+    )
+    category = result.scalars().first()
+    if category:
+        return category
+    result = await db.execute(select(CategoryMaster))
+    return result.scalars().first()
+
+
+async def get_default_triage(db: AsyncSession) -> TriageMaster | None:
+    result = await db.execute(
+        select(TriageMaster).where(TriageMaster.code == DEFAULT_TRIAGE_CODE)
+    )
+    return result.scalars().first()
+
+
+async def update_reservation_status(db: AsyncSession, schedule_id: int, status: str):
+    schedule = await get_schedule(db, schedule_id)
     if not schedule:
         return None
 
     schedule.status = status
-
-    db.commit()
-    db.refresh(schedule)
-
+    await db.commit()
+    await db.refresh(schedule)
     return schedule
 
 
-def create_reservation(
-    db: Session,
+async def create_reservation(
+    db: AsyncSession,
     pet_id: int,
     date_str: str,
     time_str: str,
     doctor_name: str | None = None,
     memo: str | None = None,
 ):
-
-    doctor = _resolve_doctor(db, doctor_name)
+    doctor = await _resolve_doctor(db, doctor_name)
     if not doctor:
         return None
 
-    category = (
-        db.query(CategoryMaster)
-        .filter(CategoryMaster.code == DEFAULT_CATEGORY_CODE)
-        .first()
-    ) or db.query(CategoryMaster).first()
-
+    category = await get_default_category(db)
     if not category:
         return None
 
-    triage = (
-        db.query(TriageMaster)
-        .filter(TriageMaster.code == DEFAULT_TRIAGE_CODE)
-        .first()
-    )
+    triage = await get_default_triage(db)
 
     confirmed = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-    if has_time_conflict(db, confirmed):
+    if await has_time_conflict(db, confirmed):
         raise TimeSlotConflict()
 
     guardian = Guardian(
@@ -204,7 +162,7 @@ def create_reservation(
         memo=memo,
     )
     db.add(guardian)
-    db.flush()
+    await db.flush()
 
     schedule = Schedule(
         emrid=guardian.emrid,
@@ -215,39 +173,29 @@ def create_reservation(
         status="예약대기",
     )
     db.add(schedule)
-    db.commit()
-    db.refresh(schedule)
+    await db.commit()
+    await db.refresh(schedule)
 
     return schedule
 
 
-def update_reservation(
-    db: Session,
+async def update_reservation(
+    db: AsyncSession,
     schedule_id: int,
     date_str: str | None = None,
     time_str: str | None = None,
     doctor_name: str | None = None,
     memo: str | None = None,
 ):
-
-    schedule = (
-        db.query(Schedule)
-        .filter(Schedule.scheduleid == schedule_id)
-        .first()
-    )
-
+    schedule = await get_schedule(db, schedule_id)
     if not schedule:
         return None
 
-    guardian = (
-        db.query(Guardian)
-        .filter(Guardian.emrid == schedule.emrid)
-        .first()
-    )
+    guardian = await get_guardian_by_emrid(db, schedule.emrid)
 
     if date_str and time_str:
         confirmed = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-        if has_time_conflict(db, confirmed, exclude_schedule_id=schedule_id):
+        if await has_time_conflict(db, confirmed, exclude_schedule_id=schedule_id):
             raise TimeSlotConflict()
         duration = schedule.duration_min or DEFAULT_DURATION_MIN
         schedule.confirmed_time = confirmed
@@ -256,43 +204,32 @@ def update_reservation(
             guardian.date = confirmed.date()
 
     if doctor_name:
-        doctor = _resolve_doctor(db, doctor_name)
+        doctor = await _resolve_doctor(db, doctor_name)
         if doctor:
             schedule.doctorid = doctor.doctorid
 
     if memo is not None and guardian:
         guardian.memo = memo
 
-    db.commit()
-    db.refresh(schedule)
+    await db.commit()
+    await db.refresh(schedule)
 
     return schedule
 
 
-def delete_reservation(db: Session, schedule_id: int) -> bool:
-
-    schedule = (
-        db.query(Schedule)
-        .filter(Schedule.scheduleid == schedule_id)
-        .first()
-    )
-
+async def delete_reservation(db: AsyncSession, schedule_id: int) -> bool:
+    """하드 삭제 대신 deleted_at 타임스탬프를 기록하는 소프트 삭제."""
+    schedule = await get_schedule(db, schedule_id)
     if not schedule:
         return False
 
-    guardian = (
-        db.query(Guardian)
-        .filter(Guardian.emrid == schedule.emrid)
-        .first()
-    )
+    guardian = await get_guardian_by_emrid(db, schedule.emrid)
 
-    # schedule.emrid -> guardian.emrid FK 때문에 schedule을 먼저 지우고 flush
-    db.delete(schedule)
-    db.flush()
-
+    now = datetime.now(timezone.utc)
+    schedule.deleted_at = now
     if guardian:
-        db.delete(guardian)
+        guardian.deleted_at = now
 
-    db.commit()
+    await db.commit()
 
     return True
