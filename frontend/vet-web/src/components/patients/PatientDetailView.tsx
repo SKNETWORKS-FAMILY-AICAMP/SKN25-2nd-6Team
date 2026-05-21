@@ -30,11 +30,20 @@ export function PatientDetailView({
   const [isSaving, setIsSaving] = useState(false);
 
   const openEdit = () => {
-    setDraft(localPatient);
+    setDraft({
+      ...localPatient,
+      weight: normalizeWeightInput(localPatient.weight),
+    });
     setIsEditing(true);
   };
 
   const saveEdit = async () => {
+    const normalizedWeight = normalizeWeightInput(draft.weight);
+    const parsedWeight = parseFloat(normalizedWeight);
+    const displayPatient: PatientProfile = {
+      ...draft,
+      weight: Number.isFinite(parsedWeight) ? `${normalizedWeight}kg` : "-",
+    };
     const payload: PatientUpdatePayload = {
       petname: draft.petName,
       species: draft.species,
@@ -50,10 +59,7 @@ export function PatientDetailView({
         draft.birthDate && draft.birthDate !== "-"
           ? draft.birthDate.replace(/\./g, "-")
           : undefined,
-      weight_kg: (() => {
-        const parsed = parseFloat(draft.weight);
-        return Number.isFinite(parsed) ? parsed : undefined;
-      })(),
+      weight_kg: Number.isFinite(parsedWeight) ? parsedWeight : undefined,
       notes: draft.notes,
     };
 
@@ -65,8 +71,8 @@ export function PatientDetailView({
         payload,
       });
 
-      setLocalPatient(draft);
-      onSaved(draft);
+      setLocalPatient(displayPatient);
+      onSaved(displayPatient);
       setIsEditing(false);
     } catch (error) {
       console.error("환자 수정 실패:", error);
@@ -267,6 +273,15 @@ const selectCls =
 const textareaCls =
   "w-full rounded-lg border border-[#dfe6f1] bg-white px-3 py-2 text-sm font-bold text-[#1d2a57] outline-none transition focus:border-[#8bbcff] focus:ring-2 focus:ring-[#e6f1ff] resize-none";
 
+function normalizeWeightInput(value: string) {
+  const withoutUnit = value.replace(/kg/gi, "");
+  const numeric = withoutUnit.replace(/[^\d.]/g, "");
+  const [integerPart, ...decimalParts] = numeric.split(".");
+  const decimalPart = decimalParts.join("");
+
+  return decimalParts.length > 0 ? `${integerPart}.${decimalPart}` : integerPart;
+}
+
 function EditPatientModal({
   draft,
   isSaving,
@@ -374,11 +389,19 @@ function EditPatientModal({
                 />
               </FormField>
               <FormField label="체중">
-                <input
-                  className={inputCls}
-                  value={draft.weight}
-                  onChange={(e) => onChange("weight", e.target.value)}
-                />
+                <div className="flex items-center gap-2">
+                  <input
+                    className={inputCls}
+                    inputMode="decimal"
+                    value={draft.weight}
+                    onChange={(e) =>
+                      onChange("weight", normalizeWeightInput(e.target.value))
+                    }
+                  />
+                  <span className="shrink-0 text-sm font-extrabold text-[#52607a]">
+                    kg
+                  </span>
+                </div>
               </FormField>
             </div>
             <FormField label="특이사항" className="mt-4">

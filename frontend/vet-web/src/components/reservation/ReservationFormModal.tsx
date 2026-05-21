@@ -51,6 +51,7 @@ interface ReservationFormModalProps {
   patientOptions: ReservationPatient[];
   doctorOptions: string[];
   onClose: () => void;
+  onResolvePatient?: (patient: ReservationPatient) => Promise<ReservationPatient>;
   onSave: (patient: ReservationPatient, form: ReservationFormState) => void;
 }
 
@@ -63,10 +64,12 @@ export function ReservationFormModal({
   patientOptions,
   doctorOptions,
   onClose,
+  onResolvePatient,
   onSave,
 }: ReservationFormModalProps) {
   const [searchText, setSearchText] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const patientResolveRequestIdRef = useRef(0);
   const [selectedPatient, setSelectedPatient] = useState<ReservationPatient | null>(
     mode === "edit" ? patient ?? null : null
   );
@@ -126,6 +129,25 @@ export function ReservationFormModal({
     }
   }, [bookedTimes, availableTimeOptions, form.time]);
 
+  const handleSelectPatient = async (item: ReservationPatient) => {
+    const requestId = patientResolveRequestIdRef.current + 1;
+    patientResolveRequestIdRef.current = requestId;
+
+    setSelectedPatient(item);
+    setSearchText(`${item.petName} (${item.guardianName})`);
+    setIsSearchFocused(false);
+
+    if (!onResolvePatient) {
+      return;
+    }
+
+    const resolvedPatient = await onResolvePatient(item);
+
+    if (patientResolveRequestIdRef.current === requestId) {
+      setSelectedPatient(resolvedPatient);
+    }
+  };
+
   const shouldShowSearchResults = isSearchFocused;
   const canSaveReservation = selectedPatient !== null;
 
@@ -169,11 +191,7 @@ export function ReservationFormModal({
                     <button
                       key={item.id}
                       type="button"
-                      onClick={() => {
-                        setSelectedPatient(item);
-                        setSearchText(`${item.petName} (${item.guardianName})`);
-                        setIsSearchFocused(false);
-                      }}
+                      onClick={() => void handleSelectPatient(item)}
                       className="flex w-full items-center justify-between border-b border-[#f2f4f8] px-4 py-2.5 text-left last:border-b-0 hover:bg-[#f7f9fc]"
                     >
                       <span>

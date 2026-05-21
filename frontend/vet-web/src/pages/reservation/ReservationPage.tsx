@@ -51,6 +51,7 @@ export default function ReservationPage({
     doctorOptions,
     isLoading,
     loadReservations,
+    resolvePatientOption,
   } = useReservationData(session.accessToken);
   const [selectedDate, setSelectedDate] = useState(TODAY);
   const [viewMode, setViewMode] = useState<ReservationViewMode>("day");
@@ -257,6 +258,9 @@ export default function ReservationPage({
           patientOptions={patientOptions}
           doctorOptions={doctorOptions}
           onClose={() => setModalMode(null)}
+          onResolvePatient={
+            modalMode === "add" ? resolvePatientOption : undefined
+          }
           onSave={handleSaveReservation}
         />
       )}

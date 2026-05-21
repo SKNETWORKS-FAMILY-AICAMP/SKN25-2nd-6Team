@@ -1,4 +1,7 @@
-import type { PatientListItemResponse } from "../api/patientApi";
+import type {
+  PatientDetailResponse,
+  PatientListItemResponse,
+} from "../api/patientApi";
 import type {
   ApiReservation,
   PatientsById,
@@ -197,6 +200,29 @@ export function mapPatientListItemToReservationPatient(
     isNeutered: false,
     lastCheckupDate: dotDate(item.last_visit_date),
     imageUrl: DEFAULT_PET_IMAGE,
+  };
+}
+
+export function mapPatientDetailToReservationPatient(
+  detail: PatientDetailResponse["result"],
+  fallback: ReservationPatient
+): ReservationPatient {
+  const info = detail.patient_info;
+
+  return {
+    ...fallback,
+    id: info.petid,
+    petName: info.petname,
+    guardianName: info.owner_name,
+    phone: info.phone,
+    species: info.species === "고양이" ? "고양이" : "강아지",
+    breed: info.breed,
+    birthDate: dotDate(info.birth_date),
+    age: info.age,
+    weight: info.weight_kg ? `${info.weight_kg}kg` : "",
+    gender: formatGender(info.gender),
+    isNeutered: info.is_neutered,
+    imageUrl: info.profile_image || fallback.imageUrl || DEFAULT_PET_IMAGE,
   };
 }
 
