@@ -1,5 +1,5 @@
 import { Edit3 } from "lucide-react";
-import type { EmrResult, PetInfo, Prescription } from "../../pages/emr/emrMockData";
+import type { EmrResult, PetInfo, Prescription } from "../../types/emr";
 import { Panel } from "./EmrShared";
 
 export function PatientInfoPanel({

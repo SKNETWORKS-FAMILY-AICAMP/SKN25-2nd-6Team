@@ -1,5 +1,5 @@
 import { AlignLeft, Bold, FileUp, Italic, List, Plus, Search, Trash2, Underline, X } from "lucide-react";
-import type { Prescription, UploadedFile } from "../../pages/emr/emrMockData";
+import type { Prescription, UploadedFile } from "../../types/emr";
 import { Panel } from "./EmrShared";
 
 export function EditorPanel({

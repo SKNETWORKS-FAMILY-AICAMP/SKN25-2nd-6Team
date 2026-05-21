@@ -1,6 +1,5 @@
 import { RefreshCcw } from "lucide-react";
-import type { QueuePatient } from "../../pages/emr/emrMockData";
-import type { QueueTab } from "../../types/emr";
+import type { QueuePatient, QueueTab } from "../../types/emr";
 import { Panel, StatusBadge } from "./EmrShared";
 
 export function QueuePanel({

@@ -1,4 +1,4 @@
-import type { TriageStatus } from "../pages/emr/emrMockData";
+import type { TriageStatus } from "../types/emr";
 
 export const statusStyle: Record<TriageStatus, { label: string; className: string }> = {
   emergency: {

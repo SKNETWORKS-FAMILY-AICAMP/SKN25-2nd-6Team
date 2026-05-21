@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import type { EmrResult } from "../../pages/emr/emrMockData";
+import type { EmrResult } from "../../types/emr";
 import { Panel } from "./EmrShared";
 
 export function IntakePanel({

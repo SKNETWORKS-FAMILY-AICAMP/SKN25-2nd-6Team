@@ -6,8 +6,12 @@ import {
   mockUploadedFiles,
   mockWaitingQueue,
 } from "../pages/emr/emrMockData";
-import type { Prescription } from "../pages/emr/emrMockData";
-import type { IntakeApplyTarget, PreviewImage, QueueTab } from "../types/emr";
+import type {
+  IntakeApplyTarget,
+  Prescription,
+  PreviewImage,
+  QueueTab,
+} from "../types/emr";
 
 export function useEmrData() {
   const [queueTab, setQueueTab] = useState<QueueTab>("waiting");

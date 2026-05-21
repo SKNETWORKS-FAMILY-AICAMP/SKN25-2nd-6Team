@@ -1,5 +1,5 @@
 import { Maximize2, X } from "lucide-react";
-import type { PetInfo, Prescription } from "../../pages/emr/emrMockData";
+import type { PetInfo, Prescription } from "../../types/emr";
 import { Panel } from "./EmrShared";
 
 export function AutoPrescriptionPanel({

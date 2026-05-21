@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { TriageStatus } from "../../pages/emr/emrMockData";
+import type { TriageStatus } from "../../types/emr";
 import { statusStyle } from "../../utils/emrUtils";
 
 export function Panel({

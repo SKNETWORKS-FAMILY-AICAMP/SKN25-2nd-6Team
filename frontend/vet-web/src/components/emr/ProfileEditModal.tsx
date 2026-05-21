@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import type { PetInfo } from "../../pages/emr/emrMockData";
+import type { PetInfo } from "../../types/emr";
 
 export function ProfileEditModal({
   patient,

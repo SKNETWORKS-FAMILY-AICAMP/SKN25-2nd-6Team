@@ -1,5 +1,5 @@
 import { Printer, X } from "lucide-react";
-import type { PrescriptionDocumentResponse } from "../../pages/emr/emrMockData";
+import type { PrescriptionDocumentResponse } from "../../types/emr";
 
 export function PrescriptionPreviewModal({
   document,
