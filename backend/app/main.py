@@ -28,6 +28,8 @@ app.add_middleware(
         "http://127.0.0.1:5173",
         "http://192.168.0.2:5173",  # 민서 IP
         "http://192.168.0.32:5173",  # 프론트 팀원 IP 
+        "http://localhost:5174",
+        "http://192.168.0.2:5174", 
     ],
     allow_credentials=True,
     allow_methods=["*"],
