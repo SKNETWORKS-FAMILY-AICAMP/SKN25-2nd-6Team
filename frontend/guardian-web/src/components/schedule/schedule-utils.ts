@@ -92,8 +92,7 @@ export const getProfileImage = (schedule: ScheduleListItem) =>
   defaultProfileImages[Math.abs(schedule.pet_id) % defaultProfileImages.length];
 
 export const canManageSchedule = (schedule: ScheduleListItem) =>
-  schedule.status === "CONFIRMED" &&
-  new Date(schedule.confirmed_time).getTime() > Date.now();
+  schedule.status === "CONFIRMED" && new Date(schedule.confirmed_time) > new Date();
 
 export const buildKstDateTime = (date: string, time: string) =>
   `${date}T${time}:00${kstOffset}`;

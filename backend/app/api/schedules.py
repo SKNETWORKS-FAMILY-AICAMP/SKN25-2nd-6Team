@@ -15,10 +15,12 @@ from app.models.pet import Pet
 from app.models.doctor import Doctor
 from app.models.guardian import Guardian
 from app.models.master import CategoryMaster
+from app.models.schedule import Schedule
 
 router = APIRouter(prefix="/schedules", tags=["schedules"])
 
 KST = timezone(timedelta(hours=9))
+
 
 
 # 정기검진 예약
@@ -38,6 +40,19 @@ async def create_checkup(
     pet = result.scalar_one_or_none()
     if not pet:
         raise HTTPException(status_code=404, detail="반려동물 정보를 찾을 수 없습니다.")
+
+    # 중복 예약 확인
+    dup_result = await db.execute(
+        select(Schedule)
+        .join(Guardian, Schedule.emrid == Guardian.emrid)
+        .where(
+            Guardian.petid == request.pet_id,
+            Schedule.status == "CONFIRMED",
+            Schedule.deleted_at.is_(None)
+        )
+    )
+    if dup_result.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="해당 반려동물의 예약이 이미 존재합니다.")
 
     # 수의사 확인 (첫 번째 수의사로 자동 배정)
     result = await db.execute(select(Doctor))
@@ -72,12 +87,13 @@ async def create_checkup(
 # 예약 목록 조회
 @router.get("")
 async def get_schedules(
+    filter: str = Query("all"),
     page: int = Query(1, ge=1),
     size: int = Query(10, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    schedules, has_next = await get_schedules_by_userid(db, current_user.userid, page, size)
+    schedules, has_next = await get_schedules_by_userid(db, current_user.userid, page, size, filter)
 
     result = []
     for schedule in schedules:
@@ -107,15 +123,17 @@ async def get_schedules(
             today = date.today()
             age = today.year - pet.birth_date.year
 
+        raw_status = "CANCELLED" if schedule.deleted_at else schedule.status
         result.append({
             "schedule_id": schedule.scheduleid,
+            "pet_id": pet.petid,
             "pet_name": pet.petname,
             "pet_profile_image": pet.profile_image,
             "breed": pet.breed,
             "age": age,
             "gender": pet.gender,
             "category": category.label if category else None,
-            "status": schedule.status,
+            "status": raw_status,
             "confirmed_time": schedule.confirmed_time.astimezone(KST).isoformat() if schedule.confirmed_time else None,
             "confirmed_end_time": schedule.confirmed_end_time.astimezone(KST).isoformat() if schedule.confirmed_end_time else None,
             "duration_min": schedule.duration_min,
@@ -127,12 +145,36 @@ async def get_schedules(
 
     return {
         "code": 200,
-        "result": result,
-        "pagination": {
+        "result": {
+            "items": result,
             "page": page,
-            "size": size,
             "has_next": has_next
         }
+    }
+
+
+# 빈 슬롯 조회
+@router.get("/available")
+async def get_available(
+    date: str = Query(...),
+    duration_min: int = Query(...),
+    doctorid: int = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    slots = await get_available_slots(db, date, duration_min, doctorid)
+
+    return {
+        "code": 200,
+        "result": [
+            {
+                "start_time": slot.start_time,
+                "end_time": slot.end_time,
+                "doctorid": slot.doctorid,
+                "doctor_name": slot.doctor_name,
+            }
+            for slot in slots
+        ]
     }
 
 
@@ -232,44 +274,12 @@ async def update_schedule(
     if schedule.confirmed_time.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="이미 지난 예약은 변경할 수 없습니다.")
 
-    result = await update_schedule_time(db, schedule, request.confirmed_time, request.duration_min)
+    result = await update_schedule_time(db, schedule, request.confirmed_time, schedule.duration_min)
 
     if not result:
         raise HTTPException(status_code=409, detail="선택하신 시간에 이미 예약이 있습니다.")
 
     return {"code": 200, "message": "예약이 변경되었습니다."}
-
-
-# 빈 슬롯 조회
-@router.get("/available")
-async def get_available(
-    date: str = Query(...),
-    duration_min: int = Query(...),
-    doctorid: int = Query(None),
-    db: AsyncSession = Depends(get_db),
-    current_user = Depends(get_current_user)
-):
-    slots = await get_available_slots(db, date, duration_min, doctorid)
-
-    doctor = None
-    if slots:
-        doctor_result = await db.execute(
-            select(Doctor).where(Doctor.doctorid == slots[0].doctorid)
-        )
-        doctor = doctor_result.scalar_one_or_none()
-
-    return {
-        "code": 200,
-        "result": [
-            {
-                "start_time": str(slot.start_time),
-                "end_time": str(slot.end_time),
-                "doctorid": slot.doctorid,
-                "doctor_name": doctor.doctor_name if doctor else None
-            }
-            for slot in slots
-        ]
-    }
 
 
 # 챗봇 예약 확정

@@ -176,21 +176,27 @@ const ScheduleListPage = () => {
                 </div>
 
                 <h2 className="mt-5 text-xl font-black text-slate-950">
-                  아직 예약된 진료가 없습니다.
+                  {selectedFilter === "upcoming" && "예정된 진료가 없습니다."}
+                  {selectedFilter === "past" && "지난 진료가 없습니다."}
+                  {selectedFilter === "cancelled" && "취소된 진료가 없습니다."}
+                  {selectedFilter === "all" && "아직 예약된 진료가 없습니다."}
                 </h2>
 
-                <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
-                  AI 챗봇 상담을 통해 간편하게 예약을 진행해보세요.
-                </p>
-
-                <ActionButton
-                  type="button"
-                  onClick={() => navigate("/chatbot")}
-                  size="lg"
-                  className="mt-6"
-                >
-                  챗봇 상담 시작하기
-                </ActionButton>
+                {selectedFilter === "all" ? (
+                  <>
+                    <p className="mt-3 text-sm font-semibold leading-6 text-slate-500">
+                      AI 챗봇 상담을 통해 간편하게 예약을 진행해보세요.
+                    </p>
+                    <ActionButton
+                      type="button"
+                      onClick={() => navigate("/chatbot")}
+                      size="lg"
+                      className="mt-6"
+                    >
+                      챗봇 상담 시작하기
+                    </ActionButton>
+                  </>
+                ) : null}
               </div>
             </div>
           ) : (

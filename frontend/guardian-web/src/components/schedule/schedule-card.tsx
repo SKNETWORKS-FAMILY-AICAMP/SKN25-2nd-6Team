@@ -23,9 +23,13 @@ const ScheduleCard = ({
 }: ScheduleCardProps) => {
   const canManage = canManageSchedule(schedule);
 
+  const isPastConfirmed =
+    schedule.status === "CONFIRMED" &&
+    new Date(schedule.confirmed_time) <= new Date();
+
   const isInactive =
     selectedFilter === "all" &&
-    (schedule.status === "COMPLETED" || schedule.status === "CANCELLED");
+    (schedule.status === "COMPLETED" || schedule.status === "CANCELLED" || isPastConfirmed);
 
   const badgeClassName =
     schedule.status === "CONFIRMED"
