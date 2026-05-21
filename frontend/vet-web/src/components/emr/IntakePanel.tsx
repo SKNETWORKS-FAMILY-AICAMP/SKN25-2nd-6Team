@@ -19,8 +19,6 @@ export function IntakePanel({
 }) {
   const summary = emr.triage_summary.summary;
   const memo = emr.triage_summary.memo;
-  const preVisitReport = emr.triage_summary.preVisitReport;
-  const suspectedKeywords = emr.triage_summary.suspectedKeywords ?? [];
 
   return (
     <Panel className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -58,40 +56,14 @@ export function IntakePanel({
             </button>
           </div>
           {summary.length > 0 ? (
-            <div className="space-y-2.5">
-              <ul className="space-y-1.5 text-xs font-bold leading-5 text-[#59657a]">
-                {summary.map((bullet) => (
-                  <li key={bullet} className="flex gap-2">
-                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#4a89ff]" />
-                    <span>{bullet}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {preVisitReport && (
-                <div className="rounded-lg border border-[#ffd65a] bg-[#fffbeb] px-2.5 py-2">
-                  <p className="mb-1.5 text-xs font-extrabold text-[#8a3b12]">
-                    예약 전 경과 보고
-                  </p>
-                  <p className="text-xs font-bold leading-5 text-[#8a3b12]">
-                    {preVisitReport}
-                  </p>
-                </div>
-              )}
-
-              {suspectedKeywords.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {suspectedKeywords.slice(0, 3).map((keyword) => (
-                    <span
-                      key={keyword}
-                      className="rounded-full border border-[#dfe4ec] bg-[#f8fafc] px-2.5 py-1 text-xs font-bold text-[#364155] shadow-sm"
-                    >
-                      {keyword}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ul className="space-y-1.5 text-xs font-bold leading-5 text-[#59657a]">
+              {summary.map((bullet) => (
+                <li key={bullet} className="flex gap-2">
+                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#4a89ff]" />
+                  <span>{bullet}</span>
+                </li>
+              ))}
+            </ul>
           ) : (
             <p className="text-xs font-bold text-[#8a94a6]">
               예약 사전문진 내용이 없습니다.
