@@ -3,7 +3,7 @@ export type EmrRecordType = "treatment" | "prevention";
 export interface PatientSummary {
   id: number;
   petName: string;
-  species: "강아지" | "고양이";
+  species: string;
   breed: string;
   age: string;
   guardianName: string;
@@ -46,4 +46,3 @@ export interface EmrHistoryRecord {
   };
   prescriptions: PrescriptionLine[];
 }
-

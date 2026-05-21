@@ -1,4 +1,5 @@
 import axios, { AxiosError } from "axios";
+import { API_BASE_URL, apiClient } from "./client";
 
 export interface HospitalUser {
   id: string;
@@ -81,18 +82,8 @@ interface PasswordChangeResponse {
   message: string;
 }
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "/api";
 const SESSION_STORAGE_KEY = "medipaw_vet_session";
 const PASSWORD_CHANGED_USERS_STORAGE_KEY = "medipaw_vet_password_changed_users";
-
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 8000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
 
 export async function changePassword(params: {
   accessToken: string;
