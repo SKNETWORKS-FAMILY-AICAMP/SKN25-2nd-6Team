@@ -9,6 +9,8 @@ from app.schemas.chat import ChatSessionCreate, ChatMessageRequest
 from app.crud.chat import create_chat_session, get_chat_session, get_chat_sessions_by_petid, add_message, delete_chat_session
 from app.core.dependencies import get_current_user
 from app.models.pet import Pet
+from app.models.followup import Followup
+from app.models.schedule import Schedule
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 

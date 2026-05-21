@@ -28,6 +28,7 @@ from app.models.report import Report
 from app.models.triage_result import TriageResult
 from app.models.photo_analysis import PhotoAnalysis
 from app.models.validation_result import ValidationResult
+from app.models.followup import Followup
 
 config = context.config
 
