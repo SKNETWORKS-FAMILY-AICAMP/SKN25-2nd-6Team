@@ -13,16 +13,25 @@ export interface SummaryViewModel {
   tone: SummaryToneKey;
 }
 
+// 30분 단위 타임라인 슬롯. 12:00 한 줄로 점심(12:00-13:00)을 표시하므로 12:30은 제외.
 export const timelineHours = [
   "09:00",
+  "09:30",
   "10:00",
+  "10:30",
   "11:00",
+  "11:30",
   "12:00",
   "13:00",
+  "13:30",
   "14:00",
+  "14:30",
   "15:00",
+  "15:30",
   "16:00",
+  "16:30",
   "17:00",
+  "17:30",
   "18:00",
 ];
 
@@ -111,10 +120,12 @@ export function createSummaryCards(
 
 export function groupSchedulesByHour(items: DashboardScheduleItem[]) {
   return items.reduce<Record<string, DashboardScheduleItem[]>>((acc, item) => {
-    const [hour] = item.start.split(":");
-    const hourKey = `${hour}:00`;
+    // 시작 시각을 30분 슬롯(:00 / :30)으로 내림하여 그룹핑
+    const [hour, minute] = item.start.split(":");
+    const slot = Number(minute) < 30 ? "00" : "30";
+    const slotKey = `${hour.padStart(2, "0")}:${slot}`;
 
-    acc[hourKey] = [...(acc[hourKey] ?? []), item];
+    acc[slotKey] = [...(acc[slotKey] ?? []), item];
     return acc;
   }, {});
 }

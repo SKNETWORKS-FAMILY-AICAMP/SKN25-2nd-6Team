@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.utils.age import calculate_age
+from app.utils.timezone import to_kst
 from app.schemas.patient import PatientUpdate
 
 from app.crud.patient import (
@@ -44,7 +45,7 @@ async def list_patients(
 
     patient_list = []
     for pet, user in rows:
-        last_visit = last_visit_map.get(pet.petid)
+        last_visit = to_kst(last_visit_map.get(pet.petid))
 
         patient_list.append({
             "petid": pet.petid,
@@ -97,7 +98,7 @@ async def patient_detail(
     for emr, doctor, schedule in history_rows:
         prescription_rows = await get_prescriptions_by_emr(db, emr.doctor_emrid)
 
-        visit_dt = schedule.confirmed_time or emr.created_at
+        visit_dt = to_kst(schedule.confirmed_time or emr.created_at)
 
         emr_history.append({
             "doctor_emrid": emr.doctor_emrid,

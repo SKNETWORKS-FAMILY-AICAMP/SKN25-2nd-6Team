@@ -9,6 +9,7 @@ from app.models.pet import Pet
 from app.models.user import User
 from app.models.doctor import Doctor
 from app.models.master import TriageMaster, CategoryMaster
+from app.utils.timezone import to_kst
 
 
 class TimeSlotConflict(Exception):
@@ -55,7 +56,9 @@ async def has_time_conflict(
 
     result = await db.execute(stmt)
     for schedule in result.scalars().all():
-        ct = schedule.confirmed_time
+        # 저장된 값은 asyncpg가 UTC로 반환하므로 KST로 변환 후 비교해야
+        # 새 예약("13:00")과 기존 예약이 같은 시각인지 올바르게 판정된다.
+        ct = to_kst(schedule.confirmed_time)
         if ct and ct.date() == target_date and ct.strftime("%H:%M") == target_hm:
             return True
 

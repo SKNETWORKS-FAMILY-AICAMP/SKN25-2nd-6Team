@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.utils.age import calculate_age
+from app.utils.timezone import to_kst
 
 from app.crud.doctor_reservation import (
     get_reservations,
@@ -37,8 +38,8 @@ TRIAGE_CODE_TO_KEY = {
 def _serialize_reservation(row) -> dict:
     """get_reservations 조인 결과 한 행을 응답 형태로 변환한다."""
     schedule, guardian, pet, user, doctor, triage, category = row
-    confirmed = schedule.confirmed_time
-    end = schedule.confirmed_end_time
+    confirmed = to_kst(schedule.confirmed_time)
+    end = to_kst(schedule.confirmed_end_time)
 
     return {
         "schedule_id": schedule.scheduleid,

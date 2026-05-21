@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -23,10 +23,30 @@ import {
   isSameDate,
 } from "../../utils/reservationUtils";
 
+// 예약 가능한 시작 시간(30분 단위, 점심 12:00~13:00 제외)
+const TIME_OPTIONS = [
+  "09:00",
+  "09:30",
+  "10:00",
+  "10:30",
+  "11:00",
+  "11:30",
+  "13:00",
+  "13:30",
+  "14:00",
+  "14:30",
+  "15:00",
+  "15:30",
+  "16:00",
+  "16:30",
+  "17:00",
+];
+
 interface ReservationFormModalProps {
   mode: "add" | "edit";
   selectedDate: Date;
   reservation?: ReservationItem;
+  reservations: ReservationItem[];
   patient?: ReservationPatient;
   patientOptions: ReservationPatient[];
   doctorOptions: string[];
@@ -38,6 +58,7 @@ export function ReservationFormModal({
   mode,
   selectedDate,
   reservation,
+  reservations,
   patient,
   patientOptions,
   doctorOptions,
@@ -70,6 +91,34 @@ export function ReservationFormModal({
         .includes(keyword)
     );
   }, [searchText, patientOptions]);
+
+  // 선택한 날짜에 이미 예약된 시작 시간(수정 중인 본인 예약은 제외)
+  const bookedTimes = useMemo(() => {
+    const taken = new Set<string>();
+    for (const item of reservations) {
+      if (item.date === form.dateKey && item.id !== reservation?.id) {
+        taken.add(item.start);
+      }
+    }
+    return taken;
+  }, [reservations, form.dateKey, reservation?.id]);
+
+  // 예약된 시간은 선택지에서 숨긴다
+  const availableTimeOptions = useMemo(
+    () => TIME_OPTIONS.filter((time) => !bookedTimes.has(time)),
+    [bookedTimes]
+  );
+
+  // 날짜를 바꿔 현재 선택한 시간이 예약 불가해지면 가능한 첫 시간으로 보정
+  useEffect(() => {
+    if (form.time && bookedTimes.has(form.time)) {
+      setForm((current) => ({
+        ...current,
+        time: availableTimeOptions[0] ?? "",
+      }));
+    }
+  }, [bookedTimes, availableTimeOptions, form.time]);
+
   const shouldShowSearchResults = isSearchFocused;
   const canSaveReservation = selectedPatient !== null;
 
@@ -190,7 +239,7 @@ export function ReservationFormModal({
               <SelectField
                 label="예약 시간"
                 value={form.time}
-                options={["09:00", "10:00", "11:00", "13:00", "14:00", "15:00", "16:00", "17:00"]}
+                options={availableTimeOptions}
                 onChange={(value) => setForm((current) => ({ ...current, time: value }))}
               />
               <SelectField
