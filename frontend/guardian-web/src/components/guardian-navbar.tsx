@@ -15,7 +15,7 @@ interface GuardianNavbarProps {
 }
 
 const GuardianNavbar = ({
-  contentClassName = "max-w-6xl px-4 sm:px-6",
+  contentClassName = "max-w-[1280px] px-8",
 }: GuardianNavbarProps) => {
   const navigate = useNavigate();
   const guardian = useAuthStore((state) => state.guardian);

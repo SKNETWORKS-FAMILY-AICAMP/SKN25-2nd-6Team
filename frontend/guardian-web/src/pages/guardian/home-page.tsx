@@ -3,7 +3,8 @@ import { isAxiosError } from "axios";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { getPets, type Pet } from "../../api/pets-api";
-import GuardianNavbar from "../../components/guardian-navbar";
+import PageHeader from "../../components/common/page-header";
+import GuardianLayout from "../../layouts/guardian-layout";
 
 const petRegisterPath = "/pets/register";
 
@@ -171,10 +172,7 @@ const HomePage = () => {
   }, [isEmptyPreview, isPetsPreview, navigate, refreshRequestedAt]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <GuardianNavbar />
-
-      <main className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6">
+    <GuardianLayout>
         {isLoading ? (
           <section className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
             <div className="h-12 w-12 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600" />
@@ -220,25 +218,20 @@ const HomePage = () => {
           </section>
         ) : (
           <section className="pb-8">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h1 className="text-xl font-black text-slate-950">
-                  내 반려동물
-                </h1>
-                <p className="mt-1 text-xs font-semibold text-slate-500">
-                  사랑하는 반려동물의 건강을 관리하고 예약해보세요.
-                </p>
-              </div>
+            <PageHeader
+              title="내 반려동물"
+              description="사랑하는 반려동물의 건강을 관리하고 예약해보세요."
+              rightAction={
+                <Link
+                  to={petRegisterPath}
+                  className="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
+                >
+                  + 반려동물 등록
+                </Link>
+              }
+            />
 
-              <Link
-                to={petRegisterPath}
-                className="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-100 transition hover:bg-blue-700"
-              >
-                + 반려동물 등록
-              </Link>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+            <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
               <div className="mb-3 px-1 text-sm font-bold text-slate-500">
                 등록된 반려동물 {petCountLabel}
               </div>
@@ -295,8 +288,7 @@ const HomePage = () => {
 
           </section>
         )}
-      </main>
-    </div>
+    </GuardianLayout>
   );
 };
 
