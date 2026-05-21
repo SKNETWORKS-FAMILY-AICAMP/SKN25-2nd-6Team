@@ -29,6 +29,7 @@ from app.models.triage_result import TriageResult
 from app.models.photo_analysis import PhotoAnalysis
 from app.models.validation_result import ValidationResult
 from app.models.followup import Followup
+from app.models.hospital import Hospital
 
 config = context.config
 
