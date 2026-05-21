@@ -60,7 +60,7 @@ export const getAvailableScheduleSlots = async ({
 export const reserveCheckupSchedule = async (
   payload: CheckupReservationPayload,
 ): Promise<CheckupReservationResponse> => {
-  const response = await apiClient.put<CheckupReservationResponse>(
+  const response = await apiClient.post<CheckupReservationResponse>(
     "/schedules/checkup",
     payload,
   );
