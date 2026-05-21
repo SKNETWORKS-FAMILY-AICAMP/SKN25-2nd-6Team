@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -7,7 +7,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
-import { AuthSession, clearSession, getSavedSession } from "../api/authApi";
+import { AuthSession } from "../api/authApi";
 import { AppMenuId } from "../layouts/AppLayout";
 import FirstPasswordChangePage from "../pages/auth/FirstPasswordChangePage";
 import LoginPage from "../pages/auth/LoginPage";
@@ -16,6 +16,7 @@ import EmrPage from "../pages/emr/EmrPage";
 import PatientManagementPage from "../pages/patients/PatientManagementPage";
 import ReservationPage from "../pages/reservation/ReservationPage";
 import SettingsPage from "../pages/settings/SettingsPage";
+import { useAuthStore } from "../stores/auth-store";
 import ProtectedRoute from "./protected-route";
 
 const devSession: AuthSession = {
@@ -67,9 +68,7 @@ function getDevPath(search: string) {
 function VetRoutes() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [session, setSession] = useState<AuthSession | null>(() =>
-    getSavedSession()
-  );
+  const { session, setSession, clearAuth } = useAuthStore();
 
   useEffect(() => {
     const devPath = getDevPath(location.search);
@@ -78,9 +77,9 @@ function VetRoutes() {
       return;
     }
 
-    setSession(devSession);
+    setSession(devSession, { persist: false });
     navigate(devPath, { replace: true });
-  }, [location.search, navigate]);
+  }, [location.search, navigate, setSession]);
 
   const handleLoginSuccess = (nextSession: AuthSession) => {
     setSession(nextSession);
@@ -96,14 +95,12 @@ function VetRoutes() {
   };
 
   const handleGoLogin = () => {
-    clearSession();
-    setSession(null);
+    clearAuth();
     navigate("/login", { replace: true });
   };
 
   const handleLogout = () => {
-    clearSession();
-    setSession(null);
+    clearAuth();
     navigate("/login", { replace: true });
   };
 

@@ -1,4 +1,4 @@
-import axios from "axios";
+import { apiClient } from "./client";
 
 export type AlarmType =
   | "reservation_confirmed"
@@ -13,15 +13,6 @@ export interface AlarmItem {
   is_read: boolean;
   created_at: string;
 }
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "/api";
-
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 8000,
-  headers: { "Content-Type": "application/json" },
-});
 
 export async function fetchAlarmList(params: {
   accessToken: string;
