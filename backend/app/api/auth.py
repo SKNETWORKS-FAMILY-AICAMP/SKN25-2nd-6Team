@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from jose import JWTError, jwt
 
 from app.schemas.user import UserCreate, UserResponse
 from app.schemas.auth import LoginRequest, TokenResponse, TokenRefreshRequest, TokenRefreshResponse, FindIdRequest, FindPasswordRequest
 from app.crud.user import get_user_by_loginid, create_user
-from app.core.security import verify_password, create_access_token, create_refresh_token
+from app.core.security import verify_password, create_access_token, create_refresh_token, hash_password
 from app.core.dependencies import get_current_user
 from app.core.config import settings
 from app.models.user import User
@@ -18,21 +19,21 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 # 회원가입
 @router.post("/signup", response_model=UserResponse, status_code=201)
-def signup(user: UserCreate, db: Session = Depends(get_db)):
+async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
 
     # loginid 중복 확인
-    if get_user_by_loginid(db, user.loginid):
+    if await get_user_by_loginid(db, user.loginid):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="이미 사용 중인 로그인 ID입니다."
         )
 
-    return create_user(db, user)
+    return await create_user(db, user)
 
 # 로그인
 @router.post("/login")
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    user = get_user_by_loginid(db, request.loginid)
+async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
+    user = await get_user_by_loginid(db, request.loginid)
 
     if not user or not verify_password(request.password, user.password):
         raise HTTPException(
@@ -55,7 +56,7 @@ def login(request: LoginRequest, db: Session = Depends(get_db)):
 
 # 토큰 갱신
 @router.post("/refresh", response_model=TokenRefreshResponse)
-def refresh_token(request: TokenRefreshRequest, db: Session = Depends(get_db)):
+async def refresh_token(request: TokenRefreshRequest, db: AsyncSession = Depends(get_db)):
 
     try:
         # refresh token 검증
@@ -80,7 +81,8 @@ def refresh_token(request: TokenRefreshRequest, db: Session = Depends(get_db)):
         )
 
     # 유저 존재 확인
-    user = db.query(User).filter(User.userid == int(user_id)).first()
+    result = await db.execute(select(User).where(User.userid == int(user_id)))
+    user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -94,7 +96,7 @@ def refresh_token(request: TokenRefreshRequest, db: Session = Depends(get_db)):
 
 # 로그아웃
 @router.post("/logout")
-def logout(current_user = Depends(get_current_user)):
+async def logout(current_user = Depends(get_current_user)):
     return {
         "code": 200,
         "message": "로그아웃 되었습니다."
@@ -102,11 +104,14 @@ def logout(current_user = Depends(get_current_user)):
 
 # 아이디 찾기
 @router.post("/find-id")
-def find_id(request: FindIdRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(
-        User.name == request.name,
-        User.phone == request.phone
-    ).first()
+async def find_id(request: FindIdRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(User).where(
+            User.name == request.name,
+            User.phone == request.phone
+        )
+    )
+    user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(
@@ -124,12 +129,15 @@ def find_id(request: FindIdRequest, db: Session = Depends(get_db)):
 
 # 비밀번호 찾기
 @router.post("/find-password")
-def find_password(request: FindPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(
-        User.loginid == request.loginid,
-        User.name == request.name,
-        User.phone == request.phone
-    ).first()
+async def find_password(request: FindPasswordRequest, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(
+        select(User).where(
+            User.loginid == request.loginid,
+            User.name == request.name,
+            User.phone == request.phone
+        )
+    )
+    user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(
@@ -145,7 +153,7 @@ def find_password(request: FindPasswordRequest, db: Session = Depends(get_db)):
 
     # 비밀번호 변경
     user.password = hash_password(temp_password)
-    db.commit()
+    await db.commit()
 
     return {
         "code": 200,

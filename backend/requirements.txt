@@ -6,7 +6,9 @@ python-multipart==0.0.12
 # Database
 sqlalchemy==2.0.36
 alembic==1.14.0
-psycopg2-binary==2.9.10
+psycopg2-binary==2.9.10  # alembic 마이그레이션(동기) 용
+asyncpg==0.30.0          # FastAPI 런타임(비동기) 용
+greenlet>=3.0            # SQLAlchemy async 실행에 필요
 
 # JWT + 비밀번호 암호화
 python-jose[cryptography]==3.3.0

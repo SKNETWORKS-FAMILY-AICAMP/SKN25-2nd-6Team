@@ -12,3 +12,5 @@ class Guardian(Base):
     date = Column(Date, nullable=True)
     memo = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    # 소프트 삭제(의료 데이터): NULL = 활성, 값이 있으면 삭제된 시각
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
