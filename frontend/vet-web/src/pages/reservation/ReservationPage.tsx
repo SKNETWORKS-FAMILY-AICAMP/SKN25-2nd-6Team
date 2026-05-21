@@ -221,16 +221,18 @@ export default function ReservationPage({
         )}
 
         {viewMode === "week" && (
-          <WeeklySchedule
-            selectedDate={selectedDate}
-            reservations={reservations}
-            patientsById={patientsById}
-            onSelectReservation={(reservation, reservationDate) => {
-              setSelectedDate(reservationDate);
-              setSelectedReservationId(reservation.id);
-              setViewMode("day");
-            }}
-          />
+          <div className="h-[calc(100vh-140px)] overflow-y-auto px-4 pb-4">
+            <WeeklySchedule
+              selectedDate={selectedDate}
+              reservations={reservations}
+              patientsById={patientsById}
+              onSelectReservation={(reservation, reservationDate) => {
+                setSelectedDate(reservationDate);
+                setSelectedReservationId(reservation.id);
+                setViewMode("day");
+              }}
+            />
+          </div>
         )}
 
         {viewMode === "month" && (
@@ -250,6 +252,7 @@ export default function ReservationPage({
           mode={modalMode}
           selectedDate={selectedDate}
           reservation={modalMode === "edit" ? selectedReservation : undefined}
+          reservations={reservations}
           patient={modalMode === "edit" ? selectedPatient : undefined}
           patientOptions={patientOptions}
           doctorOptions={doctorOptions}

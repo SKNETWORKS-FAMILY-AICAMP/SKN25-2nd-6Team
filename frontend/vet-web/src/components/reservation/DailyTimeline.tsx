@@ -25,8 +25,8 @@ export function DailyTimeline({
   onSelect,
 }: DailyTimelineProps) {
   return (
-    <section className="h-full overflow-hidden rounded-lg border border-[#e5eaf2] bg-white p-4 shadow-sm">
-      <div className="mb-2 text-center">
+    <section className="flex h-full flex-col overflow-hidden rounded-lg border border-[#e5eaf2] bg-white p-4 shadow-sm">
+      <div className="mb-2 shrink-0 text-center">
         <p className="text-base font-extrabold text-[#151b28]">
           {dayLabels[selectedDate.getDay()]}요일
         </p>
@@ -35,7 +35,7 @@ export function DailyTimeline({
         </p>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
         {reservationTimes.map((time) => {
           const reservation = getReservationAt(reservations, time);
           const patient = reservation ? patientsById[reservation.patientId] : undefined;

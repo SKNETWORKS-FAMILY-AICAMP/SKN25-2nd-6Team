@@ -7,6 +7,7 @@ from app.core.dependencies import get_current_doctor
 from app.db.session import get_db
 from app.crud.dashboard import get_doctor_day_schedules
 from app.models.doctor import Doctor
+from app.utils.timezone import KST, to_kst
 from app.schemas.dashboard import (
     DashboardResult,
     DashboardScheduleItem,
@@ -44,7 +45,8 @@ def _weight_label(weight) -> str:
 
 
 def _hhmm(dt: datetime | None) -> str:
-    return dt.strftime("%H:%M") if dt else "-"
+    kst = to_kst(dt)
+    return kst.strftime("%H:%M") if kst else "-"
 
 
 @router.get("/today", status_code=200)
@@ -65,6 +67,8 @@ async def get_today_dashboard(
     waiting_count = 0
     completed_count = 0
 
+    now = datetime.now(KST)
+
     for schedule, guardian, pet, triage in rows:
         triage_label = triage.label if triage else None
         visit_type = TRIAGE_TO_TYPE.get(triage_label or "", "normal")
@@ -74,7 +78,10 @@ async def get_today_dashboard(
         if schedule.status == "진료완료":
             completed_count += 1
         elif schedule.status in ("예약대기", "대기", "예약확정"):
-            waiting_count += 1
+            # 예약 시간이 이미 지난 건은 '대기중'으로 세지 않는다.
+            confirmed = to_kst(schedule.confirmed_time)
+            if confirmed and confirmed >= now:
+                waiting_count += 1
 
         schedules.append(DashboardScheduleItem(
             id=schedule.scheduleid,
