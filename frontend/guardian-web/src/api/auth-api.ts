@@ -3,6 +3,7 @@ import { apiClient } from "./api-client";
 export interface SignupRequest {
   loginid: string;
   password: string;
+  password_confirm: string;
   name: string;
   phone: string;
 }
