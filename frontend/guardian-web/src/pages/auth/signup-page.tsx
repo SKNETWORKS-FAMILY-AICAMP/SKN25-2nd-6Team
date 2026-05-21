@@ -172,6 +172,7 @@ const SignupPage = () => {
       const response = await signupGuardian({
         loginid: form.loginid.trim(),
         password: form.password,
+        password_confirm: form.passwordConfirm,
         name: form.name.trim(),
         phone: form.phone.trim(),
       });
