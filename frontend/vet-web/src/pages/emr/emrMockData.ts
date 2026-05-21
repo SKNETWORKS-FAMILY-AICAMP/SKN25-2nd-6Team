@@ -1,107 +1,108 @@
-import {
-  mockScheduleItems,
-  ScheduleItem,
-  VisitType,
-} from "../dashboard/dashboardMockData";
+import type {
+  EmrResponse,
+  PetInfo,
+  Prescription,
+  PrescriptionDocumentResponse,
+  QueuePatient,
+  TriageStatus,
+  UploadedFile,
+} from "../../types/emr";
 
-export type TriageStatus = "emergency" | "semiEmergency" | "normal";
+type EmrMockVisitType = "emergency" | "semiEmergency" | "normal" | "checkup";
 
-export interface QueuePatient {
-  schedule_id: number;
-  time: string;
-  guardian_name: string;
-  pet_name: string;
-  species: string;
-  triage_status: TriageStatus;
-  source: "reservation" | "walk_in";
-}
-
-export interface PetInfo {
-  pet_id: number;
-  pet_name: string;
-  species: string;
-  gender: "Female" | "Male";
-  weight_kg: number;
-  age: number;
-  birth_date: string;
-  is_neutered: boolean;
-  notes: string;
-  profile_image: string;
-  last_visit: string;
-}
-
-export interface TriageSummary {
-  summary: string[];
-  attachments: string[];
-  memo?: string;
-}
-
-export interface Prescription {
-  drug_name: string;
-  dosage: string;
-  form: string;
-  frequency: string;
-  duration_days: number;
-}
-
-export interface PrescriptionDocumentResponse {
-  code: 200;
-  result: {
-    issued_at: string;
-    issue_number: string;
-    valid_days: number;
-    pet: {
-      name: string;
-      species: string;
-      gender: string;
-      owner_name: string;
-      birth_date: string;
-    };
-    hospital: {
-      name: string;
-      phone: string;
-      business_number: string;
-      address: string;
-    };
-    doctor: {
-      name: string;
-      license_number: string;
-    };
-    prescriptions: Array<{
-      ingredient: string;
-      dosage: string;
-      frequency: string;
-      duration_days: number;
-      quantity: string;
-      product_name: string;
-    }>;
-  };
-}
-
-export interface EmrHistory {
-  emr_id: number;
-  date: string;
-  doctor_name: string;
-  vet_memo: string;
-  prescriptions: Prescription[];
-}
-
-export interface EmrResult {
-  pet_info: PetInfo;
-  triage_summary: TriageSummary;
-  emr_history: EmrHistory[];
-}
-
-export interface EmrResponse {
-  code: 200;
-  result: EmrResult;
-}
-
-export interface UploadedFile {
+interface EmrMockScheduleItem {
   id: number;
-  url: string;
-  label: string;
+  start: string;
+  patientName: string;
+  breed: string;
+  age: string;
+  weight: string;
+  reason: string;
+  type: EmrMockVisitType;
 }
+
+const mockScheduleItems: EmrMockScheduleItem[] = [
+  {
+    id: 1,
+    start: "09:00",
+    patientName: "이나비",
+    breed: "샴",
+    age: "2세",
+    weight: "4.2kg",
+    reason: "감기 증상",
+    type: "emergency",
+  },
+  {
+    id: 2,
+    start: "10:00",
+    patientName: "백도리",
+    breed: "골든 리트리버",
+    age: "2세",
+    weight: "18.5kg",
+    reason: "피부 질환",
+    type: "semiEmergency",
+  },
+  {
+    id: 3,
+    start: "11:00",
+    patientName: "보리",
+    breed: "코리안 숏헤어",
+    age: "5세",
+    weight: "5.1kg",
+    reason: "예방접종",
+    type: "normal",
+  },
+  {
+    id: 4,
+    start: "12:00",
+    patientName: "종합검진",
+    breed: "포메라니안",
+    age: "4세",
+    weight: "3.4kg",
+    reason: "정기 건강검진",
+    type: "checkup",
+  },
+  {
+    id: 5,
+    start: "14:00",
+    patientName: "쭈쭈",
+    breed: "말티즈",
+    age: "4세",
+    weight: "3.7kg",
+    reason: "귀 염증",
+    type: "normal",
+  },
+  {
+    id: 6,
+    start: "15:00",
+    patientName: "콩구름",
+    breed: "비숑 프리제",
+    age: "3세",
+    weight: "6.0kg",
+    reason: "구토, 식욕 저하",
+    type: "semiEmergency",
+  },
+  {
+    id: 7,
+    start: "16:00",
+    patientName: "몽치",
+    breed: "포메라니안",
+    age: "1세",
+    weight: "2.8kg",
+    reason: "슬개골 탈구",
+    type: "emergency",
+  },
+  {
+    id: 8,
+    start: "17:00",
+    patientName: "별이",
+    breed: "시츄",
+    age: "7세",
+    weight: "6.2kg",
+    reason: "만성 기침",
+    type: "normal",
+  },
+];
 
 const guardiansByPatientName: Record<string, string> = {
   이나비: "김지연",
@@ -133,7 +134,7 @@ const profileImagesByPatientName: Record<string, string> = {
     "https://images.unsplash.com/photo-1573865526739-10659fec78a5?auto=format&fit=crop&w=320&q=80",
 };
 
-function mapVisitTypeToTriageStatus(type: VisitType): TriageStatus {
+function mapVisitTypeToTriageStatus(type: EmrMockVisitType): TriageStatus {
   if (type === "emergency" || type === "semiEmergency") {
     return type;
   }
@@ -146,7 +147,7 @@ function parseAge(age: string) {
   return Number.isNaN(parsedAge) ? 1 : parsedAge;
 }
 
-function createEmrResponseFromSchedule(item: ScheduleItem): EmrResponse {
+function createEmrResponseFromSchedule(item: EmrMockScheduleItem): EmrResponse {
   const guardianName = guardiansByPatientName[item.patientName] ?? "보호자";
 
   return {

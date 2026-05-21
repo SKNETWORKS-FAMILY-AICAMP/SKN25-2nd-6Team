@@ -1,31 +1,21 @@
 import math
-from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
+from app.utils.age import calculate_age
+from app.utils.timezone import to_kst
+from app.schemas.patient import PatientUpdate
 
 from app.crud.patient import (
     get_patient_list,
     get_patient_detail,
-    get_latest_visit_date,
+    get_last_visit_map,
     get_patient_emr_history,
     get_prescriptions_by_emr,
     update_patient,
 )
-
-
-class PatientUpdate(BaseModel):
-    petname: str | None = None
-    species: str | None = None
-    breed: str | None = None
-    gender: str | None = None
-    is_neutered: bool | None = None
-    birth_date: date | None = None
-    weight_kg: float | None = None
-    notes: str | None = None
 
 
 router = APIRouter(
@@ -34,40 +24,15 @@ router = APIRouter(
 )
 
 
-def calculate_age(birth_date: date | None) -> str:
-
-    if not birth_date:
-        return ""
-
-    today = date.today()
-    years = today.year - birth_date.year - (
-        (today.month, today.day) < (birth_date.month, birth_date.day)
-    )
-
-    if years >= 1:
-        return f"{years}세"
-
-    months = (
-        (today.year - birth_date.year) * 12
-        + today.month
-        - birth_date.month
-    )
-    if today.day < birth_date.day:
-        months -= 1
-
-    return f"{max(months, 0)}개월"
-
-
 @router.get("/list", status_code=200)
-def list_patients(
+async def list_patients(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     keyword: str | None = Query(None),
     species: str | None = Query(None),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-
-    rows, total_count = get_patient_list(
+    rows, total_count = await get_patient_list(
         db,
         page=page,
         page_size=page_size,
@@ -75,9 +40,12 @@ def list_patients(
         species=species,
     )
 
+    pet_ids = [pet.petid for pet, _ in rows]
+    last_visit_map = await get_last_visit_map(db, pet_ids)
+
     patient_list = []
     for pet, user in rows:
-        last_visit = get_latest_visit_date(db, pet.petid)
+        last_visit = to_kst(last_visit_map.get(pet.petid))
 
         patient_list.append({
             "petid": pet.petid,
@@ -110,12 +78,11 @@ def list_patients(
 
 
 @router.get("/{petid}", status_code=200)
-def patient_detail(
+async def patient_detail(
     petid: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-
-    result = get_patient_detail(db, petid)
+    result = await get_patient_detail(db, petid)
 
     if not result:
         return {
@@ -125,15 +92,13 @@ def patient_detail(
 
     pet, user = result
 
-    history_rows = get_patient_emr_history(db, petid)
+    history_rows = await get_patient_emr_history(db, petid)
 
     emr_history = []
     for emr, doctor, schedule in history_rows:
-        prescription_rows = get_prescriptions_by_emr(
-            db, emr.doctor_emrid
-        )
+        prescription_rows = await get_prescriptions_by_emr(db, emr.doctor_emrid)
 
-        visit_dt = schedule.confirmed_time or emr.created_at
+        visit_dt = to_kst(schedule.confirmed_time or emr.created_at)
 
         emr_history.append({
             "doctor_emrid": emr.doctor_emrid,
@@ -179,7 +144,6 @@ def patient_detail(
                 ),
                 "owner_name": user.name,
                 "phone": user.phone,
-                "address": user.address or "",
                 "notes": pet.notes or "",
                 "profile_image": pet.profile_image,
             },
@@ -189,13 +153,12 @@ def patient_detail(
 
 
 @router.put("/{petid}", status_code=200)
-def update_patient_endpoint(
+async def update_patient_endpoint(
     petid: int,
     payload: PatientUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
-
-    result = get_patient_detail(db, petid)
+    result = await get_patient_detail(db, petid)
 
     if not result:
         raise HTTPException(
@@ -207,7 +170,7 @@ def update_patient_endpoint(
 
     updates = payload.model_dump(exclude_unset=True)
 
-    updated_pet = update_patient(db, pet, updates)
+    updated_pet = await update_patient(db, pet, updates)
 
     return {
         "code": 200,

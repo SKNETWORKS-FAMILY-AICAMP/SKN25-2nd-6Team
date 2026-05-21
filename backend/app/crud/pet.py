@@ -1,9 +1,10 @@
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.pet import Pet
 from app.schemas.pet import PetCreate, PetUpdate
 
 # 반려동물 등록
-def create_pet(db: Session, pet: PetCreate, userid: int):
+async def create_pet(db: AsyncSession, pet: PetCreate, userid: int):
     db_pet = Pet(
         userid=userid,
         petname=pet.petname,
@@ -18,20 +19,24 @@ def create_pet(db: Session, pet: PetCreate, userid: int):
         profile_image=pet.profile_image,
     )
     db.add(db_pet)
-    db.commit()
-    db.refresh(db_pet)
+    await db.commit()
+    await db.refresh(db_pet)
     return db_pet
 
 # 반려동물 목록 조회
-def get_pets_by_userid(db: Session, userid: int):
-    return db.query(Pet).filter(Pet.userid == userid).all()
+async def get_pets_by_userid(db: AsyncSession, userid: int):
+    result = await db.execute(select(Pet).where(Pet.userid == userid))
+    return result.scalars().all()
 
 # 반려동물 상세 조회
-def get_pet_by_id(db: Session, pet_id: int, userid: int):
-    return db.query(Pet).filter(Pet.petid == pet_id, Pet.userid == userid).first()
+async def get_pet_by_id(db: AsyncSession, pet_id: int, userid: int):
+    result = await db.execute(
+        select(Pet).where(Pet.petid == pet_id, Pet.userid == userid)
+    )
+    return result.scalar_one_or_none()
 
 # 반려동물 수정
-def update_pet(db: Session, pet: Pet, pet_data: PetUpdate):
+async def update_pet(db: AsyncSession, pet: Pet, pet_data: PetUpdate):
     if pet_data.petname is not None:
         pet.petname = pet_data.petname
     if pet_data.species is not None:
@@ -44,12 +49,13 @@ def update_pet(db: Session, pet: Pet, pet_data: PetUpdate):
         pet.is_neutered = True if pet_data.is_neutered == "예" else False if pet_data.is_neutered == "아니요" else None
     if pet_data.is_birth_unknown == True:
         pet.birth_date = None
+    elif pet_data.birth_date is not None:
+        pet.birth_date = pet_data.birth_date
+
     if pet_data.is_checkup_unknown == True:
         pet.checkup_date = None
     elif pet_data.checkup_date is not None:
         pet.checkup_date = pet_data.checkup_date
-    elif pet_data.birth_date is not None:
-        pet.birth_date = pet_data.birth_date
     if pet_data.weight_kg is not None:
         pet.weight_kg = pet_data.weight_kg
     if pet_data.notes is not None:
@@ -57,11 +63,11 @@ def update_pet(db: Session, pet: Pet, pet_data: PetUpdate):
     if pet_data.profile_image is not None:
         pet.profile_image = pet_data.profile_image
 
-    db.commit()
-    db.refresh(pet)
+    await db.commit()
+    await db.refresh(pet)
     return pet
 
 # 반려동물 삭제
-def delete_pet(db: Session, pet: Pet):
-    db.delete(pet)
-    db.commit()
+async def delete_pet(db: AsyncSession, pet: Pet):
+    await db.delete(pet)
+    await db.commit()

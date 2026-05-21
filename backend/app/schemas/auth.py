@@ -19,3 +19,18 @@ class TokenRefreshRequest(BaseModel):
 class TokenRefreshResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+# 아이디 찾기 요청
+class FindIdRequest(BaseModel):
+    name: str
+    phone: str
+
+# 아이디 찾기 응답
+class FindIdResponse(BaseModel):
+    loginid: str
+
+# 비밀번호 찾기 요청
+class FindPasswordRequest(BaseModel):
+    loginid: str
+    name: str
+    phone: str
