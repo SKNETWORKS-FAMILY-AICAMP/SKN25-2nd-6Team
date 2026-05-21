@@ -1,7 +1,6 @@
 import axios from "axios";
 
 import { apiClient } from "./api-client";
-import { useAuthStore } from "../stores/auth-store";
 
 export interface CreateChatSessionPayload {
   pet_id: number;
@@ -106,27 +105,9 @@ interface ApiErrorResponse {
   message?: string;
 }
 
-const demoGuardianLoginId = "guardian-demo";
-
-const isDemoGuardian = () =>
-  import.meta.env.DEV &&
-  useAuthStore.getState().guardian?.loginid === demoGuardianLoginId;
-
 export const createChatSession = async (
   payload: CreateChatSessionPayload,
 ): Promise<CreateChatSessionResponse> => {
-  if (isDemoGuardian()) {
-    return {
-      code: 201,
-      message: "데모 상담 세션이 생성되었습니다.",
-      result: {
-        session_id: Date.now(),
-        pet_name: "반려동물",
-        profile_image: "/assets/profile1.png",
-      },
-    };
-  }
-
   const response = await apiClient.post<CreateChatSessionResponse>(
     "/chat/sessions",
     payload,
@@ -137,26 +118,6 @@ export const createChatSession = async (
 export const getChatSessions = async (
   petId: number,
 ): Promise<ChatSessionsResponse> => {
-  if (isDemoGuardian()) {
-    return {
-      code: 200,
-      result: [
-        {
-          session_id: petId * 10 + 1,
-          keywords: ["피부 가려움"],
-          created_at: "2024-05-01",
-          status: "진료완료",
-        },
-        {
-          session_id: petId * 10 + 2,
-          keywords: ["식욕 저하"],
-          created_at: "2024-04-20",
-          status: "진료완료",
-        },
-      ],
-    };
-  }
-
   const response = await apiClient.get<ChatSessionsResponse>("/chat/sessions", {
     params: {
       pet_id: petId,
@@ -168,31 +129,6 @@ export const getChatSessions = async (
 export const getChatSession = async (
   sessionId: number,
 ): Promise<ChatSessionDetailResponse> => {
-  if (isDemoGuardian()) {
-    return {
-      code: 200,
-      result: {
-        session_id: sessionId,
-        pet_id: Math.floor(sessionId / 10),
-        messages: [
-          {
-            role: "user",
-            content: "코코가 지금 헐떡거려요",
-            image_url: null,
-          },
-          {
-            role: "assistant",
-            content: "안녕하세요! 반려동물의 증상에 대해 말씀해 주세요.",
-            image_url: null,
-          },
-        ],
-        keywords: ["헐떡거림"],
-        is_complete: false,
-        created_at: "2026-05-19 13:50:47",
-      },
-    };
-  }
-
   const response = await apiClient.get<ChatSessionDetailResponse>(
     `/chat/sessions/${sessionId}`,
   );
@@ -202,13 +138,6 @@ export const getChatSession = async (
 export const deleteChatSession = async (
   sessionId: number,
 ): Promise<DeleteChatSessionResponse> => {
-  if (isDemoGuardian()) {
-    return {
-      code: 200,
-      message: "상담 기록이 삭제되었습니다.",
-    };
-  }
-
   const response = await apiClient.delete<DeleteChatSessionResponse>(
     `/chat/sessions/${sessionId}`,
   );
@@ -219,16 +148,6 @@ export const getChatUploadPresignedUrl = async (
   fileName: string,
   contentType: string,
 ): Promise<ChatUploadPresignedUrlResponse> => {
-  if (isDemoGuardian()) {
-    return {
-      code: 200,
-      result: {
-        presigned_url: "demo-presigned-url",
-        cloudfront_url: "demo-cloudfront-url",
-      },
-    };
-  }
-
   const response = await apiClient.get<ChatUploadPresignedUrlResponse>(
     "/chat/upload/presigned-url",
     {
@@ -245,10 +164,6 @@ export const uploadChatAttachment = async (
   presignedUrl: string,
   file: File,
 ) => {
-  if (isDemoGuardian()) {
-    return;
-  }
-
   await axios.put(presignedUrl, file, {
     headers: {
       "Content-Type": file.type,
@@ -291,42 +206,11 @@ const parseJsonErrorResponse = (responseText: string) => {
   }
 };
 
-const sleep = (milliseconds: number) =>
-  new Promise((resolve) => {
-    window.setTimeout(resolve, milliseconds);
-  });
-
 export const sendChatMessage = async (
   sessionId: number,
   payload: SendChatMessagePayload,
   onEvent: (event: ChatStreamEvent) => void,
 ) => {
-  if (isDemoGuardian()) {
-    const demoEvents: ChatStreamEvent[] = [
-      {
-        type: "message",
-        content: "말씀해주신 증상을 기준으로 ",
-      },
-      {
-        type: "message",
-        content: "몇 가지를 먼저 확인해볼게요.",
-      },
-      {
-        type: "quick_replies",
-        options: ["긁는 행동이 잦아요", "붉은 반점이 보여요"],
-      },
-      {
-        type: "done",
-      },
-    ];
-
-    for (const event of demoEvents) {
-      await sleep(260);
-      onEvent(event);
-    }
-    return;
-  }
-
   let receivedLength = 0;
   let pendingLine = "";
   let emittedEventCount = 0;

@@ -47,14 +47,6 @@ const inputClassName = (hasError: boolean) =>
       : "border-slate-200 focus:border-blue-500 focus:ring-blue-100",
   ].join(" ");
 
-const isDevLoginEnabled =
-  import.meta.env.DEV && import.meta.env.VITE_ENABLE_DEV_LOGIN === "true";
-
-const devLoginCredentials = {
-  loginid: "guardian-demo",
-  password: "demo1234!",
-};
-
 const LoginPage = () => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
@@ -100,22 +92,6 @@ const LoginPage = () => {
     try {
       setIsSubmitting(true);
       setErrorMessage("");
-
-      if (
-        isDevLoginEnabled &&
-        form.loginid.trim() === devLoginCredentials.loginid &&
-        form.password === devLoginCredentials.password
-      ) {
-        setAuth({
-          loginid: devLoginCredentials.loginid,
-          name: "개발용 보호자",
-          accessToken: "dev-access-token",
-          refreshToken: "dev-refresh-token",
-          remember: form.remember,
-        });
-        navigate("/home");
-        return;
-      }
 
       const response = await loginGuardian({
         loginid: form.loginid.trim(),
