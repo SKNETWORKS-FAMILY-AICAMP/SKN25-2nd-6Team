@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 
 import { getPets, type Pet } from "../../api/pets-api";
 import PageHeader from "../../components/common/page-header";
+import CheckupReservationModal from "../../components/schedule/checkup-reservation-modal";
 import GuardianLayout from "../../layouts/guardian-layout";
 
 const petRegisterPath = "/pets/register";
@@ -99,6 +100,7 @@ const HomePage = () => {
   const [pets, setPets] = useState<Pet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [reservationPet, setReservationPet] = useState<Pet | null>(null);
 
   const hasPets = pets.length > 0;
   const petCountLabel = useMemo(() => `${pets.length}마리`, [pets.length]);
@@ -277,12 +279,13 @@ const HomePage = () => {
                         >
                           챗봇 예약
                         </Link>
-                        <Link
-                          to={`/reservations/new?petId=${pet.pet_id}`}
+                        <button
+                          type="button"
+                          onClick={() => setReservationPet(pet)}
                           className="inline-flex h-9 items-center justify-center rounded-lg border border-emerald-200 px-3 text-sm font-bold text-emerald-600 transition hover:bg-emerald-50"
                         >
-                          검진 / 바로 예약
-                        </Link>
+                          바로 예약
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -292,6 +295,13 @@ const HomePage = () => {
           </div>
         </section>
       )}
+
+      {reservationPet ? (
+        <CheckupReservationModal
+          pet={reservationPet}
+          onClose={() => setReservationPet(null)}
+        />
+      ) : null}
     </GuardianLayout>
   );
 };

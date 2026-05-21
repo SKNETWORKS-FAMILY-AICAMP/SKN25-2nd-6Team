@@ -41,14 +41,38 @@ export interface ScheduleListResponse {
 export interface AvailableScheduleSlot {
   start_time: string;
   end_time: string;
-  doctorid: number;
-  doctor_name: string;
+  doctorid?: number;
+  doctor_name?: string;
 }
 
 export interface AvailableScheduleSlotsResponse {
   code: number;
   message?: string;
   result: AvailableScheduleSlot[];
+}
+
+export interface CheckupReservationPayload {
+  pet_id: number;
+  date: string;
+  time: string;
+  memo: string;
+}
+
+export interface CheckupReservationResult {
+  schedule_id: number;
+  pet_name?: string;
+  category?: string;
+  date: string;
+  time: string;
+  end_time: string;
+  duration_min: number;
+  memo: string;
+}
+
+export interface CheckupReservationResponse {
+  code: number;
+  message: string;
+  result?: CheckupReservationResult;
 }
 
 export interface UpdateSchedulePayload {

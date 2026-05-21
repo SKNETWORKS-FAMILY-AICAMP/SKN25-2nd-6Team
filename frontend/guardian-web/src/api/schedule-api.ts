@@ -3,6 +3,8 @@ import { useAuthStore } from "../stores/auth-store";
 import type {
   AvailableScheduleSlotsResponse,
   CancelScheduleResponse,
+  CheckupReservationPayload,
+  CheckupReservationResponse,
   ScheduleFilter,
   ScheduleListItem,
   ScheduleListResponse,
@@ -250,7 +252,7 @@ export const getSchedules = async ({
 
 export interface GetAvailableScheduleSlotsParams {
   date: string;
-  doctorid: number;
+  doctorid?: number;
   duration_min: number;
 }
 
@@ -260,6 +262,8 @@ export const getAvailableScheduleSlots = async ({
   duration_min,
 }: GetAvailableScheduleSlotsParams): Promise<AvailableScheduleSlotsResponse> => {
   if (isDemoGuardian()) {
+    const demoDoctorId = doctorid ?? 1;
+
     return {
       code: 200,
       message: "예약 가능 시간 조회에 성공했습니다.",
@@ -273,8 +277,8 @@ export const getAvailableScheduleSlots = async ({
             end_time: `${String(endDate.getHours()).padStart(2, "0")}:${String(
               endDate.getMinutes(),
             ).padStart(2, "0")}`,
-            doctorid,
-            doctor_name: doctorid === 1 ? "김수의사" : "박수의사",
+            doctorid: demoDoctorId,
+            doctor_name: demoDoctorId === 1 ? "김수의사" : "박수의사",
           };
         },
       ),
@@ -286,10 +290,75 @@ export const getAvailableScheduleSlots = async ({
     {
       params: {
         date,
-        doctorid,
         duration_min,
       },
     },
+  );
+
+  return response.data;
+};
+
+export const reserveCheckupSchedule = async (
+  payload: CheckupReservationPayload,
+): Promise<CheckupReservationResponse> => {
+  if (isDemoGuardian()) {
+    const schedules = readDemoSchedules();
+    const nextScheduleId =
+      schedules.reduce(
+        (maxScheduleId, schedule) =>
+          Math.max(maxScheduleId, schedule.schedule_id),
+        0,
+      ) + 1;
+    const durationMin = 30;
+    const category = "정기검진";
+    const startDateTime = `${payload.date}T${payload.time}:00+09:00`;
+    const endDate = new Date(startDateTime);
+    endDate.setMinutes(endDate.getMinutes() + durationMin);
+    const endTime = `${String(endDate.getHours()).padStart(2, "0")}:${String(
+      endDate.getMinutes(),
+    ).padStart(2, "0")}`;
+    const endDateTime = `${payload.date}T${endTime}:00+09:00`;
+
+    writeDemoSchedules([
+      ...schedules,
+      {
+        schedule_id: nextScheduleId,
+        pet_id: payload.pet_id,
+        pet_profile_image: null,
+        pet_name: "",
+        breed: "",
+        age: 0,
+        gender: "",
+        category,
+        confirmed_time: startDateTime,
+        confirmed_end_time: endDateTime,
+        hospital_name: "메디포 동물병원",
+        hospital_address: "서울 강남구 테헤란로 123",
+        doctorid: 1,
+        doctor_name: "담당 수의사",
+        duration_min: durationMin,
+        status: "CONFIRMED",
+      },
+    ]);
+
+    return {
+      code: 200,
+      message: "정기검진 예약이 완료되었습니다.",
+      result: {
+        schedule_id: nextScheduleId,
+        category,
+        date: payload.date,
+        time: payload.time,
+        end_time: endTime,
+        duration_min: durationMin,
+        memo: payload.memo,
+      },
+    };
+  }
+
+  const response = await apiClient.put<CheckupReservationResponse>(
+    "/schedules/checkup",
+    payload,
   );
 
   return response.data;
