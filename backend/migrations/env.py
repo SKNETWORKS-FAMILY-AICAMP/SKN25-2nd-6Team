@@ -24,6 +24,10 @@ from app.models.drug import Drug
 from app.models.prescription import Prescription
 from app.models.vet_schedule import VetSchedule
 from app.models.emr import EMR
+from app.models.report import Report
+from app.models.triage_result import TriageResult
+from app.models.photo_analysis import PhotoAnalysis
+from app.models.validation_result import ValidationResult
 
 config = context.config
 
