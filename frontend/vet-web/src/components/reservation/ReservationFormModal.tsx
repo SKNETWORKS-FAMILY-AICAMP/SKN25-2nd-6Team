@@ -103,11 +103,18 @@ export function ReservationFormModal({
     return taken;
   }, [reservations, form.dateKey, reservation?.id]);
 
-  // 예약된 시간은 선택지에서 숨긴다
-  const availableTimeOptions = useMemo(
-    () => TIME_OPTIONS.filter((time) => !bookedTimes.has(time)),
-    [bookedTimes]
-  );
+  // 예약된 시간 + 오늘 기준 지난 시간은 선택지에서 숨긴다
+  const availableTimeOptions = useMemo(() => {
+    const isToday = form.dateKey === getDateKey(TODAY);
+    const now = new Date();
+    const currentHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+    return TIME_OPTIONS.filter((time) => {
+      if (bookedTimes.has(time)) return false;
+      if (isToday && time <= currentHHMM) return false;
+      return true;
+    });
+  }, [bookedTimes, form.dateKey]);
 
   // 날짜를 바꿔 현재 선택한 시간이 예약 불가해지면 가능한 첫 시간으로 보정
   useEffect(() => {
@@ -405,11 +412,13 @@ function DatePickerField({
               const isHoliday = Boolean(getHolidayName(day));
               const isSunday = day.getDay() === 0;
               const isSaturday = day.getDay() === 6;
+              const isPast = day < TODAY && !isToday;
 
               return (
                 <button
                   key={day.toISOString()}
                   type="button"
+                  disabled={isPast}
                   onClick={() => {
                     onSelectDate(day);
                     setVisibleMonth(new Date(day.getFullYear(), day.getMonth(), 1));
@@ -418,17 +427,19 @@ function DatePickerField({
                   title={getHolidayName(day)}
                   className={[
                     "flex h-7 items-center justify-center rounded-md text-xs font-extrabold transition",
-                    isSelected
-                      ? "bg-[#0f62fe] text-white"
-                      : isToday
-                        ? "border border-[#0f62fe] text-[#0f62fe]"
-                        : !isCurrentMonth
-                          ? "text-[#c0c7d4]"
-                          : isHoliday || isSunday
-                            ? "text-[#ef4444] hover:bg-[#fff1f2]"
-                            : isSaturday
-                              ? "text-[#0f62fe] hover:bg-[#edf5ff]"
-                              : "text-[#20283a] hover:bg-[#f3f6fb]",
+                    isPast
+                      ? "cursor-not-allowed text-[#d1d5db] line-through"
+                      : isSelected
+                        ? "bg-[#0f62fe] text-white"
+                        : isToday
+                          ? "border border-[#0f62fe] text-[#0f62fe]"
+                          : !isCurrentMonth
+                            ? "text-[#c0c7d4]"
+                            : isHoliday || isSunday
+                              ? "text-[#ef4444] hover:bg-[#fff1f2]"
+                              : isSaturday
+                                ? "text-[#0f62fe] hover:bg-[#edf5ff]"
+                                : "text-[#20283a] hover:bg-[#f3f6fb]",
                   ].join(" ")}
                 >
                   {day.getDate()}

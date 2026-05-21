@@ -28,7 +28,10 @@ const readStoredAuth = (): GuardianAuth | null => {
     return null;
   }
 
-  const stored = window.localStorage.getItem(storageKey);
+  const stored =
+    window.localStorage.getItem(storageKey) ||
+    window.sessionStorage.getItem(storageKey);
+
   if (!stored) {
     return null;
   }
@@ -37,8 +40,16 @@ const readStoredAuth = (): GuardianAuth | null => {
     return JSON.parse(stored) as GuardianAuth;
   } catch {
     window.localStorage.removeItem(storageKey);
+    window.sessionStorage.removeItem(storageKey);
     return null;
   }
+};
+
+const getActiveStorage = (): Storage => {
+  if (typeof window === "undefined") return window.sessionStorage;
+  return window.localStorage.getItem(storageKey)
+    ? window.localStorage
+    : window.sessionStorage;
 };
 
 const storedAuth = readStoredAuth();
@@ -49,7 +60,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   setAuth: ({ remember, ...guardian }) => {
     if (remember) {
       window.localStorage.setItem(storageKey, JSON.stringify(guardian));
+      window.sessionStorage.removeItem(storageKey);
     } else {
+      window.sessionStorage.setItem(storageKey, JSON.stringify(guardian));
       window.localStorage.removeItem(storageKey);
     }
 
@@ -69,9 +82,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         accessToken,
       };
 
-      if (window.localStorage.getItem(storageKey)) {
-        window.localStorage.setItem(storageKey, JSON.stringify(guardian));
-      }
+      getActiveStorage().setItem(storageKey, JSON.stringify(guardian));
 
       return {
         guardian,
@@ -90,9 +101,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         ...profile,
       };
 
-      if (window.localStorage.getItem(storageKey)) {
-        window.localStorage.setItem(storageKey, JSON.stringify(guardian));
-      }
+      getActiveStorage().setItem(storageKey, JSON.stringify(guardian));
 
       return {
         guardian,
@@ -102,6 +111,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   clearAuth: () => {
     window.localStorage.removeItem(storageKey);
+    window.sessionStorage.removeItem(storageKey);
     set({
       guardian: null,
       isAuthenticated: false,
