@@ -37,8 +37,6 @@ export interface TriageSummary {
   summary: string[];
   attachments: string[];
   memo?: string;
-  preVisitReport?: string;
-  suspectedKeywords?: string[];
 }
 
 export interface Prescription {
