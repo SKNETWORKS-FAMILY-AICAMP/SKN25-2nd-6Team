@@ -63,6 +63,7 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
     handleRemovePrescription,
     openPreviewImage,
   } = useEmrData();
+  const isReadOnly = queueTab === "completed";
 
   return (
     <AppLayout
@@ -96,6 +97,7 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
                 hiddenFileCount={hiddenGuardianFileCount}
                 onApplyIntake={handleApplyIntake}
                 onPreviewImage={openPreviewImage}
+                isReadOnly={isReadOnly}
               />
             )}
           </aside>
@@ -106,6 +108,7 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
                 <PatientInfoPanel
                   patient={currentEmr.pet_info}
                   onEdit={() => setIsProfileEditOpen(true)}
+                  isReadOnly={isReadOnly}
                 />
                 <HistoryPanel histories={currentEmr.emr_history} />
               </>
@@ -117,17 +120,20 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
               count={editorValue.length}
               onChange={setEditorValue}
               onCompleteVisit={handleCompleteVisit}
+              isReadOnly={isReadOnly}
             />
             <PhotoUploadPanel
               files={uploadedFiles}
               onAddFile={handleAddMockFile}
               onRemoveFile={handleRemoveFile}
               onPreviewImage={openPreviewImage}
+              isReadOnly={isReadOnly}
             />
             <PrescriptionInputPanel
               prescriptions={prescriptions}
               onRemove={handleRemovePrescription}
               onGenerate={() => setIsAutoPanelOpen(true)}
+              isReadOnly={isReadOnly}
             />
           </main>
 
@@ -138,6 +144,7 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
               onClose={() => setIsAutoPanelOpen(false)}
               onLoad={handleLoadAutoPrescription}
               onOpenPreview={() => setIsPrescriptionPreviewOpen(true)}
+              isReadOnly={isReadOnly}
             />
           )}
         </div>

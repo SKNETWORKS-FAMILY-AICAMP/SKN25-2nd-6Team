@@ -5,9 +5,11 @@ import { Panel } from "./EmrShared";
 export function PatientInfoPanel({
   patient,
   onEdit,
+  isReadOnly = false,
 }: {
   patient: PetInfo;
   onEdit: () => void;
+  isReadOnly?: boolean;
 }) {
   return (
     <Panel>
@@ -50,7 +52,8 @@ export function PatientInfoPanel({
           type="button"
           onClick={onEdit}
           aria-label="환자 정보 편집"
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-[#4d5874] transition hover:bg-[#edf5ff] hover:text-[#2f7df6]"
+          disabled={isReadOnly}
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-[#4d5874] transition hover:bg-[#edf5ff] hover:text-[#2f7df6] disabled:cursor-not-allowed disabled:text-[#c7d1df]"
         >
           <Edit3 className="h-5 w-5" />
         </button>

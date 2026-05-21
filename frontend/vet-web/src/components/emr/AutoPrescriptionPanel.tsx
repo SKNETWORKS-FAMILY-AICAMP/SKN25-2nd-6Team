@@ -8,12 +8,14 @@ export function AutoPrescriptionPanel({
   onClose,
   onLoad,
   onOpenPreview,
+  isReadOnly = false,
 }: {
   patient?: PetInfo;
   prescriptions: Prescription[];
   onClose: () => void;
   onLoad: () => void;
   onOpenPreview: () => void;
+  isReadOnly?: boolean;
 }) {
   return (
     <Panel className="sticky top-[88px] h-[calc(100vh-104px)] self-start overflow-hidden">
@@ -23,7 +25,8 @@ export function AutoPrescriptionPanel({
           <button
             type="button"
             onClick={onOpenPreview}
-            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#dfe6f1] text-[#4d5874] transition hover:border-[#4a89ff] hover:text-[#2f7df6]"
+            disabled={isReadOnly}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#dfe6f1] text-[#4d5874] transition hover:border-[#4a89ff] hover:text-[#2f7df6] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[#a8b0bf]"
             aria-label="처방전 미리보기"
           >
             <Maximize2 className="h-4 w-4" />
@@ -81,11 +84,16 @@ export function AutoPrescriptionPanel({
         <button
           type="button"
           onClick={onLoad}
-          className="h-10 flex-1 rounded-lg border border-[#dfe6f1] text-sm font-extrabold text-[#4d5874]"
+          disabled={isReadOnly}
+          className="h-10 flex-1 rounded-lg border border-[#dfe6f1] text-sm font-extrabold text-[#4d5874] disabled:cursor-not-allowed disabled:bg-[#f8fafc] disabled:text-[#a8b0bf]"
         >
           불러오기
         </button>
-        <button className="h-10 flex-1 rounded-lg bg-[#4a89ff] text-sm font-extrabold text-white">
+        <button
+          type="button"
+          disabled={isReadOnly}
+          className="h-10 flex-1 rounded-lg bg-[#4a89ff] text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#c7d1df]"
+        >
           적용
         </button>
       </div>

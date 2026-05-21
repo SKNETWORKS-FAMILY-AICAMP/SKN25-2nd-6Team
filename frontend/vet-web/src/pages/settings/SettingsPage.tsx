@@ -1,8 +1,11 @@
 import { useState } from "react";
 import {
   CheckCircle2,
+  Clock3,
   LockKeyhole,
+  Save,
   TriangleAlert,
+  Utensils,
   X,
 } from "lucide-react";
 import {
@@ -19,12 +22,53 @@ interface SettingsPageProps {
   onNavigate: (menuId: AppMenuId) => void;
 }
 
+const timeOptions = [
+  "08:00",
+  "08:30",
+  "09:00",
+  "09:30",
+  "10:00",
+  "10:30",
+  "11:00",
+  "11:30",
+  "12:00",
+  "12:30",
+  "13:00",
+  "13:30",
+  "14:00",
+  "14:30",
+  "15:00",
+  "15:30",
+  "16:00",
+  "16:30",
+  "17:00",
+  "17:30",
+  "18:00",
+  "18:30",
+  "19:00",
+];
+
 export default function SettingsPage({
   session,
   onLogout,
   onNavigate,
 }: SettingsPageProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [operationSettings, setOperationSettings] = useState({
+    openingTime: "09:00",
+    closingTime: "18:00",
+    lunchStart: "12:00",
+    lunchEnd: "13:00",
+  });
+  const [isOperationSaved, setIsOperationSaved] = useState(false);
+
+  const updateOperationSetting = (
+    key: keyof typeof operationSettings,
+    value: string
+  ) => {
+    setOperationSettings((current) => ({ ...current, [key]: value }));
+    setIsOperationSaved(false);
+  };
 
   return (
     <AppLayout
@@ -49,7 +93,90 @@ export default function SettingsPage({
           </p>
         </div>
 
-        <div className="max-w-2xl space-y-4">
+        <div className="max-w-3xl space-y-4">
+          <section className="rounded-xl border border-[#e5eaf2] bg-white shadow-sm">
+            <div className="flex items-center gap-2.5 border-b border-[#e5eaf2] px-6 py-4">
+              <Clock3 className="h-5 w-5 text-[#2f7df6]" strokeWidth={2.2} />
+              <div>
+                <h2 className="text-base font-extrabold text-[#151b28]">
+                  병원 운영 시간
+                </h2>
+                <p className="mt-0.5 text-xs font-semibold text-[#8595ae]">
+                  이후 API 연결 전까지 화면에서 설정값을 먼저 확인합니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-5 px-6 py-5">
+              <div className="grid grid-cols-2 gap-4">
+                <TimeSelectField
+                  label="진료 시작 시간"
+                  value={operationSettings.openingTime}
+                  onChange={(value) =>
+                    updateOperationSetting("openingTime", value)
+                  }
+                />
+                <TimeSelectField
+                  label="진료 마감 시간"
+                  value={operationSettings.closingTime}
+                  onChange={(value) =>
+                    updateOperationSetting("closingTime", value)
+                  }
+                />
+              </div>
+
+              <div className="rounded-xl border border-[#edf1f6] bg-[#fbfcfe] p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <Utensils className="h-4 w-4 text-[#f28c18]" />
+                  <p className="text-sm font-extrabold text-[#1d2a57]">
+                    점심시간 설정
+                  </p>
+                  <span className="rounded-full bg-[#fff4e5] px-2 py-0.5 text-[11px] font-extrabold text-[#c87832]">
+                    예약 블락
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <TimeSelectField
+                    label="점심 시작"
+                    value={operationSettings.lunchStart}
+                    onChange={(value) =>
+                      updateOperationSetting("lunchStart", value)
+                    }
+                  />
+                  <TimeSelectField
+                    label="점심 종료"
+                    value={operationSettings.lunchEnd}
+                    onChange={(value) =>
+                      updateOperationSetting("lunchEnd", value)
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg bg-[#f7f9fc] px-4 py-3">
+                <p className="text-xs font-bold text-[#65718a]">
+                  현재 설정: {operationSettings.openingTime} -{" "}
+                  {operationSettings.closingTime}, 점심{" "}
+                  {operationSettings.lunchStart} - {operationSettings.lunchEnd}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsOperationSaved(true)}
+                  className="flex h-9 items-center gap-2 rounded-lg bg-[#2f7df6] px-4 text-sm font-extrabold text-white transition hover:bg-[#1a6de8]"
+                >
+                  <Save className="h-4 w-4" />
+                  저장
+                </button>
+              </div>
+
+              {isOperationSaved && (
+                <p className="text-xs font-extrabold text-[#16a34a]">
+                  운영 시간 설정이 화면에 임시 저장되었습니다.
+                </p>
+              )}
+            </div>
+          </section>
+
           {/* 계정 및 보안 섹션 */}
           <section className="rounded-xl border border-[#e5eaf2] bg-white shadow-sm">
             <div className="flex items-center gap-2.5 border-b border-[#e5eaf2] px-6 py-4">
@@ -297,5 +424,32 @@ function PasswordInputField({
         />
       </div>
     </div>
+  );
+}
+
+function TimeSelectField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block min-w-0 text-xs font-extrabold text-[#52607a]">
+      <span className="mb-1.5 block">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 w-full rounded-lg border border-[#dfe6f1] bg-white px-3 text-sm font-extrabold text-[#1d2a57] outline-none transition focus:border-[#8bbcff] focus:ring-2 focus:ring-[#e6f1ff]"
+      >
+        {timeOptions.map((time) => (
+          <option key={time} value={time}>
+            {time}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
