@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 import secrets
 import string
 from app.db.session import get_db
@@ -12,8 +12,8 @@ router = APIRouter(prefix="/doctor/auth", tags=["doctor-auth"])
 
 # 수의사 로그인
 @router.post("/login", response_model=DoctorTokenResponse)
-def doctor_login(request: DoctorLoginRequest, db: Session = Depends(get_db)):
-    doctor = get_doctor_by_loginid(db, request.loginid)
+async def doctor_login(request: DoctorLoginRequest, db: AsyncSession = Depends(get_db)):
+    doctor = await get_doctor_by_loginid(db, request.loginid)
 
     if not doctor or not verify_password(request.password, doctor.password):
         raise HTTPException(
@@ -32,9 +32,9 @@ def doctor_login(request: DoctorLoginRequest, db: Session = Depends(get_db)):
 
 # 비밀번호 변경
 @router.put("/password/change")
-def change_password(
+async def change_password(
     request: DoctorPasswordChangeRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_doctor = Depends(get_current_doctor)
 ):
     # 새 비밀번호 일치 확인
@@ -51,13 +51,13 @@ def change_password(
             detail="현재 비밀번호가 올바르지 않습니다."
         )
 
-    update_doctor_password(db, current_doctor, request.new_password)
+    await update_doctor_password(db, current_doctor, request.new_password)
     return {"code": 200, "message": "비밀번호가 변경되었습니다."}
 
 # 비밀번호 재설정
 @router.post("/password/reset")
-def reset_password(request: DoctorPasswordResetRequest, db: Session = Depends(get_db)):
-    doctor = reset_doctor_password(db, request.loginid, request.doctor_name, request.business_number)
+async def reset_password(request: DoctorPasswordResetRequest, db: AsyncSession = Depends(get_db)):
+    doctor = await reset_doctor_password(db, request.loginid, request.doctor_name, request.business_number)
 
     if not doctor:
         raise HTTPException(
@@ -67,8 +67,8 @@ def reset_password(request: DoctorPasswordResetRequest, db: Session = Depends(ge
 
     # 임시 비밀번호 생성
     temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits + "!@#$%") for _ in range(10))
-    update_doctor_password(db, doctor, temp_password)
+    await update_doctor_password(db, doctor, temp_password)
     doctor.is_initial_password = True
-    db.commit()
+    await db.commit()
 
     return {"code": 200, "message": "임시 비밀번호가 발급되었습니다.", "result": {"temp_password": temp_password}}

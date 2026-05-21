@@ -1,16 +1,18 @@
-from sqlalchemy.orm import Session
 from datetime import datetime
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.guardian import Guardian
 from app.models.schedule import Schedule
 from app.models.master import CategoryMaster
-from app.models.pet import Pet
-from app.models.doctor import Doctor
 
 # 정기검진 예약 생성
-def create_checkup_schedule(db: Session, pet_id: int, date: str, time: str, memo: str, doctorid: int):
+async def create_checkup_schedule(db: AsyncSession, pet_id: int, date: str, time: str, memo: str, doctorid: int):
 
     # category_id 1 = 정기검진
-    category = db.query(CategoryMaster).filter(CategoryMaster.code == 1).first()
+    result = await db.execute(
+        select(CategoryMaster).where(CategoryMaster.code == 1)
+    )
+    category = result.scalar_one_or_none()
 
     # guardianDB 생성
     guardian = Guardian(
@@ -20,7 +22,7 @@ def create_checkup_schedule(db: Session, pet_id: int, date: str, time: str, memo
         memo=memo
     )
     db.add(guardian)
-    db.flush()
+    await db.flush()
 
     # 예약 시간 설정
     confirmed_time = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
@@ -36,10 +38,13 @@ def create_checkup_schedule(db: Session, pet_id: int, date: str, time: str, memo
         status="예약대기"
     )
     db.add(schedule)
-    db.commit()
-    db.refresh(schedule)
+    await db.commit()
+    await db.refresh(schedule)
     return schedule, guardian
 
 # 예약 조회
-def get_schedule_by_id(db: Session, schedule_id: int):
-    return db.query(Schedule).filter(Schedule.scheduleid == schedule_id).first()
+async def get_schedule_by_id(db: AsyncSession, schedule_id: int):
+    result = await db.execute(
+        select(Schedule).where(Schedule.scheduleid == schedule_id)
+    )
+    return result.scalar_one_or_none()

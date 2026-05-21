@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.session import get_db
 from app.schemas.schedule import CheckupScheduleRequest, ScheduleResponse
 from app.crud.schedule import create_checkup_schedule, get_schedule_by_id
@@ -11,26 +12,30 @@ router = APIRouter(prefix="/schedules", tags=["schedules"])
 
 # 정기검진 예약
 @router.post("/checkup", status_code=201)
-def create_checkup(
+async def create_checkup(
     request: CheckupScheduleRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     # 반려동물 확인
-    pet = db.query(Pet).filter(
-        Pet.petid == request.pet_id,
-        Pet.userid == current_user.userid
-    ).first()
+    result = await db.execute(
+        select(Pet).where(
+            Pet.petid == request.pet_id,
+            Pet.userid == current_user.userid
+        )
+    )
+    pet = result.scalar_one_or_none()
 
     if not pet:
         raise HTTPException(status_code=404, detail="반려동물 정보를 찾을 수 없습니다.")
 
     # 수의사 확인 (첫 번째 수의사로 자동 배정)
-    doctor = db.query(Doctor).first()
+    result = await db.execute(select(Doctor))
+    doctor = result.scalars().first()
     if not doctor:
         raise HTTPException(status_code=404, detail="등록된 수의사가 없습니다.")
 
-    schedule, guardian = create_checkup_schedule(
+    schedule, guardian = await create_checkup_schedule(
         db=db,
         pet_id=request.pet_id,
         date=request.date,
@@ -55,18 +60,14 @@ def create_checkup(
 
 # 예약 조회
 @router.get("/{schedule_id}", status_code=200)
-def get_schedule(
+async def get_schedule(
     schedule_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    schedule = get_schedule_by_id(db, schedule_id)
+    schedule = await get_schedule_by_id(db, schedule_id)
     if not schedule:
         raise HTTPException(status_code=404, detail="예약 정보를 찾을 수 없습니다.")
-
-    # 반려동물 정보 조회
-    guardian = schedule.emrid
-    pet = db.query(Pet).filter(Pet.petid == schedule.emrid).first()
 
     return {
         "code": 200,
