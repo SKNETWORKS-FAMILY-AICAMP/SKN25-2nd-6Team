@@ -34,6 +34,7 @@ jobs:
         with:
           context: .
           file: ai/docker/Dockerfile.backend
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}/medipaw-backend:latest
@@ -47,6 +48,7 @@ jobs:
         with:
           context: .
           file: ai/docker/Dockerfile.guardian
+          platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
             VITE_API_BASE_URL=http://localhost:8000
@@ -62,6 +64,7 @@ jobs:
         with:
           context: .
           file: ai/docker/Dockerfile.vet
+          platforms: linux/amd64,linux/arm64
           push: true
           build-args: |
             VITE_API_BASE_URL=http://localhost:8000

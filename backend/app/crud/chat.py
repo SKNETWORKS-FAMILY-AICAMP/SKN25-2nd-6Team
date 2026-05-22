@@ -59,6 +59,16 @@ async def add_message(db: AsyncSession, session: ChatHistory, role: str, content
     await db.refresh(session)
     return session
 
+# 세션 키워드/완료 업데이트
+async def update_session_complete(db: AsyncSession, session: ChatHistory, keywords: list):
+    session.keywords = keywords
+    session.is_complete = True
+    flag_modified(session, "keywords")
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return session
+
 # 세션 삭제
 async def delete_chat_session(db: AsyncSession, session: ChatHistory):
     await db.delete(session)

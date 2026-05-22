@@ -27,6 +27,7 @@ interface UseChatConversationParams {
   isUploadingAttachment: boolean;
   setErrorMessage: (message: string) => void;
   getErrorMessage: (error: unknown, fallbackMessage: string) => string;
+  onTriageComplete?: (sessionId: number, keywords: string[]) => void;
 }
 
 export const useChatConversation = ({
@@ -36,6 +37,7 @@ export const useChatConversation = ({
   isUploadingAttachment,
   setErrorMessage,
   getErrorMessage,
+  onTriageComplete,
 }: UseChatConversationParams) => {
   const [session, setSession] = useState<ChatSessionResult | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -72,6 +74,14 @@ export const useChatConversation = ({
 
     if (event.type === "quick_replies") {
       setQuickReplies(event.options);
+      return;
+    }
+
+    if (event.type === "triage_complete") {
+      const keywords = event.data?.symptom_keywords ?? [];
+      if (session && onTriageComplete) {
+        onTriageComplete(session.session_id, keywords);
+      }
       return;
     }
 

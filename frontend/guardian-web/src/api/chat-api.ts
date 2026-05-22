@@ -81,6 +81,16 @@ export type ChatStreamEvent =
       options: string[];
     }
   | {
+      type: "triage_complete";
+      data: {
+        is_triage_complete: boolean;
+        symptom_keywords: string[];
+        urgency_level?: string;
+        urgency_level_num?: number;
+        [key: string]: unknown;
+      };
+    }
+  | {
       type: "calendar";
       [key: string]: unknown;
     }

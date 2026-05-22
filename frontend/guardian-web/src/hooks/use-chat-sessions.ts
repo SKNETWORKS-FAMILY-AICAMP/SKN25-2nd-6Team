@@ -51,6 +51,17 @@ export const useChatSessions = ({
     [chatHistories, selectedHistoryId],
   );
 
+  const refreshChatHistories = async (petId: number) => {
+    try {
+      const response = await getChatSessions(petId);
+      if (response.code === 200) {
+        setChatHistories(response.result);
+      }
+    } catch {
+      // 갱신 실패는 무시 — 이미 표시 중인 목록 유지
+    }
+  };
+
   useEffect(() => {
     if (!selectedPet) {
       setChatHistories([]);
@@ -131,13 +142,7 @@ export const useChatSessions = ({
         profile_image:
           response.result.profile_image || getProfileImage(selectedPet),
       });
-      setMessages([
-        {
-          id: Date.now(),
-          role: "assistant",
-          content: `안녕하세요. ${petName}의 증상과 걱정되는 점을 알려주시면 상담을 이어갈 수 있습니다.`,
-        },
-      ]);
+      setMessages([]);
     } catch (error) {
       setErrorMessage(
         getErrorMessage(error, "상담 세션을 시작하지 못했습니다."),
@@ -225,5 +230,6 @@ export const useChatSessions = ({
     handleCreateSession,
     handleSelectHistory,
     handleDeleteHistory,
+    refreshChatHistories,
   };
 };

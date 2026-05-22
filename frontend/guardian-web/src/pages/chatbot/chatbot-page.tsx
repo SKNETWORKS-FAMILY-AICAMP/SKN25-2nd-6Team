@@ -125,6 +125,11 @@ const ChatbotPage = () => {
     isUploadingAttachment,
     setErrorMessage,
     getErrorMessage,
+    onTriageComplete: (_sessionId, _keywords) => {
+      if (selectedPet) {
+        refreshChatHistories(selectedPet.pet_id);
+      }
+    },
   });
 
   const selectedPet = useMemo(
@@ -142,6 +147,7 @@ const ChatbotPage = () => {
     handleCreateSession,
     handleSelectHistory,
     handleDeleteHistory,
+    refreshChatHistories,
   } = useChatSessions({
     selectedPet,
     resetConversationState,
