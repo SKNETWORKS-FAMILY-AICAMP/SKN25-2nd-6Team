@@ -545,11 +545,13 @@ dora_g에서 가져올 것:
 ```bash
 # 전체 스택 (backend + guardian + vet + postgres)
 docker compose -f ai/docker/docker-compose.yml up --build
+```
 
-# 마이그레이션 적용
-docker compose exec backend alembic upgrade head
+마이그레이션은 **Docker가 자동으로 처리**한다. `docker-compose.yml`에 `migrate` 서비스가 있어서 `docker compose up` 시점에 `alembic upgrade head`를 알아서 실행한다. 별도로 돌릴 필요 없다.
 
-# 목 데이터 (뽀미 EMR 이력)
+```bash
+# 목 데이터 (뽀미 EMR 이력) — 서버 올라온 후 한 번만 실행
+docker compose exec backend python scripts/create_test_accounts.py
 docker compose exec backend python scripts/seed_mock_emr.py
 ```
 
@@ -612,3 +614,51 @@ CLOUDFRONT_URL
 
 ### SSE buffering
 - nginx reverse proxy 사용 시 `X-Accel-Buffering: no` 반드시 설정. 없으면 챗봇 응답이 batch로 몰려서 옴.
+
+---
+
+## 12. 테스트 시나리오 (Happy Path)
+
+서버 올라온 뒤 아래 순서로 동작 확인.
+
+### 시나리오 A: 보호자 챗봇 예약
+
+1. `http://localhost:5173` 접속
+2. 아이디 `guardian_test` / 비밀번호 `Test1234!` 로그인
+3. 챗봇 진입 → 반려동물 `뽀미` 선택
+4. "구토" 또는 증상 직접 입력 → Triage 분석 스트리밍 시작
+5. 예약 가능 슬롯 확인 → 슬롯 선택 또는 직접 날짜 선택
+6. 예약 확정 메시지 확인 (즉시 응답)
+7. (선택) 경과 모니터링 메시지 전송 → Follow-up Agent 응답 확인
+
+### 시나리오 B: 수의사 대시보드
+
+1. `http://localhost:5174` 접속
+2. 아이디 `vet_test` / 비밀번호 `Test1234!` 로그인
+3. 오늘의 예약 대기 목록 확인
+4. EMR 큐 → 환자 클릭 → AI 차트 초안 (SOAP) 확인
+5. Triage 응급도 + 의심 질환 표시 확인
+6. Follow-up 기록 확인
+
+---
+
+## 13. 로그 파일
+
+```bash
+tail -f logs/app.log        # 전체 애플리케이션 로그
+tail -f logs/audit.log      # Judge Agent 품질 심사 결과
+tail -f logs/validation.log # Validation Agent 결과
+tail -f logs/followup.log   # Follow-up Agent 로그
+```
+
+---
+
+## 14. 자주 만나는 오류
+
+| 오류 | 원인 | 해결 |
+|---|---|---|
+| `asyncpg InterfaceError: cannot perform operation` | prepared statement 캐시 stale | 백엔드 컨테이너 재시작 |
+| `MissingBackendError` (bcrypt) | bcrypt 4.1+ 설치됨 | `pip install bcrypt==4.0.1` |
+| `ModuleNotFoundError: ai` | PYTHONPATH 누락 (로컬 실행 시) | `PYTHONPATH=프로젝트루트` 환경변수 추가 |
+| `emrid 없음` 챗봇 에러 | Triage 완료 전 Schedule 진입 | 페이지 새로고침 후 처음부터 시작 |
+| SSE 응답이 한 번에 몰려서 옴 | nginx buffering | `X-Accel-Buffering: no` 헤더 설정 |
