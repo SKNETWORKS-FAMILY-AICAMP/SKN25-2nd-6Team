@@ -3,6 +3,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type FormEvent,
 } from "react";
 import { isAxiosError } from "axios";
 import { useSearchParams } from "react-router-dom";
@@ -17,6 +18,7 @@ import GuardianNavbar from "../../components/guardian-navbar";
 import { useChatConversation } from "../../hooks/use-chat-conversation";
 import { useChatSessions } from "../../hooks/use-chat-sessions";
 import { useChatUpload } from "../../hooks/use-chat-upload";
+import { useAgentPipeline } from "../../hooks/use-agent-pipeline";
 
 const defaultProfileImages = [
   "/assets/profile1.png",
@@ -96,6 +98,7 @@ const ChatbotPage = () => {
   );
   const [isLoadingPets, setIsLoadingPets] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+
   const {
     pendingAttachment,
     setPendingAttachment,
@@ -106,6 +109,17 @@ const ChatbotPage = () => {
     setErrorMessage,
     getErrorMessage,
   });
+
+  // onTriageComplete를 ref로 관리 — pipeline 초기화 전 순환 참조 방지
+  const onTriageCompleteRef = useRef<
+    | ((
+        sessionId: number,
+        keywords: string[],
+        collectedInfo: Record<string, unknown>,
+      ) => void)
+    | undefined
+  >(undefined);
+
   const {
     session,
     setSession,
@@ -114,10 +128,11 @@ const ChatbotPage = () => {
     messageInput,
     setMessageInput,
     quickReplies,
+    setQuickReplies,
     isStreaming,
+    setIsStreaming,
     resetConversationState,
     handleSendMessage,
-    handleSubmitMessage,
   } = useChatConversation({
     pendingAttachment,
     setPendingAttachment,
@@ -125,17 +140,21 @@ const ChatbotPage = () => {
     isUploadingAttachment,
     setErrorMessage,
     getErrorMessage,
-    onTriageComplete: (_sessionId, _keywords) => {
-      if (selectedPet) {
-        refreshChatHistories(selectedPet.pet_id);
-      }
-    },
+    onTriageComplete: (sessionId, keywords, collectedInfo) =>
+      onTriageCompleteRef.current?.(sessionId, keywords, collectedInfo),
+  });
+
+  const pipeline = useAgentPipeline({
+    setMessages,
+    setQuickReplies,
+    setIsStreaming,
   });
 
   const selectedPet = useMemo(
     () => pets.find((pet) => pet.pet_id === selectedPetId),
     [pets, selectedPetId],
   );
+
   const {
     chatHistories,
     selectedHistoryId,
@@ -157,7 +176,24 @@ const ChatbotPage = () => {
     getErrorMessage,
     getProfileImage,
   });
+
+  // pipeline이 정의된 후 ref를 최신 값으로 동기화
+  onTriageCompleteRef.current = (sessionId, keywords, collectedInfo) => {
+    if (selectedPet) {
+      refreshChatHistories(selectedPet.pet_id);
+      void pipeline.startSchedulePhase(selectedPet, collectedInfo);
+    }
+  };
+
+  // 세션 초기화 시 pipeline도 초기화
+  useEffect(() => {
+    if (!session) {
+      pipeline.resetPipeline();
+    }
+  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const todayChatTitle = useMemo(() => formatDateToYyyyMmDd(new Date()), []);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -167,9 +203,7 @@ const ChatbotPage = () => {
         setErrorMessage("");
 
         const response = await getPets();
-        if (!isMounted) {
-          return;
-        }
+        if (!isMounted) return;
 
         if (response.code !== 200) {
           setErrorMessage(
@@ -180,39 +214,81 @@ const ChatbotPage = () => {
         }
 
         setPets(
-          [...response.result].sort((firstPet, secondPet) =>
-            firstPet.petname.localeCompare(secondPet.petname, "ko"),
+          [...response.result].sort((a, b) =>
+            a.petname.localeCompare(b.petname, "ko"),
           ),
         );
       } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
+        if (!isMounted) return;
         setErrorMessage(
           getErrorMessage(error, "반려동물 목록을 불러오지 못했습니다."),
         );
       } finally {
-        if (isMounted) {
-          setIsLoadingPets(false);
-        }
+        if (isMounted) setIsLoadingPets(false);
       }
     };
 
     loadPets();
-
-    return () => {
-      isMounted = false;
-    };
+    return () => { isMounted = false; };
   }, []);
 
   const handleSelectPet = (petId: number) => {
-    if (petId === selectedPetId) {
+    if (petId === selectedPetId) return;
+    setSelectedPetId(petId);
+    resetSessionStateForPetChange();
+  };
+
+  // 통합 메시지 전송 핸들러 — phase에 따라 분기
+  const handleSendCombined = async (content: string) => {
+    const trimmed = content.trim();
+    if (!trimmed || isStreaming || isUploadingAttachment) return;
+
+    if (pipeline.phase === "slot-selection") {
+      // 슬롯 버튼 클릭 또는 텍스트 입력
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now(), role: "user" as const, content: trimmed },
+      ]);
+      setQuickReplies([]);
+      setMessageInput("");
+      if (pipeline.isSlotLabel(trimmed) && selectedPet) {
+        await pipeline.handleSlotSelect(trimmed, selectedPet.pet_id);
+      } else {
+        // 슬롯이 아닌 텍스트 — 안내 메시지 표시
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now() + 1,
+            role: "assistant" as const,
+            content: "위 시간 중 하나를 선택해주세요.",
+          },
+        ]);
+        setQuickReplies(pipeline.getSlotLabels());
+      }
       return;
     }
 
-    setSelectedPetId(petId);
-    resetSessionStateForPetChange();
+    if (pipeline.phase === "followup") {
+      // 경과 모니터링 메시지
+      setMessages((prev) => [
+        ...prev,
+        { id: Date.now(), role: "user" as const, content: trimmed },
+      ]);
+      setQuickReplies([]);
+      setMessageInput("");
+      await pipeline.handleFollowupMessage(trimmed);
+      return;
+    }
+
+    if (pipeline.phase === "confirmed") return; // 상담 완료 — 입력 차단
+
+    // 일반 트리아지 채팅
+    await handleSendMessage(trimmed);
+  };
+
+  const handleSubmitCombined = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void handleSendCombined(messageInput);
   };
 
   return (
@@ -221,6 +297,14 @@ const ChatbotPage = () => {
 
       <main className="mx-auto flex h-[calc(100vh-4rem)] min-h-0 w-full max-w-6xl flex-col px-4 py-4 sm:px-6">
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl shadow-blue-100/50">
+
+          {/* 응급 알림 배너 (followup에서 emergency_alert=true 시) */}
+          {pipeline.emergencyAlert ? (
+            <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700 sm:px-7">
+              ⚠️ 증상이 악화되고 있어요. 즉시 동물병원에 내원해주세요!
+            </div>
+          ) : null}
+
           {errorMessage ? (
             <div className="border-b border-rose-100 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-600 sm:px-7">
               {errorMessage}
@@ -256,6 +340,15 @@ const ChatbotPage = () => {
                       <h2 className="truncate text-base font-black text-slate-950">
                         {todayChatTitle} 새 상담
                       </h2>
+                      {pipeline.phase === "followup" ? (
+                        <p className="text-xs font-semibold text-blue-500">
+                          경과 모니터링 중
+                        </p>
+                      ) : pipeline.phase === "confirmed" ? (
+                        <p className="text-xs font-semibold text-green-600">
+                          예약 완료
+                        </p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -263,20 +356,28 @@ const ChatbotPage = () => {
                     messages={messages}
                     quickReplies={quickReplies}
                     isStreaming={isStreaming}
-                    onSendMessage={handleSendMessage}
+                    onSendMessage={(content) => {
+                      void handleSendCombined(content);
+                    }}
                   />
 
-                  <ChatInputBox
-                    fileInputRef={fileInputRef}
-                    pendingAttachment={pendingAttachment}
-                    messageInput={messageInput}
-                    isStreaming={isStreaming}
-                    isUploadingAttachment={isUploadingAttachment}
-                    onClearPendingAttachment={clearPendingAttachment}
-                    onSelectAttachment={handleSelectAttachment}
-                    onSubmitMessage={handleSubmitMessage}
-                    onChangeMessageInput={setMessageInput}
-                  />
+                  {pipeline.phase !== "confirmed" ? (
+                    <ChatInputBox
+                      fileInputRef={fileInputRef}
+                      pendingAttachment={pendingAttachment}
+                      messageInput={messageInput}
+                      isStreaming={isStreaming}
+                      isUploadingAttachment={isUploadingAttachment}
+                      onClearPendingAttachment={clearPendingAttachment}
+                      onSelectAttachment={handleSelectAttachment}
+                      onSubmitMessage={handleSubmitCombined}
+                      onChangeMessageInput={setMessageInput}
+                    />
+                  ) : (
+                    <div className="border-t border-slate-100 px-5 py-4 text-center text-sm font-semibold text-slate-400">
+                      상담이 완료되었습니다. 새 상담을 시작하려면 왼쪽에서 선택해주세요.
+                    </div>
+                  )}
                 </>
               ) : selectedHistory && selectedPet ? (
                 <>
@@ -301,17 +402,17 @@ const ChatbotPage = () => {
 
                   {isLoadingHistoryMessages ? (
                     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5 sm:p-7">
-                    <div className="flex-1" />
-                    <div className="max-w-[82%] rounded-3xl rounded-bl-lg bg-slate-100 px-5 py-4 text-sm font-semibold leading-6 text-slate-700">
-                      이전 상담 내용을 불러오는 중입니다.
-                    </div>
+                      <div className="flex-1" />
+                      <div className="max-w-[82%] rounded-3xl rounded-bl-lg bg-slate-100 px-5 py-4 text-sm font-semibold leading-6 text-slate-700">
+                        이전 상담 내용을 불러오는 중입니다.
+                      </div>
                     </div>
                   ) : (
                     <ChatMessageList
                       messages={messages}
                       quickReplies={[]}
                       isStreaming={false}
-                      onSendMessage={handleSendMessage}
+                      onSendMessage={() => {}}
                     />
                   )}
                 </>

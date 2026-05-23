@@ -31,8 +31,8 @@ logger = logging.getLogger(__name__)
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
-# 인메모리 태스크 상태 (멀티 워커 환경에서는 Redis로 교체)
-_task_store: dict[str, dict] = {}
+# chat.py와 공유하는 태스크 스토어 (ai.tasks에서 단일 관리)
+from ai.tasks import _task_store
 
 
 # ── OpenAI 프록시 ─────────────────────────────────────────────────

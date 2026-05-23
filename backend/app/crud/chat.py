@@ -2,6 +2,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 from app.models.chat_history import ChatHistory
+from app.models.guardian import Guardian
+from app.models.master import CategoryMaster
 
 # 세션 생성
 async def create_chat_session(db: AsyncSession, userid: int, petid: int):
@@ -73,3 +75,38 @@ async def update_session_complete(db: AsyncSession, session: ChatHistory, keywor
 async def delete_chat_session(db: AsyncSession, session: ChatHistory):
     await db.delete(session)
     await db.commit()
+
+
+# AI 트리아지용 Guardian(emrid) 신규 생성
+# category code=2(AI트리아지) 우선, 없으면 code=1(정기검진) fallback
+async def create_triage_guardian(db: AsyncSession, petid: int) -> Guardian:
+    category_result = await db.execute(
+        select(CategoryMaster).where(CategoryMaster.code == 2)
+    )
+    category = category_result.scalar_one_or_none()
+    if not category:
+        category_result = await db.execute(
+            select(CategoryMaster).where(CategoryMaster.code == 1)
+        )
+        category = category_result.scalar_one_or_none()
+
+    guardian = Guardian(
+        petid=petid,
+        category_id=category.id,
+    )
+    db.add(guardian)
+    await db.flush()
+    await db.commit()
+    await db.refresh(guardian)
+    return guardian
+
+
+# ChatHistory.emrid 설정 (NULL → emrid, 기존 값 있으면 스킵)
+async def update_session_emrid(db: AsyncSession, session: ChatHistory, emrid: int) -> ChatHistory:
+    if session.emrid is not None:
+        return session
+    session.emrid = emrid
+    db.add(session)
+    await db.commit()
+    await db.refresh(session)
+    return session

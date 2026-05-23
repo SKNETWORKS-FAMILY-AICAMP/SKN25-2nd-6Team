@@ -27,7 +27,11 @@ interface UseChatConversationParams {
   isUploadingAttachment: boolean;
   setErrorMessage: (message: string) => void;
   getErrorMessage: (error: unknown, fallbackMessage: string) => string;
-  onTriageComplete?: (sessionId: number, keywords: string[]) => void;
+  onTriageComplete?: (
+    sessionId: number,
+    keywords: string[],
+    collectedInfo: Record<string, unknown>,
+  ) => void;
 }
 
 export const useChatConversation = ({
@@ -80,7 +84,7 @@ export const useChatConversation = ({
     if (event.type === "triage_complete") {
       const keywords = event.data?.symptom_keywords ?? [];
       if (session && onTriageComplete) {
-        onTriageComplete(session.session_id, keywords);
+        onTriageComplete(session.session_id, keywords, event.data);
       }
       return;
     }
@@ -163,7 +167,9 @@ export const useChatConversation = ({
     messageInput,
     setMessageInput,
     quickReplies,
+    setQuickReplies,
     isStreaming,
+    setIsStreaming,
     resetConversationState,
     handleSendMessage,
     handleSubmitMessage,

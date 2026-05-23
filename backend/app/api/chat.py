@@ -4,6 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
 import asyncio
+import logging
+import uuid
 from datetime import date
 from openai import AsyncOpenAI
 from app.db.session import get_db
@@ -11,18 +13,50 @@ from app.schemas.chat import ChatSessionCreate, ChatMessageRequest
 from app.crud.chat import (
     create_chat_session, get_chat_session, get_chat_sessions_by_petid,
     add_message, delete_chat_session, update_session_complete,
+    create_triage_guardian, update_session_emrid,
 )
 from app.core.dependencies import get_current_user
 from app.core.config import settings
 from app.models.pet import Pet
+from app.models.triage_result import TriageResult
+from ai.tasks import RUNNERS, _task_store
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 FORCE_COMPLETE_SUFFIX = """
 
 [완료 요청]
 충분한 턴이 진행되었습니다. 지금까지 수집된 정보로 즉시 완료 형식(is_triage_complete: true, collected_info 포함)으로 응답하세요.
 추론으로 정보를 채우지 마세요. 정보가 부족한 경우: urgency_level_num을 보수적으로 설정하고, 수집되지 않은 문자열 필드는 ""로, 배열 필드는 []로 두세요. 추가 질문은 하지 마세요."""
+
+
+async def _run_schedule_background(
+    task_id: str,
+    emrid: int,
+    pet_payload: dict,
+    triage_info: dict,
+) -> None:
+    """triage_complete 직후 asyncio.create_task로 실행되는 Schedule Agent 백그라운드 러너."""
+    logger.info(f"[Schedule BG] start task_id={task_id} emrid={emrid}")
+    _task_store[task_id] = {"status": "running", "step": "예약 슬롯 계산 중..."}
+
+    def update_step(step: str) -> None:
+        _task_store[task_id]["step"] = step
+
+    try:
+        payload = {
+            "pet": pet_payload,
+            "triage_info": triage_info,
+            "emr_history": [],
+            "existing_bookings": [],
+        }
+        result = await RUNNERS["schedule"](payload, update_step, emrid, None)
+        _task_store[task_id] = {"status": "done", "result": result}
+        logger.info(f"[Schedule BG] done task_id={task_id} slot_window={result.get('slot_window')}")
+    except Exception as exc:
+        logger.error(f"[Schedule BG] failed task_id={task_id}: {exc}", exc_info=True)
+        _task_store[task_id] = {"status": "error", "detail": str(exc)}
 
 
 def _build_triage_system_prompt(pet: Pet, force_complete: bool = False) -> str:
@@ -195,6 +229,17 @@ async def send_message(
 
     system_prompt = _build_triage_system_prompt(pet, force_complete=force_complete)
 
+    # event_stream 클로저에서 사용할 반려동물 정보 딕셔너리
+    pet_age = (date.today().year - pet.birth_date.year) if pet.birth_date else None
+    pet_payload = {
+        "name": pet.petname,
+        "species": pet.species or "dog",
+        "breed": pet.breed or "알 수 없음",
+        "age": pet_age,
+        "gender": pet.gender,
+        "weight": float(pet.weight_kg) if pet.weight_kg else None,
+    }
+
     async def event_stream():
         try:
             client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
@@ -242,7 +287,48 @@ async def send_message(
             if collected_info and collected_info.get("is_triage_complete"):
                 keywords = collected_info.get("symptom_keywords") or []
                 await update_session_complete(db, session, keywords)
-                yield f"data: {json.dumps({'type': 'triage_complete', 'data': collected_info}, ensure_ascii=False)}\n\n"
+
+                # ① Guardian 생성 → emrid 확보
+                guardian = await create_triage_guardian(db, session.petid)
+                emrid = guardian.emrid
+
+                # ② ChatHistory.emrid 업데이트 (NULL → emrid, 1회만)
+                await update_session_emrid(db, session, emrid)
+
+                # ③ TriageResult INSERT
+                try:
+                    db.add(TriageResult(
+                        emrid=emrid,
+                        urgency_level=collected_info.get("urgency_level", ""),
+                        urgency_level_num=int(collected_info.get("urgency_level_num", 3)),
+                        vtl_basis=collected_info.get("vtl_basis"),
+                        red_flags=collected_info.get("red_flags"),
+                        chief_complaint=collected_info.get("chief_complaint"),
+                        symptom_onset=collected_info.get("symptom_onset"),
+                        symptom_keywords=collected_info.get("symptom_keywords"),
+                        suspected_diseases=collected_info.get("suspected_diseases"),
+                        symptom_summary=collected_info.get("symptom_summary"),
+                        recommended_action=collected_info.get("recommended_action"),
+                        need_photo=collected_info.get("need_photo", False),
+                    ))
+                    await db.commit()
+                    logger.info(f"[TriageResult] saved emrid={emrid}")
+                except Exception as e:
+                    await db.rollback()
+                    logger.error(f"[TriageResult] save failed emrid={emrid}: {e}")
+
+                # ④ Schedule Agent 백그라운드 실행
+                schedule_task_id = str(uuid.uuid4())
+                _task_store[schedule_task_id] = {"status": "queued", "step": ""}
+                asyncio.create_task(
+                    _run_schedule_background(schedule_task_id, emrid, pet_payload, collected_info)
+                )
+                logger.info(f"[Schedule BG] queued task_id={schedule_task_id} emrid={emrid}")
+
+                yield f"data: {json.dumps({'type': 'triage_complete', 'data': collected_info, 'emrid': emrid, 'schedule_task_id': schedule_task_id}, ensure_ascii=False)}\n\n"
+            else:
+                if collected_info:
+                    yield f"data: {json.dumps({'type': 'triage_complete', 'data': collected_info}, ensure_ascii=False)}\n\n"
 
             yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
 

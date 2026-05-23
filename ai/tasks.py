@@ -1,8 +1,6 @@
 """AI 에이전트 BackgroundTask 오케스트레이터.
 
 각 에이전트를 실행하고 결과를 DB에 저장합니다.
-backend 통합 시: backend/app/workers/tasks.py 로 복사 후
-  from app.workers.tasks import run_agent_task, save_result
 """
 from __future__ import annotations
 
@@ -11,6 +9,11 @@ import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# TODO: 멀티 워커(Gunicorn) 환경에서는 Redis/persistent queue로 교체 필요.
+#       현재는 단일 프로세스 uvicorn 기준 인메모리 dict 사용.
+#       교체 시: redis-py / aioredis + task_id 기반 key expiry 적용.
+_task_store: dict[str, dict] = {}
 
 
 async def run_triage(payload: dict, update_step, emrid: int | None, scheduleid: int | None) -> dict:

@@ -16,11 +16,11 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: str
     AWS_REGION: str = "ap-northeast-2"
     S3_BUCKET_NAME: str
-    CLOUDFRONT_URL: str
+    CLOUDFRONT_URL: Optional[str] = ""
 
     # OpenAI
     OPENAI_API_KEY: str
-    OPENAI_MODEL: str = "gpt-4o"
+    OPENAI_MODEL: str = "gpt-4o-mini"
 
     # 서버 설정
     DEBUG: bool = True
