@@ -7,3 +7,30 @@
     scrollbar-gutter: stable;
   }
 }
+
+@layer components {
+  /* Card — consistent padding + shadow across pages */
+  .mp-card {
+    @apply rounded-2xl bg-white p-5 shadow-sm;
+  }
+
+  /* Section heading — h2-level labels inside pages */
+  .mp-section-title {
+    @apply text-base font-extrabold text-slate-800;
+  }
+
+  /* Primary CTA button — fixed height, rounded-full */
+  .mp-btn-primary {
+    @apply inline-flex h-11 items-center justify-center rounded-full bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700 disabled:opacity-50;
+  }
+
+  /* Secondary ghost button */
+  .mp-btn-secondary {
+    @apply inline-flex h-11 items-center justify-center rounded-full border border-blue-200 px-5 text-sm font-bold text-blue-600 transition hover:bg-blue-50 disabled:opacity-50;
+  }
+
+  /* Small label chip (e.g. symptom pills, status badges) */
+  .mp-chip {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-bold;
+  }
+}

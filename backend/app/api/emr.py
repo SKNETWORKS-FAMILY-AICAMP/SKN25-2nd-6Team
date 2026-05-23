@@ -154,6 +154,9 @@ async def emr_validation(
             "accuracy_score": float(validation.accuracy_score) if validation.accuracy_score else None,
             "consistency_score": float(validation.consistency_score) if validation.consistency_score else None,
             "summary": validation.summary,
+            "emr_alignment_reason": validation.emr_alignment_reason,
+            "prescription_risk_reason": validation.prescription_risk_reason,
+            "score_breakdown": validation.score_breakdown,
             "created_at": validation.created_at.isoformat() if validation.created_at else None,
         },
     }

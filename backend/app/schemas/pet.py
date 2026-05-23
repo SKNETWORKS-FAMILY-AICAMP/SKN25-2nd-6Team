@@ -36,6 +36,20 @@ class PetCreate(BaseModel):
             raise ValueError("특이사항은 최대 200자입니다.")
         return v
 
+    @field_validator("profile_image")
+    @classmethod
+    def profile_image_no_base64(cls, v):
+        """base64 데이터 URI는 DB VARCHAR(500) 초과 → 명확한 오류 반환.
+        프로필 이미지는 /chat/upload/presigned-url 으로 S3에 업로드 후 CDN URL을 전달해야 합니다."""
+        if v and v.startswith("data:"):
+            raise ValueError(
+                "프로필 이미지는 base64 데이터가 아닌 URL을 전달해주세요. "
+                "이미지 업로드 API(/chat/upload/presigned-url)를 먼저 호출하세요."
+            )
+        if v and len(v) > 500:
+            raise ValueError("프로필 이미지 URL은 500자 이내여야 합니다.")
+        return v
+
 # 목록 응답
 class PetListResponse(BaseModel):
     pet_id: int
@@ -65,7 +79,7 @@ class PetDetailResponse(BaseModel):
     class Config:
         from_attributes = True
 
-# 수정 요청 
+# 수정 요청
 class PetUpdate(BaseModel):
     petname: Optional[str] = None
     species: Optional[str] = None
@@ -75,7 +89,18 @@ class PetUpdate(BaseModel):
     birth_date: Optional[date] = None
     is_birth_unknown: Optional[bool] = None
     weight_kg: Optional[float] = None
-    checkup_date: Optional[date] = None       
-    is_checkup_unknown: Optional[bool] = None 
+    checkup_date: Optional[date] = None
+    is_checkup_unknown: Optional[bool] = None
     notes: Optional[str] = None
     profile_image: Optional[str] = None
+
+    @field_validator("profile_image")
+    @classmethod
+    def profile_image_no_base64(cls, v):
+        if v and v.startswith("data:"):
+            raise ValueError(
+                "프로필 이미지는 base64 데이터가 아닌 URL을 전달해주세요."
+            )
+        if v and len(v) > 500:
+            raise ValueError("프로필 이미지 URL은 500자 이내여야 합니다.")
+        return v

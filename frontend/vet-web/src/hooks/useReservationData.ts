@@ -42,9 +42,11 @@ export function useReservationData(accessToken: string) {
 
   const loadPatientOptions = useCallback(async () => {
     try {
+      // active_only=true: 모든 예약이 취소된(soft-deleted guardian만) 환자 제외
       const firstPage = await fetchDoctorPatientList({
         accessToken,
         page: 1,
+        activeOnly: true,
       });
       const totalPage = firstPage.pagination?.total_page ?? 1;
       const restPages =
@@ -54,6 +56,7 @@ export function useReservationData(accessToken: string) {
                 fetchDoctorPatientList({
                   accessToken,
                   page: index + 2,
+                  activeOnly: true,
                 })
               )
             )

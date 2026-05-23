@@ -30,6 +30,7 @@ async def list_patients(
     page_size: int = Query(10, ge=1, le=100),
     keyword: str | None = Query(None),
     species: str | None = Query(None),
+    active_only: bool = Query(False, description="True=취소된 예약만 있는 환자 제외"),
     db: AsyncSession = Depends(get_db),
 ):
     rows, total_count = await get_patient_list(
@@ -38,6 +39,7 @@ async def list_patients(
         page_size=page_size,
         keyword=keyword,
         species=species,
+        active_only=active_only,
     )
 
     pet_ids = [pet.petid for pet, _ in rows]

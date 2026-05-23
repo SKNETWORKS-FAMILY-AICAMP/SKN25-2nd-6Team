@@ -7,6 +7,7 @@ import {
 } from "react";
 import { isAxiosError } from "axios";
 import { useSearchParams } from "react-router-dom";
+import ChatDatePicker from "../../components/chatbot/chat-date-picker";
 
 const SYMPTOM_PILLS = [
   "구토",
@@ -438,14 +439,33 @@ const ChatbotPage = () => {
                     }}
                   />
 
+                  {/* 직접 날짜 선택 피커 */}
+                  {pipeline.showDatePicker && (
+                    <ChatDatePicker
+                      onSelectSlot={(date, time, doctorid, label) => {
+                        void pipeline.handleManualSlotSelect(date, time, doctorid, label);
+                      }}
+                      onCancel={() => pipeline.setShowDatePicker(false)}
+                    />
+                  )}
+
                   {/* 상태별 입력 영역 */}
                   {chatPhase === "BOOKING_CONFIRMED" ? (
                     <div className="border-t border-slate-100 px-5 py-4 text-center text-sm font-semibold text-slate-400">
                       상담이 완료되었습니다. 새 상담을 시작하려면 왼쪽에서 선택해주세요.
                     </div>
                   ) : chatPhase === "SLOT_RECOMMENDING" ? (
-                    <div className="border-t border-slate-100 px-5 py-3 text-center text-xs font-semibold text-slate-400">
-                      위 시간 카드를 선택해주세요
+                    <div className="border-t border-slate-100 px-4 py-3 flex items-center justify-between gap-3">
+                      <span className="text-xs font-semibold text-slate-400">
+                        위 시간 카드를 선택하거나
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => pipeline.setShowDatePicker((v) => !v)}
+                        className="shrink-0 rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-black text-blue-600 transition hover:bg-blue-50"
+                      >
+                        직접 날짜 선택하기 📅
+                      </button>
                     </div>
                   ) : (
                     <ChatInputBox

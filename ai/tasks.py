@@ -1,23 +1,88 @@
 """AI 에이전트 BackgroundTask 오케스트레이터.
 
 각 에이전트를 실행하고 결과를 DB에 저장합니다.
+
+개선사항:
+  - TaskStatus(str, Enum): 상태 타입 안전화. 기존 문자열 비교 코드와 100% 호환.
+  - PipelineState(str, Enum): booking pipeline 상태 머신. DB 저장 없이 런타임 추적.
+  - TASK_REGISTRY: asyncio.Task 레퍼런스 추적 → graceful shutdown / orphan 방지.
+  - safe_create_task(): asyncio.create_task의 안전한 래퍼.
+    · 예외 자동 로깅 (unhandled task exception 방지)
+    · CancelledError 상태 전파
+    · TASK_REGISTRY 등록/해제 자동화
+  - cancel_all_tasks(): 서버 종료 시 실행 중인 모든 태스크를 정상 취소.
+  - cleanup_orphan_tasks(): TTL 정리가 실패한 경우를 대비한 주기적 고아 태스크 정리.
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from typing import Any
+import time
+import uuid
+from enum import Enum
+from typing import Any, Coroutine
 
 logger = logging.getLogger(__name__)
 
-# TODO: 멀티 워커(Gunicorn) 환경에서는 Redis/persistent queue로 교체 필요.
-#       현재는 단일 프로세스 uvicorn 기준 인메모리 dict 사용.
-#       교체 시: redis-py / aioredis + task_id 기반 key expiry 적용.
+# ── 상태 Enum ─────────────────────────────────────────────────────────────────
+
+class TaskStatus(str, Enum):
+    """_task_store["status"] 값. str 서브클래스이므로 기존 문자열 비교와 100% 호환.
+
+    예) task["status"] == "queued"  →  True  (TaskStatus.QUEUED == "queued")
+         json.dumps({"status": TaskStatus.DONE})  →  '{"status": "done"}'
+    """
+    QUEUED    = "queued"
+    RUNNING   = "running"
+    DONE      = "done"
+    ERROR     = "error"
+    CANCELLED = "cancelled"
+    TIMEOUT   = "timeout"
+
+
+class PipelineState(str, Enum):
+    """전체 booking pipeline 상태 머신.
+
+    DB 저장 없이 런타임에서만 관리하므로 migration 불필요.
+    운영자가 로그에서 'pipeline_state' 키로 현재 단계를 추적할 수 있다.
+
+    전환 흐름:
+      TRIAGE_STARTED
+        → TRIAGE_COMPLETED
+          → SCHEDULE_PENDING
+            → SCHEDULE_CONFIRMED
+              → CHART_GENERATING  ──┐
+              → VALIDATION_RUNNING ─┤
+                                    ↓
+                               COMPLETED | FAILED | PARTIAL
+    """
+    TRIAGE_STARTED     = "triage_started"
+    TRIAGE_COMPLETED   = "triage_completed"
+    SCHEDULE_PENDING   = "schedule_pending"
+    SCHEDULE_CONFIRMED = "schedule_confirmed"
+    CHART_GENERATING   = "chart_generating"
+    VALIDATION_RUNNING = "validation_running"
+    COMPLETED          = "completed"
+    FAILED             = "failed"
+    PARTIAL            = "partial"   # 일부 에이전트만 성공한 부분 완료
+
+
+# ── in-memory task store ───────────────────────────────────────────────────────
+
+# TODO: 멀티 워커(Gunicorn --workers N) 환경에서는 Redis/persistent queue로 교체 필요.
+#       현재는 단일 프로세스 uvicorn(asyncio 단일 스레드) 기준 인메모리 dict 사용.
+#       단일 프로세스에서 asyncio는 단일 스레드이므로 dict 접근 자체는 thread-safe.
 _task_store: dict[str, dict] = {}
 
 _TASK_TTL_SEC = 300  # 5분: SSE 미접속 task 자동 정리
 
+# asyncio.Task 레퍼런스 추적: graceful shutdown + 고아 태스크 방지
+# key: task_id 또는 임의 레이블, value: asyncio.Task 객체
+TASK_REGISTRY: dict[str, asyncio.Task] = {}
+
+
+# ── 태스크 수명 관리 헬퍼 ────────────────────────────────────────────────────
 
 async def cleanup_task_after_ttl(task_id: str, ttl: int = _TASK_TTL_SEC) -> None:
     """완료/에러 task를 TTL 후 자동 삭제.
@@ -27,36 +92,128 @@ async def cleanup_task_after_ttl(task_id: str, ttl: int = _TASK_TTL_SEC) -> None
     """
     await asyncio.sleep(ttl)
     _task_store.pop(task_id, None)
+    TASK_REGISTRY.pop(f"cleanup:{task_id}", None)
 
 
-import time
-import uuid
+def safe_create_task(
+    coro: Coroutine,
+    *,
+    task_id: str | None = None,
+    name: str | None = None,
+) -> asyncio.Task:
+    """asyncio.create_task의 안전한 래퍼.
+
+    기존 asyncio.create_task 호출을 이 함수로 교체하면:
+      1. 예외 발생 시 자동으로 로그 기록 (unhandled task exception 방지)
+      2. CancelledError 발생 시 _task_store 상태를 'cancelled'로 업데이트
+      3. TASK_REGISTRY에 등록 → graceful shutdown 시 cancel_all_tasks()로 정리 가능
+      4. asyncio.create_task가 현재 context를 복사하므로 request_id contextvars도 전파됨
+
+    Args:
+        coro:    실행할 코루틴
+        task_id: _task_store 키. 제공 시 예외/취소 상태를 자동 기록.
+        name:    asyncio.Task 이름 (디버깅용)
+    """
+    label = task_id or name or f"anon-{uuid.uuid4().hex[:6]}"
+
+    async def _guarded() -> Any:
+        try:
+            return await coro
+        except asyncio.CancelledError:
+            if task_id and task_id in _task_store:
+                _task_store[task_id]["status"] = TaskStatus.CANCELLED
+            logger.info("[Task] cancelled label=%s", label)
+            raise
+        except Exception as exc:
+            if task_id and task_id in _task_store:
+                _task_store[task_id]["status"] = TaskStatus.ERROR
+                _task_store[task_id]["detail"] = str(exc)
+            logger.exception("[Task] unhandled exception label=%s", label)
+            # re-raise 하지 않음: 이미 로깅됐고 상위 루프에 크래시를 유발하지 않음
+        finally:
+            TASK_REGISTRY.pop(label, None)
+
+    task = asyncio.create_task(_guarded(), name=name or label)
+    TASK_REGISTRY[label] = task
+    return task
+
+
+async def cancel_all_tasks(timeout: float = 10.0) -> None:
+    """Graceful shutdown: TASK_REGISTRY의 모든 실행 중인 태스크를 취소하고 완료를 기다린다.
+
+    app lifespan shutdown hook에서 호출:
+        @asynccontextmanager
+        async def lifespan(app):
+            yield
+            await cancel_all_tasks()
+    """
+    active = {k: t for k, t in TASK_REGISTRY.items() if not t.done()}
+    if not active:
+        return
+    logger.info("[Shutdown] Cancelling %d background tasks: %s", len(active), list(active.keys()))
+    for t in active.values():
+        t.cancel()
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(*active.values(), return_exceptions=True),
+            timeout=timeout,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("[Shutdown] Timeout waiting for %d tasks to cancel", len(active))
+    logger.info("[Shutdown] Background tasks cleanup complete")
+
+
+async def cleanup_orphan_tasks(max_age_sec: int = 600) -> None:
+    """TTL cleanup이 실패한 고아 태스크 제거.
+
+    선택적으로 주기적 백그라운드 루프에서 호출할 수 있다.
+    현재는 명시적 호출 없이 cleanup_task_after_ttl에 의존.
+    """
+    now = time.monotonic()
+    # _task_store 항목에는 created_at이 없으므로 TASK_REGISTRY 기준으로 done 태스크만 제거
+    done_labels = [k for k, t in list(TASK_REGISTRY.items()) if t.done()]
+    for label in done_labels:
+        TASK_REGISTRY.pop(label, None)
+    if done_labels:
+        logger.debug("[Orphan] Removed %d done tasks from TASK_REGISTRY", len(done_labels))
+
+
+# ── monitor_agent 데코레이터 ──────────────────────────────────────────────────
 
 def monitor_agent(agent_name: str):
     def decorator(func):
         async def wrapper(payload: dict, update_step, emrid: int | None, scheduleid: int | None, *args, **kwargs):
-            request_id = str(uuid.uuid4())
+            from app.middleware.request_id import get_request_id
+            request_id = get_request_id() or str(uuid.uuid4())[:8]
             start_time = time.perf_counter()
             success = False
             failure_reason = None
-            
+
             # Extract metadata from payload
             pet_id = None
             session_id = None
             reservation_id = scheduleid
-            
+
             if isinstance(payload, dict):
-                pet_id = payload.get("pet_id") or payload.get("pet", {}).get("pet_id") or payload.get("pet", {}).get("id")
+                pet_id = (
+                    payload.get("pet_id")
+                    or payload.get("pet", {}).get("pet_id")
+                    or payload.get("pet", {}).get("id")
+                )
                 if not pet_id:
                     p_ctx = payload.get("patient_context", {})
                     if isinstance(p_ctx, dict) and "patient_context" in p_ctx:
                         p_ctx = p_ctx["patient_context"]
                     if isinstance(p_ctx, dict):
                         pet_id = p_ctx.get("patient_profile", {}).get("pet_id")
-                
+
                 session_id = payload.get("session_id") or payload.get("chat_session_id")
                 if not reservation_id:
-                    reservation_id = payload.get("schedule_id") or payload.get("schedule_result", {}).get("scheduleid") or payload.get("schedule_slot", {}).get("scheduleid")
+                    reservation_id = (
+                        payload.get("schedule_id")
+                        or payload.get("schedule_result", {}).get("scheduleid")
+                        or payload.get("schedule_slot", {}).get("scheduleid")
+                    )
 
             # Database fallback if emrid is available and metadata is missing
             if emrid and (not pet_id or not session_id):
@@ -64,7 +221,7 @@ def monitor_agent(agent_name: str):
                 from sqlalchemy import select
                 from app.models.guardian import Guardian
                 from app.models.chat_history import ChatHistory
-                
+
                 async with AsyncSessionLocal() as db:
                     try:
                         g_res = await db.execute(select(Guardian).where(Guardian.emrid == emrid))
@@ -72,7 +229,6 @@ def monitor_agent(agent_name: str):
                         if guardian:
                             if not pet_id:
                                 pet_id = guardian.petid
-                            
                             c_res = await db.execute(
                                 select(ChatHistory)
                                 .where(ChatHistory.emrid == emrid)
@@ -82,7 +238,7 @@ def monitor_agent(agent_name: str):
                             if chat and not session_id:
                                 session_id = chat.id
                     except Exception as db_exc:
-                        logger.warning(f"[monitor_agent] DB lookup failed: {db_exc}")
+                        logger.warning("[monitor_agent] DB lookup failed: %s", db_exc)
 
             try:
                 result = await func(payload, update_step, emrid, scheduleid, *args, **kwargs)
@@ -90,7 +246,7 @@ def monitor_agent(agent_name: str):
                 return result
             except Exception as e:
                 failure_reason = str(e)
-                raise e
+                raise
             finally:
                 latency_ms = (time.perf_counter() - start_time) * 1000.0
                 log_data = {
@@ -103,10 +259,12 @@ def monitor_agent(agent_name: str):
                     "success": success,
                     "failure_reason": failure_reason,
                 }
-                logger.info(f"[AGENT_MONITOR] {json.dumps(log_data, ensure_ascii=False)}")
+                logger.info("[AGENT_MONITOR] %s", json.dumps(log_data, ensure_ascii=False))
         return wrapper
     return decorator
 
+
+# ── 에이전트 러너 ─────────────────────────────────────────────────────────────
 
 @monitor_agent("triage")
 async def run_triage(payload: dict, update_step, emrid: int | None, scheduleid: int | None) -> dict:
@@ -154,6 +312,8 @@ RUNNERS: dict[str, Any] = {
 }
 
 
+# ── DB 저장 ───────────────────────────────────────────────────────────────────
+
 async def save_result(
     agent_type: str,
     result: dict,
@@ -163,13 +323,12 @@ async def save_result(
 ) -> None:
     """에이전트 실행 결과를 DB에 저장.
 
-    - chart → reportDB (ai_draft_json) + doctor_alarmDB
+    - chart      → reportDB (ai_draft_json) + doctor_alarmDB
     - validation → validation_resultDB
-    - triage → triage_resultDB
-    - followup → 로그만 기록 (followupDB는 보호자 사진/메시지 전용)
+    - triage     → triage_resultDB
+    - followup   → 로그만 기록 (followupDB는 보호자 사진/메시지 전용)
     """
     from sqlalchemy import select
-
     from app.db.session import AsyncSessionLocal
 
     # chart → reportDB + doctor_alarmDB
@@ -203,7 +362,6 @@ async def save_result(
                 )
                 sched = sched_row.scalar_one_or_none()
                 if sched:
-                    # 동일 schedule + type + unread 알람 중복 방지 (application-level 체크)
                     dup = await db.execute(
                         select(DoctorAlarm).where(
                             DoctorAlarm.scheduleid == scheduleid,
@@ -220,10 +378,10 @@ async def save_result(
                         ))
 
                 await db.commit()
-                logger.info(f"[SaveResult] chart → reportDB emrid={emrid}")
+                logger.info("[SaveResult] chart → reportDB emrid=%s", emrid)
             except Exception as e:
                 await db.rollback()
-                logger.error(f"[SaveResult] chart DB 저장 실패: {e}")
+                logger.error("[SaveResult] chart DB 저장 실패 emrid=%s: %s", emrid, e)
 
     # validation → validation_resultDB
     elif agent_type == "validation" and emrid:
@@ -247,10 +405,10 @@ async def save_result(
                     prescription_risk_reason=result.get("prescription_risk_reason"),
                 ))
                 await db.commit()
-                logger.info(f"[SaveResult] validation → validation_resultDB emrid={emrid}")
+                logger.info("[SaveResult] validation → validation_resultDB emrid=%s", emrid)
             except Exception as e:
                 await db.rollback()
-                logger.error(f"[SaveResult] validation DB 저장 실패: {e}")
+                logger.error("[SaveResult] validation DB 저장 실패 emrid=%s: %s", emrid, e)
 
     # triage → triage_resultDB
     elif agent_type == "triage" and emrid:
@@ -274,14 +432,12 @@ async def save_result(
                     need_photo=info.get("need_photo", False),
                 ))
                 await db.commit()
-                logger.info(f"[SaveResult] triage → triage_resultDB emrid={emrid}")
+                logger.info("[SaveResult] triage → triage_resultDB emrid=%s", emrid)
             except Exception as e:
                 await db.rollback()
-                logger.error(f"[SaveResult] triage DB 저장 실패: {e}")
+                logger.error("[SaveResult] triage DB 저장 실패 emrid=%s: %s", emrid, e)
 
     # followup: followupDB는 보호자 사진/메시지 전용이므로 로그만 기록
     elif agent_type == "followup":
         emergency = result.get("emergency_alert", False)
-        logger.info(
-            f"[SaveResult] followup summary emrid={emrid} emergency={emergency}"
-        )
+        logger.info("[SaveResult] followup summary emrid=%s emergency=%s", emrid, emergency)

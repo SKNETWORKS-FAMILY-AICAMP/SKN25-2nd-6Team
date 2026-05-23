@@ -201,6 +201,245 @@ npm run dev
 * **병원명:** MediPaw 동물병원 (담당 수의사: 테스트수의사)
 ---
 
+## 6. 파일 구조 (File Structure)
+
+```
+medipaw_integrate/
+├── ai/                          # AI 에이전트 패키지 (백엔드와 공유)
+│   ├── agents/
+│   │   ├── base.py              # BaseAgent (OpenAI 호출 공통 로직)
+│   │   ├── triage.py            # TriageAgent — 긴급도 판단
+│   │   ├── schedule.py          # ScheduleAgent — 슬롯 윈도우 계산
+│   │   ├── chart.py             # ChartAgent — SOAP 차트 초안 생성
+│   │   ├── validation.py        # ValidationAgent — 정합성 검증
+│   │   ├── judge.py             # JudgeAgent — 최종 판정
+│   │   └── followup.py          # FollowupAgent — 경과 모니터링
+│   ├── router.py                # FastAPI 라우터 (POST /api/agent/run, GET /api/agent/sse)
+│   ├── tasks.py                 # _task_store in-memory dict + SSE 스트리밍
+│   └── schemas.py               # Pydantic 스키마 (AgentRunRequest 등)
+│
+├── backend/
+│   ├── app/
+│   │   ├── api/                 # FastAPI 라우터 레이어
+│   │   │   ├── auth.py          # 보호자 인증 (JWT)
+│   │   │   ├── doctor_auth.py   # 수의사 인증 (JWT)
+│   │   │   ├── chat.py          # 챗봇 세션 + Triage SSE
+│   │   │   ├── schedules.py     # 예약 가용 슬롯 + 확정
+│   │   │   ├── followup.py      # 경과 모니터링
+│   │   │   ├── doctor_reservation.py  # 수의사 예약 CRUD
+│   │   │   ├── emr.py           # EMR 큐 + 차트
+│   │   │   ├── dashboard.py     # 수의사 대시보드
+│   │   │   ├── alarm.py         # 알람
+│   │   │   ├── pets.py          # 반려동물 CRUD
+│   │   │   ├── users.py         # 보호자 회원 CRUD
+│   │   │   └── patient.py       # 환자 기록 조회
+│   │   ├── crud/                # DB 접근 레이어 (async SQLAlchemy)
+│   │   ├── models/              # SQLAlchemy ORM 모델
+│   │   │   ├── user.py          # userDB
+│   │   │   ├── pet.py           # petDB
+│   │   │   ├── guardian.py      # guardianDB (EMR 헤더)
+│   │   │   ├── schedule.py      # scheduleDB
+│   │   │   ├── triage_result.py # triage_resultDB
+│   │   │   ├── report.py        # reportDB (SOAP 차트)
+│   │   │   ├── validation_result.py  # validation_resultDB
+│   │   │   ├── followup.py      # followupDB
+│   │   │   ├── doctor.py        # doctorDB
+│   │   │   ├── vet_schedule.py  # vet_scheduleDB (가용 슬롯)
+│   │   │   ├── master.py        # triage_masterDB / category_masterDB
+│   │   │   └── alarm.py         # alarmDB
+│   │   ├── schemas/             # Pydantic 요청/응답 스키마
+│   │   ├── core/                # 설정(config), 보안(JWT), 의존성 주입
+│   │   ├── db/                  # DB 세션 팩토리
+│   │   ├── prompts/             # 시스템 프롬프트 (triage_prompt.py)
+│   │   └── main.py              # FastAPI 앱 + 미들웨어 + 로깅 설정
+│   ├── migrations/              # Alembic 마이그레이션
+│   └── scripts/                 # 개발용 스크립트
+│       ├── create_test_accounts.py
+│       └── seed_mock_emr.py
+│
+├── frontend/
+│   ├── guardian-web/            # 보호자용 React 앱 (Vite, port 5173)
+│   │   └── src/
+│   │       ├── api/             # API 클라이언트 (agent-api, chat-api, schedule-api ...)
+│   │       ├── components/
+│   │       │   ├── chatbot/     # ChatMessageList, ChatInputBox, ChatDatePicker
+│   │       │   ├── schedule/    # ScheduleCard, CancelModal, ChangeDateModal
+│   │       │   └── common/      # SectionCard, PageHeader, ActionButton
+│   │       ├── hooks/
+│   │       │   ├── use-agent-pipeline.ts   # 6-agent 오케스트레이션 상태 머신
+│   │       │   └── use-chat-conversation.ts
+│   │       ├── pages/
+│   │       │   ├── chatbot/chatbot-page.tsx  # chatPhase 상태 머신 + DatePicker 통합
+│   │       │   ├── guardian/    # 홈, 마이페이지, 예약 목록
+│   │       │   └── auth/        # 로그인, 회원가입, 아이디/비밀번호 찾기
+│   │       └── styles/index.css # Tailwind + @layer components (mp-card, mp-btn-primary ...)
+│   │
+│   └── vet-web/                 # 수의사용 React 앱 (Vite, port 5174)
+│       └── src/
+│           ├── pages/           # 대시보드, EMR 큐, 차트 검토, 예약 관리
+│           └── styles/index.css # Tailwind + @layer components + 처방전 인쇄 CSS
+│
+├── logs/                        # RotatingFileHandler 로그 (gitignore)
+│   ├── app.log
+│   ├── triage.log
+│   ├── validation.log
+│   ├── followup.log
+│   └── audit.log
+│
+├── task.md                      # 작업 현황 및 TODO
+├── walkthrough.md               # 팀원 온보딩 가이드
+├── TEAM_RULES.md                # 브랜치 전략 + 커밋 컨벤션
+└── README.md                    # 이 파일
+```
+
+---
+
+## 6-1. ERD (Entity Relationship Diagram)
+
+```mermaid
+erDiagram
+    userDB {
+        int userid PK
+        string loginid
+        string password
+        string name
+        string phone
+        datetime created_at
+        datetime updated_at
+    }
+
+    petDB {
+        int petid PK
+        int userid FK
+        string petname
+        string species
+        string breed
+        string gender
+        date birth_date
+        date checkup_date
+        numeric weight_kg
+        bool is_neutered
+        string profile_image
+        text notes
+    }
+
+    guardianDB {
+        int emrid PK
+        int petid FK
+        int category_id FK
+        int triage_id FK
+        date date
+        text memo
+        datetime created_at
+        datetime deleted_at
+    }
+
+    scheduleDB {
+        int scheduleid PK
+        int emrid FK
+        int doctorid FK
+        int duration_min
+        datetime confirmed_time
+        datetime confirmed_end_time
+        string status
+        datetime created_at
+        datetime deleted_at
+    }
+
+    triage_resultDB {
+        int id PK
+        int emrid FK
+        string urgency_level
+        int urgency_level_num
+        text vtl_basis
+        json red_flags
+        string chief_complaint
+        json symptom_keywords
+        json suspected_diseases
+        text symptom_summary
+        string recommended_action
+        bool need_photo
+        datetime created_at
+    }
+
+    reportDB {
+        int reportid PK
+        int emrid FK
+        int scheduleid FK
+        text medical_analysis
+        json ai_draft_json
+        string status
+    }
+
+    validation_resultDB {
+        int id PK
+        int emrid FK
+        int scheduleid FK
+        string overall
+        json checks
+        numeric completeness_score
+        numeric accuracy_score
+        numeric consistency_score
+        text summary
+        json score_breakdown
+        text emr_alignment_reason
+        text prescription_risk_reason
+        datetime created_at
+    }
+
+    followupDB {
+        int followupid PK
+        int emrid FK
+        int userid FK
+        json images
+        text message
+        text ai_summary
+        bool emergency_alert
+        datetime created_at
+    }
+
+    doctorDB {
+        int doctorid PK
+        string doctor_name
+        string specialty
+    }
+
+    vet_scheduleDB {
+        int id PK
+        int doctorid FK
+        date date
+        time start_time
+        time end_time
+        bool is_available
+    }
+
+    category_masterDB {
+        int id PK
+        int code
+        string name
+    }
+
+    triage_masterDB {
+        int id PK
+        int code
+        string name
+    }
+
+    userDB ||--o{ petDB : "owns"
+    petDB ||--o{ guardianDB : "emr_for"
+    guardianDB ||--o{ scheduleDB : "booked_as"
+    guardianDB ||--o{ triage_resultDB : "has_triage"
+    guardianDB ||--o{ reportDB : "has_report"
+    guardianDB ||--o{ validation_resultDB : "has_validation"
+    guardianDB ||--o{ followupDB : "monitored_by"
+    scheduleDB }o--|| doctorDB : "assigned_to"
+    doctorDB ||--o{ vet_scheduleDB : "has_slots"
+    guardianDB }o--|| category_masterDB : "categorized_as"
+    guardianDB }o--o| triage_masterDB : "triaged_as"
+```
+
+---
+
 ## 7. Chatbot Reservation Orchestration Flow
 
 챗봇 예약 오케스트레이션 전체 흐름:

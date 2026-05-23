@@ -235,7 +235,9 @@ export const usePetForm = ({ customSpeciesInputRef }: UsePetFormParams) => {
   const buildPayload = (): CreatePetPayload => {
     const payload = getPayloadFromForm(form);
 
-    if (!previewUrl) {
+    if (!previewUrl || previewUrl.startsWith("data:")) {
+      // base64 데이터 URI는 DB에 저장하지 않음 (VARCHAR(500) 초과)
+      // 실제 이미지 업로드는 S3 presigned-url 연동 후 구현 예정
       payload.profile_image = getRandomDefaultProfileImage();
     } else {
       payload.profile_image = previewUrl;
@@ -245,12 +247,18 @@ export const usePetForm = ({ customSpeciesInputRef }: UsePetFormParams) => {
   };
 
   const buildUpdatePayload = (): Partial<CreatePetPayload> => {
+    // 수정 시에도 base64 데이터 URI는 payload에서 제외
+    const safePreviewUrl = previewUrl.startsWith("data:") ? originalPreviewUrl : previewUrl;
+    const safeOriginalPreviewUrl = originalPreviewUrl.startsWith("data:")
+      ? ""
+      : originalPreviewUrl;
+
     if (!originalForm) {
-      return getPayloadFromForm(form, previewUrl);
+      return getPayloadFromForm(form, safePreviewUrl);
     }
 
-    const originalPayload = getPayloadFromForm(originalForm, originalPreviewUrl);
-    const currentPayload = getPayloadFromForm(form, previewUrl);
+    const originalPayload = getPayloadFromForm(originalForm, safeOriginalPreviewUrl);
+    const currentPayload = getPayloadFromForm(form, safePreviewUrl);
 
     return getChangedPayload(currentPayload, originalPayload);
   };

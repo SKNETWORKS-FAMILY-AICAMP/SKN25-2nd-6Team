@@ -54,14 +54,48 @@ const WINDOW_DAYS: Record<string, { start: number; count: number }> = {
   routine_72h: { start: 3, count: 3 },
 };
 
+// 한국 법정 공휴일 집합 (주말 체크는 별도)
+const KR_HOLIDAYS = new Set([
+  "2026-01-01","2026-02-16","2026-02-17","2026-02-18","2026-03-01","2026-03-02",
+  "2026-05-01","2026-05-05","2026-05-24","2026-05-25","2026-06-03","2026-06-06",
+  "2026-07-17","2026-08-15","2026-08-17","2026-09-24","2026-09-25","2026-09-26",
+  "2026-10-03","2026-10-05","2026-10-09","2026-12-25",
+  "2027-01-01","2027-02-06","2027-02-07","2027-02-08","2027-02-09","2027-03-01",
+  "2027-05-01","2027-05-05","2027-05-13","2027-06-06","2027-07-17","2027-08-15",
+  "2027-08-16","2027-09-14","2027-09-15","2027-09-16","2027-10-03","2027-10-04",
+  "2027-10-09","2027-10-11","2027-12-25","2027-12-27",
+]);
+
+const isClinicClosed = (dateStr: string): boolean => {
+  const d = new Date(dateStr);
+  const day = d.getDay(); // 0=Sun, 6=Sat
+  return day === 0 || day === 6 || KR_HOLIDAYS.has(dateStr);
+};
+
 const getDatesForWindow = (slotWindow: string): string[] => {
   const { start, count } = WINDOW_DAYS[slotWindow] ?? { start: 1, count: 2 };
   const dates: string[] = [];
   const today = new Date();
-  for (let i = start; i < start + count; i++) {
+  // 주말/공휴일 건너뛰며 영업일 기준으로 날짜 수집
+  let scanned = 0;
+  for (let i = start; dates.length < count && scanned < 30; i++, scanned++) {
     const d = new Date(today);
     d.setDate(d.getDate() + i);
-    dates.push(d.toISOString().split("T")[0]);
+    const ds = d.toISOString().split("T")[0];
+    if (!isClinicClosed(ds)) dates.push(ds);
+  }
+  return dates;
+};
+
+/** 슬롯이 없을 때 최대 scanDays 영업일 내에서 추가 날짜 탐색 */
+const getExtendedBusinessDates = (startOffset: number, scanDays = 21): string[] => {
+  const dates: string[] = [];
+  const today = new Date();
+  for (let i = startOffset; dates.length < scanDays; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + i);
+    const ds = d.toISOString().split("T")[0];
+    if (!isClinicClosed(ds)) dates.push(ds);
   }
   return dates;
 };
@@ -77,6 +111,7 @@ export const useAgentPipeline = ({
   const [internalAlertFlag, setInternalAlertFlag] = useState(false);
   const [escalationPromptVisible, setEscalationPromptVisible] = useState(false);
   const [guardianCareRecommendation, setGuardianCareRecommendation] = useState<string[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Mutable refs — no re-render needed
   const triageResultRef = useRef<Record<string, unknown> | null>(null);
@@ -131,25 +166,37 @@ export const useAgentPipeline = ({
       scheduleResultRef.current = raw;
 
       // Collect available slots
+      // 1차: urgency window 기준 영업일 탐색
       const dates = getDatesForWindow(schedRes.slot_window);
       const collected: { date: string; start_time: string; doctorid?: number }[] = [];
 
-      for (const date of dates) {
-        if (collected.length >= 4) break;
-        try {
-          const resp = await getAvailableScheduleSlots({
-            date,
-            duration_min: schedRes.estimated_duration_min,
-          });
-          if (resp.code === 200) {
-            for (const slot of (resp.result ?? []).slice(0, 2)) {
-              collected.push({ date, start_time: slot.start_time, doctorid: slot.doctorid });
-              if (collected.length >= 4) break;
+      const fetchSlots = async (datesToCheck: string[], limit: number) => {
+        for (const date of datesToCheck) {
+          if (collected.length >= limit) break;
+          try {
+            const resp = await getAvailableScheduleSlots({
+              date,
+              duration_min: schedRes.estimated_duration_min,
+            });
+            if (resp.code === 200) {
+              for (const slot of (resp.result ?? []).slice(0, 2)) {
+                collected.push({ date, start_time: slot.start_time, doctorid: slot.doctorid });
+                if (collected.length >= limit) break;
+              }
             }
+          } catch {
+            // ignore per-date errors
           }
-        } catch {
-          // ignore per-date errors
         }
+      };
+
+      await fetchSlots(dates, 4);
+
+      // 2차: 1차 탐색에서 슬롯을 못 찾은 경우 최대 21영업일 확장 탐색
+      if (collected.length === 0) {
+        const windowStart = WINDOW_DAYS[schedRes.slot_window]?.start ?? 1;
+        const extendedDates = getExtendedBusinessDates(windowStart, 21);
+        await fetchSlots(extendedDates, 4);
       }
 
       const newSlotMap: Record<string, { date: string; time: string; doctorid: number }> = {};
@@ -172,17 +219,18 @@ export const useAgentPipeline = ({
           schedRes.pre_visit_instructions.map((i) => `• ${i}`).join("\n") +
           "\n\n";
       }
-      msg +=
-        labels.length > 0
-          ? "아래 시간 중 편한 때를 선택해주세요:"
-          : "현재 예약 가능한 슬롯이 없어요. 예약 페이지에서 직접 예약해주세요.";
 
-      appendBot(msg);
       if (labels.length > 0) {
+        msg += "아래 시간 중 편한 때를 선택해주세요:";
+        appendBot(msg);
         setQuickReplies(labels);
         setPhase("slot-selection");
       } else {
-        setPhase("chatting");
+        // 슬롯을 찾지 못했어도 DatePicker는 항상 제공
+        msg += "현재 바로 예약 가능한 슬롯이 없어요.\n달력에서 원하는 날짜와 시간을 직접 선택해주세요. 📅";
+        appendBot(msg);
+        setPhase("slot-selection");
+        setShowDatePicker(true);
       }
     } catch {
       appendBot(
@@ -194,7 +242,7 @@ export const useAgentPipeline = ({
     }
   };
 
-  const handleSlotSelect = async (label: string, petId: number) => {
+  const handleSlotSelect = async (label: string, _petId: number) => {
     const slot = slotMapRef.current[label];
     if (!slot) {
       return false;
@@ -229,7 +277,10 @@ export const useAgentPipeline = ({
           `예약이 완료되었어요! 📅 ${m}월 ${d}일 ${slot.time}에 내원해주세요.`,
         );
 
-        const needFollowup = triage?.need_followup as boolean | undefined;
+        const urgencyNum = triage?.urgency_level_num as number | undefined;
+        const needFollowup =
+          (triage?.need_followup as boolean) ||
+          (urgencyNum !== undefined && urgencyNum <= 2);
         if (needFollowup) {
           appendBot(
             "예약일까지 증상 변화를 모니터링할게요. 증상이 변하면 여기에 알려주세요.",
@@ -314,12 +365,36 @@ export const useAgentPipeline = ({
     }
   };
 
+  /** 날짜 피커에서 선택한 슬롯으로 직접 예약 확정 */
+  const handleManualSlotSelect = async (
+    date: string,
+    time: string,
+    doctorid: number,
+    label: string,
+  ) => {
+    setShowDatePicker(false);
+    const emrid = emridRef.current;
+    if (!emrid) {
+      appendBot("문진 데이터가 없습니다. 처음부터 상담을 다시 진행해주세요.");
+      return;
+    }
+    // 슬롯맵에 등록 후 기존 handleSlotSelect 재사용
+    slotMapRef.current[label] = { date, time, doctorid };
+    setMessages((prev) => [
+      ...prev,
+      { id: nextId(), role: "user" as const, content: label },
+    ]);
+    setQuickReplies([]);
+    await handleSlotSelect(label, currentPetRef.current?.pet_id ?? 0);
+  };
+
   const isSlotLabel = (label: string) => label in slotMapRef.current;
 
   const getSlotLabels = () => Object.keys(slotMapRef.current);
 
   const resetPipeline = () => {
     setPhase("chatting");
+    setShowDatePicker(false);
     triageResultRef.current = null;
     scheduleResultRef.current = null;
     currentPetRef.current = null;
@@ -329,6 +404,8 @@ export const useAgentPipeline = ({
 
   return {
     phase,
+    showDatePicker,
+    setShowDatePicker,
     internalAlertFlag,
     escalationPromptVisible,
     guardianCareRecommendation,
@@ -336,6 +413,7 @@ export const useAgentPipeline = ({
     getSlotLabels,
     startSchedulePhase,
     handleSlotSelect,
+    handleManualSlotSelect,
     handleFollowupMessage,
     resetPipeline,
   };

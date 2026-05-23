@@ -11,7 +11,7 @@ async def create_pet(db: AsyncSession, pet: PetCreate, userid: int):
         species=pet.species,
         breed=pet.breed,
         gender=pet.gender,
-        is_neutered=True if pet.is_neutered == "예" else False if pet.is_neutered == "아니요" else None,
+        is_neutered=True if pet.is_neutered == "예" else False if pet.is_neutered in ("아니오", "아니요") else None,
         birth_date=None if pet.is_birth_unknown else pet.birth_date,
         checkup_date=None if pet.is_checkup_unknown else pet.checkup_date,
         weight_kg=pet.weight_kg,
@@ -46,7 +46,7 @@ async def update_pet(db: AsyncSession, pet: Pet, pet_data: PetUpdate):
     if pet_data.gender is not None:
         pet.gender = pet_data.gender
     if pet_data.is_neutered is not None:
-        pet.is_neutered = True if pet_data.is_neutered == "예" else False if pet_data.is_neutered == "아니요" else None
+        pet.is_neutered = True if pet_data.is_neutered == "예" else False if pet_data.is_neutered in ("아니오", "아니요") else None
     if pet_data.is_birth_unknown == True:
         pet.birth_date = None
     elif pet_data.birth_date is not None:

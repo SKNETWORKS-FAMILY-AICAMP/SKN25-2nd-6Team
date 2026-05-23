@@ -1,4 +1,4 @@
-from sqlalchemy import or_, func, select
+from sqlalchemy import or_, func, select, exists, not_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.pet import Pet
@@ -20,7 +20,14 @@ async def get_patient_list(
     page_size: int = 10,
     keyword: str | None = None,
     species: str | None = None,
+    active_only: bool = False,
 ):
+    """환자 목록 조회.
+
+    active_only=True: 소프트 삭제된 guardian만 남은 환자(=취소된 예약만 있는 환자)는 제외.
+                      단, guardian 레코드가 아예 없는 신규 환자는 포함.
+    active_only=False(기본): 전체 등록 환자 반환.
+    """
     base = select(Pet, User).join(User, Pet.userid == User.userid)
 
     if keyword:
@@ -31,6 +38,24 @@ async def get_patient_list(
 
     if species:
         base = base.where(Pet.species == species)
+
+    if active_only:
+        # 활성 guardian(deleted_at IS NULL)이 1건 이상 존재 → 포함
+        active_guardian_exists = (
+            select(Guardian.emrid)
+            .where(Guardian.petid == Pet.petid)
+            .where(Guardian.deleted_at.is_(None))
+            .correlate(Pet)
+            .exists()
+        )
+        # guardian 레코드 자체가 없는 신규 환자 → 포함
+        no_guardian_exists = not_(
+            select(Guardian.emrid)
+            .where(Guardian.petid == Pet.petid)
+            .correlate(Pet)
+            .exists()
+        )
+        base = base.where(or_(active_guardian_exists, no_guardian_exists))
 
     # 전체 건수
     count_stmt = select(func.count()).select_from(base.subquery())

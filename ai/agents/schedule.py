@@ -29,7 +29,7 @@ def build_schedule_prompt(pet: dict, triage_result: dict, patient_context: dict 
 트리아지 결과·반려동물 신체 조건·EMR 이력을 종합하여 임상적으로 최적의 진료 시간을 결정합니다.
 
 [반려동물 정보]
-이름: {pet.get('name')} / 종: {species} / 품종: {pet.get('breed', '알 수 없음')}
+이름: {pet.get('name')} / 종: {pet.get('species', '알 수 없음')} / 품종: {pet.get('breed', '알 수 없음')}
 나이: {pet.get('age', '?')}세 / 체중: {pet.get('weight', '?')}kg / 성별: {pet.get('gender', '미상')}
 진료 구분: {'초진 (기본 시간 +10min)' if is_initial else '재진'}
 

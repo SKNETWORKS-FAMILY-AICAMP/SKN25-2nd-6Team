@@ -32,7 +32,7 @@ ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 # chat.py와 공유하는 태스크 스토어 (ai.tasks에서 단일 관리)
-from ai.tasks import _task_store, cleanup_task_after_ttl
+from ai.tasks import _task_store, cleanup_task_after_ttl, safe_create_task, TaskStatus
 
 
 # ── OpenAI 프록시 ─────────────────────────────────────────────────
@@ -120,14 +120,17 @@ async def _execute_agent(
         if user_id:
             await save_result(agent_type, result, emrid, scheduleid, user_id)
 
-        _task_store[task_id] = {"status": "done", "result": result}
-        logger.info(f"[Task] {agent_type} 완료 task_id={task_id}")
+        _task_store[task_id] = {"status": TaskStatus.DONE, "result": result}
+        logger.info("[Task] %s 완료 task_id=%s", agent_type, task_id)
     except Exception as exc:
-        logger.error(f"[Task] {agent_type} 실패 task_id={task_id}: {exc}", exc_info=True)
-        _task_store[task_id] = {"status": "error", "detail": str(exc)}
+        logger.error("[Task] %s 실패 task_id=%s: %s", agent_type, task_id, exc, exc_info=True)
+        _task_store[task_id] = {"status": TaskStatus.ERROR, "detail": str(exc)}
     finally:
         # SSE가 미접속해도 5분 후 자동 정리 (SSE가 먼저 pop하면 no-op)
-        asyncio.create_task(cleanup_task_after_ttl(task_id))
+        safe_create_task(
+            cleanup_task_after_ttl(task_id),
+            name=f"cleanup:{task_id}",
+        )
 
 
 # ── SSE 실시간 스트리밍 ───────────────────────────────────────────

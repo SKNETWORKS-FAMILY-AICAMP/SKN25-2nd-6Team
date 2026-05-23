@@ -1,7 +1,7 @@
 from sqlalchemy import select, or_, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, date as _date_type
 from app.models.guardian import Guardian
 from app.models.schedule import Schedule
 from app.models.master import CategoryMaster
@@ -10,15 +10,44 @@ from app.models.doctor import Doctor
 from app.models.vet_schedule import VetSchedule
 from app.utils.timezone import to_kst, KST
 
+# 병원 휴무일: 주말 + 법정 공휴일 (2026~2027)
+_HOLIDAYS: frozenset[str] = frozenset({
+    "2026-01-01", "2026-02-16", "2026-02-17", "2026-02-18",
+    "2026-03-01", "2026-03-02", "2026-05-01", "2026-05-05",
+    "2026-05-24", "2026-05-25", "2026-06-03", "2026-06-06",
+    "2026-07-17", "2026-08-15", "2026-08-17", "2026-09-24",
+    "2026-09-25", "2026-09-26", "2026-10-03", "2026-10-05",
+    "2026-10-09", "2026-12-25",
+    "2027-01-01", "2027-02-06", "2027-02-07", "2027-02-08",
+    "2027-02-09", "2027-03-01", "2027-05-01", "2027-05-05",
+    "2027-05-13", "2027-06-06", "2027-07-17", "2027-08-15",
+    "2027-08-16", "2027-09-14", "2027-09-15", "2027-09-16",
+    "2027-10-03", "2027-10-04", "2027-10-09", "2027-10-11",
+    "2027-12-25", "2027-12-27",
+})
+
+
+def _is_clinic_closed(d: _date_type) -> bool:
+    """토요일·일요일·법정공휴일이면 True."""
+    if d.weekday() >= 5:  # 5=토, 6=일
+        return True
+    return d.isoformat() in _HOLIDAYS
+
 
 # 정기검진 예약 생성
 async def create_checkup_schedule(db: AsyncSession, pet_id: int, date: str, time: str, memo: str, doctorid: int):
 
-    # category_id 1 = 정기검진
+    # code=9 = 예방접종/정기검진 (code=1은 소화기 증상)
     result = await db.execute(
-        select(CategoryMaster).where(CategoryMaster.code == 1)
+        select(CategoryMaster).where(CategoryMaster.code == 9)
     )
     category = result.scalar_one_or_none()
+    if not category:
+        # fallback: 기타(code=10)
+        result = await db.execute(
+            select(CategoryMaster).where(CategoryMaster.code == 10)
+        )
+        category = result.scalar_one_or_none()
 
     # 예약 시간 설정 — 입력은 KST 기준, KST-aware datetime으로 만들어야 PostgreSQL이 UTC로 변환 저장
     kst_dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M").replace(tzinfo=KST)
@@ -196,6 +225,10 @@ class AvailableSlot:
 async def get_available_slots(db: AsyncSession, date: str, duration_min: int, doctorid: int = None):
     target_date = datetime.strptime(date, "%Y-%m-%d").date()
     now_kst = datetime.now(KST)
+
+    # 주말·공휴일: 병원 휴무 — 빈 슬롯 없음
+    if _is_clinic_closed(target_date):
+        return []
 
     # 의사 확인
     if doctorid:

@@ -13,14 +13,14 @@ from app.schemas.chat import ChatSessionCreate, ChatMessageRequest
 from app.crud.chat import (
     create_chat_session, get_chat_session, get_chat_sessions_by_petid,
     add_message, delete_chat_session, update_session_complete,
-    create_triage_guardian, update_session_emrid,
+    create_triage_guardian, update_session_emrid, update_guardian_category,
 )
 from app.core.dependencies import get_current_user
 from app.core.config import settings
 from app.models.pet import Pet
 from app.models.triage_result import TriageResult
 from app.prompts.triage_prompt import _build_triage_system_prompt
-from ai.tasks import RUNNERS, _task_store, cleanup_task_after_ttl
+from ai.tasks import RUNNERS, _task_store, cleanup_task_after_ttl, safe_create_task, TaskStatus, PipelineState
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
@@ -55,7 +55,10 @@ async def _run_schedule_background(
         logger.error(f"[Schedule BG] failed task_id={task_id}: {exc}", exc_info=True)
         _task_store[task_id] = {"status": "error", "detail": str(exc)}
     finally:
-        asyncio.create_task(cleanup_task_after_ttl(task_id))
+        safe_create_task(
+            cleanup_task_after_ttl(task_id),
+            name=f"cleanup:{task_id}",
+        )
 
 
 # 챗봇 세션 시작
@@ -205,17 +208,30 @@ async def send_message(
                     ))
                     await db.commit()
                     logger.info(f"[TriageResult] saved emrid={emrid}")
+                    # ③-a Guardian category_id를 실제 증상 기반으로 업데이트
+                    await update_guardian_category(
+                        db,
+                        emrid,
+                        symptom_keywords=collected_info.get("symptom_keywords") or [],
+                        chief_complaint=collected_info.get("chief_complaint") or "",
+                    )
+                    logger.info(f"[TriageResult] guardian category updated emrid={emrid}")
                 except Exception as e:
                     await db.rollback()
                     logger.error(f"[TriageResult] save failed emrid={emrid}: {e}")
 
                 # ④ Schedule Agent 백그라운드 실행
                 schedule_task_id = str(uuid.uuid4())
-                _task_store[schedule_task_id] = {"status": "queued", "step": ""}
-                asyncio.create_task(
-                    _run_schedule_background(schedule_task_id, emrid, pet_payload, collected_info, patient_context_data)
+                _task_store[schedule_task_id] = {"status": TaskStatus.QUEUED, "step": ""}
+                logger.info(
+                    "[Schedule BG] queued pipeline_state=%s task_id=%s emrid=%s",
+                    PipelineState.SCHEDULE_PENDING, schedule_task_id, emrid,
                 )
-                logger.info(f"[Schedule BG] queued task_id={schedule_task_id} emrid={emrid}")
+                safe_create_task(
+                    _run_schedule_background(schedule_task_id, emrid, pet_payload, collected_info, patient_context_data),
+                    task_id=schedule_task_id,
+                    name="schedule_bg",
+                )
 
                 yield f"data: {json.dumps({'type': 'triage_complete', 'data': collected_info, 'emrid': emrid, 'schedule_task_id': schedule_task_id}, ensure_ascii=False)}\n\n"
             else:

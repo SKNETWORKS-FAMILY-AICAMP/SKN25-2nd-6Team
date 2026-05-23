@@ -25,6 +25,10 @@ def _to_async_url(url: str) -> str:
 engine = create_async_engine(
     _to_async_url(settings.DATABASE_URL),
     pool_pre_ping=True,
+    # asyncpg prepared statement 캐시를 비활성화.
+    # 마이그레이션 후 컬럼이 추가/삭제되어도 'cached plan must not change result type' 오류를 방지.
+    # 성능 영향: 소규모(하루 100건↓) 트래픽에서는 무시 가능.
+    connect_args={"statement_cache_size": 0},
 )
 
 # expire_on_commit=False: 커밋 후에도 ORM 속성 접근 시 재조회(await 필요)가

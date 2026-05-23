@@ -18,7 +18,7 @@ from app.models.pet import Pet
 from app.models.doctor import Doctor
 from app.models.guardian import Guardian
 from app.models.triage_result import TriageResult
-from ai.tasks import RUNNERS, _task_store, save_result, cleanup_task_after_ttl
+from ai.tasks import RUNNERS, _task_store, save_result, cleanup_task_after_ttl, safe_create_task, TaskStatus, PipelineState
 from app.crud.alarm import create_alarm
 
 logger = logging.getLogger(__name__)
@@ -365,10 +365,18 @@ async def _run_post_booking_agents(
         "is_initial_visit": True,
     }
 
+    # VTL urgency → slot_window 매핑 (Schedule Agent와 동일한 기준)
+    _URGENCY_WINDOW_MAP = {
+        1: "immediate", 2: "emergency_today", 3: "urgent_24h",
+        4: "semi_urgent_48h", 5: "routine_72h",
+    }
+    actual_slot_window = _URGENCY_WINDOW_MAP.get(
+        triage_info.get("urgency_level_num", 3), "urgent_24h"
+    )
     schedule_slot = {
         "estimated_duration_min": duration_min,
         "is_initial_visit": True,
-        "slot_window": "urgent_24h",
+        "slot_window": actual_slot_window,
     }
 
     chart_payload = {
@@ -387,10 +395,29 @@ async def _run_post_booking_agents(
         "schedule_slot": schedule_slot,
         "schedule_result": schedule_slot,
     }
+    # Judge QA: fetch actual chat history for this emrid
+    judge_chat_history: list = []
+    if emrid is not None and emrid % 5 == 0:
+        try:
+            from app.models.chat_history import ChatHistory
+            async with AsyncSessionLocal() as db_j:
+                ch_row = await db_j.execute(
+                    select(ChatHistory).where(ChatHistory.emrid == emrid)
+                )
+                ch = ch_row.scalar_one_or_none()
+                if ch and ch.messages:
+                    judge_chat_history = [
+                        m for m in ch.messages
+                        if m.get("role") in ("user", "assistant") and m.get("content")
+                    ]
+        except Exception as _exc:
+            logger.warning(f"[PostBooking] judge chat_history fetch failed emrid={emrid}: {_exc}")
+
     judge_payload = {
         "triage_result": triage_info,
         "triage_info": triage_info,
-        "chat_history": [],
+        "chat_history": judge_chat_history,
+        "chart_result": chart_result if not isinstance(chart_result, Exception) else None,
     }
 
     def make_updater(tid: str):
@@ -448,9 +475,13 @@ async def _run_post_booking_agents(
             logger.warning(f"[PostBooking] judge audit failed emrid={emrid}: {exc}")
     _task_store[judge_task_id] = {"status": "done", "result": None}
 
+    logger.info(
+        "[PostBooking] pipeline_state=%s emrid=%s",
+        PipelineState.COMPLETED, emrid,
+    )
     # 내부 orchestration task_ids는 SSE로 소비되지 않으므로 파이프라인 완료 후 단기 TTL 적용
     for _tid in (chart_task_id, validation_task_id, judge_task_id):
-        asyncio.create_task(cleanup_task_after_ttl(_tid, ttl=60))
+        safe_create_task(cleanup_task_after_ttl(_tid, ttl=60), name=f"cleanup:{_tid}")
 
 
 # 챗봇 예약 확정
@@ -499,7 +530,11 @@ async def confirm_schedule_api(
     for tid in (chart_task_id, validation_task_id, judge_task_id):
         _task_store[tid] = {"status": "queued", "step": ""}
 
-    asyncio.create_task(
+    logger.info(
+        "[Confirm] pipeline_state=%s emrid=%s scheduleid=%s",
+        PipelineState.SCHEDULE_CONFIRMED, request.emrid, schedule.scheduleid,
+    )
+    safe_create_task(
         _run_post_booking_agents(
             emrid=request.emrid,
             scheduleid=schedule.scheduleid,
@@ -508,7 +543,9 @@ async def confirm_schedule_api(
             chart_task_id=chart_task_id,
             validation_task_id=validation_task_id,
             judge_task_id=judge_task_id,
-        )
+        ),
+        task_id=chart_task_id,          # 대표 task_id로 레지스트리 등록
+        name="post_booking_agents",
     )
     logger.info(
         f"[Confirm] emrid={request.emrid} scheduleid={schedule.scheduleid} "

@@ -69,6 +69,8 @@ export async function fetchDoctorPatientList(params: {
   page: number;
   keyword?: string;
   species?: string;
+  /** true: 모든 예약이 취소된(soft-deleted guardian만 있는) 환자 제외 */
+  activeOnly?: boolean;
 }) {
   const { data } = await apiClient.get<PatientListResponse>(
     "/doctor/patient/list",
@@ -80,6 +82,7 @@ export async function fetchDoctorPatientList(params: {
         page: params.page,
         keyword: params.keyword || undefined,
         species: params.species || undefined,
+        ...(params.activeOnly ? { active_only: true } : {}),
       },
     }
   );

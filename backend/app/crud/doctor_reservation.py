@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.utils.timezone import KST
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,8 @@ class DuplicatePetReservation(Exception):
     pass
 
 
-# 예약 추가/수정 시 진료항목 선택 UI를 없앴으므로 기본 카테고리(일반진료, code=2)를 사용
-DEFAULT_CATEGORY_CODE = 2
+# 수의사 대시보드 수동 예약 기본 카테고리: 기타(code=10)
+DEFAULT_CATEGORY_CODE = 10
 # 예약 추가 시 기본 응급도(일반, code=3)
 DEFAULT_TRIAGE_CODE = 3
 DEFAULT_DURATION_MIN = 30
@@ -174,7 +175,7 @@ async def create_reservation(
     if dup_result.scalar_one_or_none():
         raise DuplicatePetReservation()
 
-    confirmed = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+    confirmed = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M").replace(tzinfo=KST)
     if await has_time_conflict(db, confirmed):
         raise TimeSlotConflict()
 
@@ -218,7 +219,7 @@ async def update_reservation(
     guardian = await get_guardian_by_emrid(db, schedule.emrid)
 
     if date_str and time_str:
-        confirmed = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        confirmed = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M").replace(tzinfo=KST)
         if await has_time_conflict(db, confirmed, exclude_schedule_id=schedule_id):
             raise TimeSlotConflict()
         duration = schedule.duration_min or DEFAULT_DURATION_MIN
