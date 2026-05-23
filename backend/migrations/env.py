@@ -63,6 +63,7 @@ from app.models.photo_analysis import PhotoAnalysis     # noqa: F401
 from app.models.validation_result import ValidationResult  # noqa: F401
 from app.models.followup import Followup                # noqa: F401
 from app.models.hospital import Hospital                # noqa: F401
+from app.models.agent_pipeline_result import AgentPipelineResult  # noqa: F401
 
 config = context.config
 

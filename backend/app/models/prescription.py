@@ -1,10 +1,10 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey
 from app.db.base import Base
 
 class Prescription(Base):
     __tablename__ = "prescriptionDB"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    prescriptionid = Column("id", Integer, primary_key=True, autoincrement=True)
     doctor_emrid = Column(Integer, ForeignKey("doctorEMRDB.doctor_emrid"), nullable=False)
     drug_id = Column(Integer, ForeignKey("drugsDB.drugid"), nullable=False)
     form = Column(String, nullable=True)  

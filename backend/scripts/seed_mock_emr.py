@@ -87,21 +87,14 @@ async def main():
         })
         sched_id1 = res_s1.fetchone()[0]
 
-        vet_memo_1 = {
-            "subjective": "피부 가려움증 호소. 발끝을 핥고 붉어짐 발견.",
-            "objective": "양측 지간부 발적 및 탈모 확인. 외이염 동반.",
-            "assessment": "아토피성 피부염 의심 및 알레르기성 지간피부염.",
-            "plan": "약물 처방 및 사료 교체 권고."
-        }
         res_e1 = await db.execute(text("""
-            INSERT INTO "doctorEMRDB" (petid, doctorid, scheduleid, vet_memo, attachments, created_at, updated_at)
-            VALUES (:petid, :doctorid, :scheduleid, :vet_memo, '[]', :created_at, :created_at)
+            INSERT INTO "doctorEMRDB" (petid, doctorid, scheduleid, created_at, updated_at)
+            VALUES (:petid, :doctorid, :scheduleid, :created_at, :created_at)
             RETURNING doctor_emrid
         """), {
             "petid": petid,
             "doctorid": doctorid,
             "scheduleid": sched_id1,
-            "vet_memo": json.dumps(vet_memo_1),
             "created_at": date1
         })
         emrid1_doc = res_e1.fetchone()[0]
@@ -138,21 +131,14 @@ async def main():
         })
         sched_id2 = res_s2.fetchone()[0]
 
-        vet_memo_2 = {
-            "subjective": "반복적인 구토 증상.",
-            "objective": "복부 촉진 시 약한 통증 반응 있으나 활력 양호.",
-            "assessment": "급성 위장관염(GE).",
-            "plan": "진토제 처방 및 1일 금식."
-        }
         res_e2 = await db.execute(text("""
-            INSERT INTO "doctorEMRDB" (petid, doctorid, scheduleid, vet_memo, attachments, created_at, updated_at)
-            VALUES (:petid, :doctorid, :scheduleid, :vet_memo, '[]', :created_at, :created_at)
+            INSERT INTO "doctorEMRDB" (petid, doctorid, scheduleid, created_at, updated_at)
+            VALUES (:petid, :doctorid, :scheduleid, :created_at, :created_at)
             RETURNING doctor_emrid
         """), {
             "petid": petid,
             "doctorid": doctorid,
             "scheduleid": sched_id2,
-            "vet_memo": json.dumps(vet_memo_2),
             "created_at": date2
         })
         emrid2_doc = res_e2.fetchone()[0]

@@ -104,15 +104,7 @@ async def patient_detail(
         confirmed_time = schedule.confirmed_time if schedule else None
         visit_dt = to_kst(confirmed_time or emr.created_at)
 
-        # vet_note JSON/String 안전하게 파싱 및 SOAP 추출
-        vet_memo_data = emr.vet_note
-        if isinstance(vet_memo_data, str):
-            try:
-                import json
-                vet_memo_data = json.loads(vet_memo_data)
-            except Exception:
-                pass
-
+        # Removed vet_note JSON/String parsing since it is deleted from DB schema
         soap_data = {
             "subjective": "",
             "objective": "",
@@ -120,14 +112,6 @@ async def patient_detail(
             "plan": "",
         }
         chief_complaint = ""
-        if isinstance(vet_memo_data, dict):
-            soap_data["subjective"] = vet_memo_data.get("subjective") or vet_memo_data.get("Subjective") or ""
-            soap_data["objective"] = vet_memo_data.get("objective") or vet_memo_data.get("Objective") or ""
-            soap_data["assessment"] = vet_memo_data.get("assessment") or vet_memo_data.get("Assessment") or ""
-            soap_data["plan"] = vet_memo_data.get("plan") or vet_memo_data.get("Plan") or ""
-            chief_complaint = soap_data["subjective"] or soap_data["assessment"] or ""
-        else:
-            chief_complaint = str(vet_memo_data) if vet_memo_data else ""
 
         emr_history.append({
             "doctor_emrid": emr.doctor_emrid,

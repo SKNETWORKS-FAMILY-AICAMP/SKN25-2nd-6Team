@@ -170,7 +170,7 @@ async def async_setup(db: AsyncSession):
     await db.commit()
     await db.refresh(s_hist)
 
-    emr = EMR(petid=pet_returning.petid, doctorid=doctor.doctorid, scheduleid=s_hist.scheduleid, vet_note={"subjective": "피부 가려움", "objective": "발적 있음", "assessment": "Atopic Dermatitis", "plan": "소독 및 약 처방"}, attachments=[])
+    emr = EMR(petid=pet_returning.petid, doctorid=doctor.doctorid, scheduleid=s_hist.scheduleid)
     db.add(emr)
     await db.commit()
     await db.refresh(emr)

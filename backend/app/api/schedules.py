@@ -413,13 +413,6 @@ async def _run_post_booking_agents(
         except Exception as _exc:
             logger.warning(f"[PostBooking] judge chat_history fetch failed emrid={emrid}: {_exc}")
 
-    judge_payload = {
-        "triage_result": triage_info,
-        "triage_info": triage_info,
-        "chat_history": judge_chat_history,
-        "chart_result": chart_result if not isinstance(chart_result, Exception) else None,
-    }
-
     def make_updater(tid: str):
         def update_step(step: str) -> None:
             _task_store[tid]["step"] = step
@@ -459,6 +452,14 @@ async def _run_post_booking_agents(
         except Exception as e:
             logger.error(f"[PostBooking] save_result validation failed emrid={emrid}: {e}", exc_info=True)
             _task_store[validation_task_id] = {"status": "error", "detail": f"정합성 검증 저장 실패: {e}"}
+
+    judge_payload = {
+        "triage_result": triage_info,
+        "triage_info": triage_info,
+        "chat_history": judge_chat_history,
+        "chart_result": chart_result if not isinstance(chart_result, Exception) else None,
+        "validation_result": validation_result if not isinstance(validation_result, Exception) else None,
+    }
 
     # Judge QA 추적: gpt-4o-mini + 1/5 샘플링, DB 저장 없이 audit logger만 기록
     if emrid is not None and emrid % 5 == 0:

@@ -166,7 +166,7 @@ async def get_emr_detail(db: AsyncSession, schedule_id: int):
             "emr_id": emr.doctor_emrid,
             "date": visit_dt.date().isoformat() if visit_dt else "",
             "doctor_name": doctor.doctor_name,
-            "vet_memo": emr.vet_note or "",
+            "vet_memo": "",
             "prescriptions": [
                 {
                     "drug_name": drug.name,

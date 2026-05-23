@@ -164,25 +164,13 @@ async def build_patient_context(db: AsyncSession, petid: int) -> dict:
         prescription_rows = await get_prescriptions_by_emr(db, emr_obj.doctor_emrid)
         visit_dt = to_kst(schedule_obj.confirmed_time or emr_obj.created_at)
         
-        vet_memo_data = emr_obj.vet_note
-        if isinstance(vet_memo_data, str):
-            try:
-                vet_memo_data = json.loads(vet_memo_data)
-            except Exception:
-                pass
-                
         diagnosis = ""
-        soap = {}
-        if isinstance(vet_memo_data, dict):
-            diagnosis = vet_memo_data.get("assessment", "")
-            soap = {
-                "subjective": vet_memo_data.get("subjective") or vet_memo_data.get("Subjective") or "",
-                "objective": vet_memo_data.get("objective") or vet_memo_data.get("Objective") or "",
-                "assessment": vet_memo_data.get("assessment") or vet_memo_data.get("Assessment") or "",
-                "plan": vet_memo_data.get("plan") or vet_memo_data.get("Plan") or ""
-            }
-        else:
-            diagnosis = str(vet_memo_data) if vet_memo_data else ""
+        soap = {
+            "subjective": "",
+            "objective": "",
+            "assessment": "",
+            "plan": ""
+        }
             
         emr_entry = {
             "doctor_emrid": emr_obj.doctor_emrid,
@@ -190,7 +178,7 @@ async def build_patient_context(db: AsyncSession, petid: int) -> dict:
             "doctor_name": doctor_obj.doctor_name,
             "diagnosis": diagnosis,
             "soap": soap,
-            "vet_memo": vet_memo_data or "",
+            "vet_memo": "",
         }
         emr_history.append(emr_entry)
         
