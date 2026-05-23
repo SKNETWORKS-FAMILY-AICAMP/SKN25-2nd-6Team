@@ -3,7 +3,8 @@ import { apiClient } from "./client";
 export type AlarmType =
   | "reservation_confirmed"
   | "reservation_cancelled"
-  | "reservation_updated";
+  | "reservation_updated"
+  | "chart_ready";
 
 export interface AlarmItem {
   alarmid: number;

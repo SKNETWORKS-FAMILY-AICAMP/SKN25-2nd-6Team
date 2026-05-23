@@ -1,7 +1,10 @@
+import logging
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.models.schedule import Schedule
 from app.models.guardian import Guardian
@@ -245,8 +248,13 @@ async def delete_reservation(db: AsyncSession, schedule_id: int) -> bool:
         return False
 
     guardian = await get_guardian_by_emrid(db, schedule.emrid)
+    logger.info(
+        f"[delete_reservation] schedule_id={schedule_id} "
+        f"emrid={schedule.emrid} status={schedule.status}"
+    )
 
     # VetSchedule 슬롯 해제
+    slot_restored = False
     confirmed_kst = to_kst(schedule.confirmed_time)
     end_kst = to_kst(schedule.confirmed_end_time)
     if confirmed_kst and end_kst:
@@ -260,12 +268,17 @@ async def delete_reservation(db: AsyncSession, schedule_id: int) -> bool:
         )
         for slot in vet_result.scalars().all():
             slot.is_available = True
+            slot_restored = True
 
     now = datetime.now(timezone.utc)
     schedule.deleted_at = now
+    schedule.status = "CANCELLED"
     if guardian:
         guardian.deleted_at = now
 
     await db.commit()
-
+    logger.info(
+        f"[delete_reservation] done schedule_id={schedule_id} "
+        f"slot_restored={slot_restored}"
+    )
     return True

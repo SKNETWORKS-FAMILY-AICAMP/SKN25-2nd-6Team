@@ -15,3 +15,9 @@ class ValidationResult(Base):
     consistency_score = Column(Numeric, nullable=True)
     summary = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    # Evaluation dataset columns
+    raw_llm_output = Column(Text, nullable=True)
+    score_breakdown = Column(JSON, nullable=True)
+    emr_alignment_reason = Column(Text, nullable=True)
+    prescription_risk_reason = Column(Text, nullable=True)

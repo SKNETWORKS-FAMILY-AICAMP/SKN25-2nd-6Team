@@ -18,9 +18,11 @@ from app.models.pet import Pet
 from app.models.doctor import Doctor
 from app.models.guardian import Guardian
 from app.models.triage_result import TriageResult
-from ai.tasks import RUNNERS, _task_store, save_result
+from ai.tasks import RUNNERS, _task_store, save_result, cleanup_task_after_ttl
+from app.crud.alarm import create_alarm
 
 logger = logging.getLogger(__name__)
+audit_logger = logging.getLogger("medipaw.audit")
 from app.models.guardian import Guardian
 from app.models.master import CategoryMaster
 from app.models.schedule import Schedule
@@ -77,6 +79,21 @@ async def create_checkup(
         memo=request.memo,
         doctorid=doctor.doctorid
     )
+
+    if schedule is None:
+        raise HTTPException(status_code=409, detail="선택하신 시간에 이미 예약이 있습니다.")
+
+    # 수의사 알람 생성
+    try:
+        await create_alarm(
+            db=db,
+            doctor_id=doctor.doctorid,
+            schedule_id=schedule.scheduleid,
+            alarm_type="reservation_confirmed",
+            contents=f"{pet.petname} 보호자가 정기검진 예약을 확정했습니다. ({request.date} {request.time})",
+        )
+    except Exception as e:
+        logger.warning(f"[Alarm] create failed schedule_id={schedule.scheduleid}: {e}")
 
     return {
         "code": 201,
@@ -312,7 +329,7 @@ async def _run_post_booking_agents(
         guardian_row = await db.execute(select(Guardian).where(Guardian.emrid == emrid))
         guardian = guardian_row.scalar_one_or_none()
         pet_row = await db.execute(select(Pet).where(Pet.petid == guardian.petid)) if guardian else None
-        pet = (await pet_row).scalar_one_or_none() if pet_row else None
+        pet = pet_row.scalar_one_or_none() if pet_row else None
 
     if not triage or not pet:
         logger.warning(f"[PostBooking] 필수 데이터 없음 emrid={emrid} triage={bool(triage)} pet={bool(pet)}")
@@ -329,6 +346,10 @@ async def _run_post_booking_agents(
         "gender": pet.gender,
         "weight": float(pet.weight_kg) if pet.weight_kg else None,
     }
+
+    from app.crud.patient import build_patient_context
+    async with AsyncSessionLocal() as db:
+        patient_context_data = await build_patient_context(db, pet.petid)
 
     triage_info = {
         "urgency_level": triage.urgency_level,
@@ -352,17 +373,23 @@ async def _run_post_booking_agents(
 
     chart_payload = {
         "pet": pet_payload,
+        "triage_result": triage_info,
         "triage_info": triage_info,
-        "emr_history": [],
+        "patient_context": patient_context_data,
         "schedule_slot": schedule_slot,
+        "schedule_result": schedule_slot,
     }
     validation_payload = {
         "pet": pet_payload,
+        "triage_result": triage_info,
         "triage_info": triage_info,
+        "patient_context": patient_context_data,
         "schedule_slot": schedule_slot,
+        "schedule_result": schedule_slot,
     }
     judge_payload = {
         "triage_result": triage_info,
+        "triage_info": triage_info,
         "chat_history": [],
     }
 
@@ -371,34 +398,59 @@ async def _run_post_booking_agents(
             _task_store[tid]["step"] = step
         return update_step
 
-    # Chart + Validation 병렬 실행
+    # Chart + Validation 독립 병렬 실행 — 한 쪽 실패가 다른 쪽에 영향 주지 않도록 return_exceptions=True
     _task_store[chart_task_id] = {"status": "running", "step": "차트 초안 생성 중..."}
     _task_store[validation_task_id] = {"status": "running", "step": "정합성 검증 중..."}
-    try:
-        chart_result, validation_result = await asyncio.gather(
-            RUNNERS["chart"](chart_payload, make_updater(chart_task_id), emrid, scheduleid),
-            RUNNERS["validation"](validation_payload, make_updater(validation_task_id), emrid, scheduleid),
-        )
-        _task_store[chart_task_id] = {"status": "done", "result": chart_result}
-        _task_store[validation_task_id] = {"status": "done", "result": validation_result}
-        await save_result("chart", chart_result, emrid, scheduleid, user_id)
-        await save_result("validation", validation_result, emrid, scheduleid, user_id)
-        logger.info(f"[PostBooking] chart+validation done emrid={emrid}")
-    except Exception as exc:
-        logger.error(f"[PostBooking] chart/validation failed emrid={emrid}: {exc}", exc_info=True)
-        _task_store[chart_task_id] = {"status": "error", "detail": str(exc)}
-        _task_store[validation_task_id] = {"status": "error", "detail": str(exc)}
+    chart_result, validation_result = await asyncio.gather(
+        RUNNERS["chart"](chart_payload, make_updater(chart_task_id), emrid, scheduleid),
+        RUNNERS["validation"](validation_payload, make_updater(validation_task_id), emrid, scheduleid),
+        return_exceptions=True,
+    )
 
-    # Judge fire-and-forget
-    _task_store[judge_task_id] = {"status": "running", "step": "품질 심사 중..."}
-    try:
-        judge_result = await RUNNERS["judge"](judge_payload, make_updater(judge_task_id), emrid, scheduleid)
-        _task_store[judge_task_id] = {"status": "done", "result": judge_result}
-        await save_result("judge", judge_result, emrid, scheduleid, user_id)
-        logger.info(f"[PostBooking] judge done emrid={emrid} verdict={judge_result.get('judge_verdict')}")
-    except Exception as exc:
-        logger.error(f"[PostBooking] judge failed emrid={emrid}: {exc}", exc_info=True)
-        _task_store[judge_task_id] = {"status": "error", "detail": str(exc)}
+    # Chart Post-processing Isolation
+    if isinstance(chart_result, Exception):
+        logger.error(f"[PostBooking] chart failed emrid={emrid}: {chart_result}", exc_info=chart_result)
+        _task_store[chart_task_id] = {"status": "error", "detail": str(chart_result)}
+    else:
+        try:
+            _task_store[chart_task_id] = {"status": "done", "result": chart_result}
+            await save_result("chart", chart_result, emrid, scheduleid, user_id)
+            logger.info(f"[PostBooking] chart done emrid={emrid}")
+        except Exception as e:
+            logger.error(f"[PostBooking] save_result chart failed emrid={emrid}: {e}", exc_info=True)
+            _task_store[chart_task_id] = {"status": "error", "detail": f"차트 저장 실패: {e}"}
+
+    # Validation Post-processing Isolation
+    if isinstance(validation_result, Exception):
+        logger.error(f"[PostBooking] validation failed emrid={emrid}: {validation_result}", exc_info=validation_result)
+        _task_store[validation_task_id] = {"status": "error", "detail": str(validation_result)}
+    else:
+        try:
+            _task_store[validation_task_id] = {"status": "done", "result": validation_result}
+            await save_result("validation", validation_result, emrid, scheduleid, user_id)
+            logger.info(f"[PostBooking] validation done emrid={emrid}")
+        except Exception as e:
+            logger.error(f"[PostBooking] save_result validation failed emrid={emrid}: {e}", exc_info=True)
+            _task_store[validation_task_id] = {"status": "error", "detail": f"정합성 검증 저장 실패: {e}"}
+
+    # Judge QA 추적: gpt-4o-mini + 1/5 샘플링, DB 저장 없이 audit logger만 기록
+    if emrid is not None and emrid % 5 == 0:
+        try:
+            judge_result = await RUNNERS["judge"](judge_payload, lambda _: None, emrid, scheduleid)
+            audit_logger.info(
+                "[JudgeAudit] emrid=%s verdict=%s scores=%s critical=%s",
+                emrid,
+                judge_result.get("judge_verdict"),
+                judge_result.get("judge_scores"),
+                judge_result.get("critical_issues"),
+            )
+        except Exception as exc:
+            logger.warning(f"[PostBooking] judge audit failed emrid={emrid}: {exc}")
+    _task_store[judge_task_id] = {"status": "done", "result": None}
+
+    # 내부 orchestration task_ids는 SSE로 소비되지 않으므로 파이프라인 완료 후 단기 TTL 적용
+    for _tid in (chart_task_id, validation_task_id, judge_task_id):
+        asyncio.create_task(cleanup_task_after_ttl(_tid, ttl=60))
 
 
 # 챗봇 예약 확정
@@ -415,6 +467,30 @@ async def confirm_schedule_api(
         confirmed_time=request.confirmed_time,
         duration_min=request.duration_min
     )
+
+    if schedule is None:
+        raise HTTPException(status_code=409, detail="선택하신 시간에 이미 예약이 있습니다.")
+
+    # 수의사 알람 생성 — 챗봇 예약 확정 시도 일반 예약과 동일하게 알람 발송
+    try:
+        guardian_row = await db.execute(select(Guardian).where(Guardian.emrid == request.emrid))
+        guardian = guardian_row.scalar_one_or_none()
+        pet_name = "반려동물"
+        if guardian:
+            pet_row = await db.execute(select(Pet).where(Pet.petid == guardian.petid))
+            pet_obj = pet_row.scalar_one_or_none()
+            if pet_obj:
+                pet_name = pet_obj.petname
+        confirmed_kst = schedule.confirmed_time.astimezone(KST)
+        await create_alarm(
+            db=db,
+            doctor_id=request.doctorid,
+            schedule_id=schedule.scheduleid,
+            alarm_type="reservation_confirmed",
+            contents=f"{pet_name} 보호자가 챗봇으로 예약을 확정했습니다. ({confirmed_kst.strftime('%m/%d %H:%M')})",
+        )
+    except Exception as e:
+        logger.warning(f"[Alarm] chatbot confirm alarm failed schedule_id={schedule.scheduleid}: {e}")
 
     # Chart + Validation + Judge 파이프라인 백그라운드 실행
     chart_task_id = str(uuid.uuid4())

@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 
 import { runAgentTask, streamAgentResult } from "../api/agent-api";
+import { createFollowup } from "../api/followup-api";
 import {
   getAvailableScheduleSlots,
-  reserveCheckupSchedule,
+  confirmSchedule,
 } from "../api/schedule-api";
 import type { Pet } from "../api/pets-api";
 import type { ChatMessage } from "./use-chat-conversation";
@@ -73,14 +74,17 @@ export const useAgentPipeline = ({
   setIsStreaming,
 }: UseAgentPipelineParams) => {
   const [phase, setPhase] = useState<PipelinePhase>("chatting");
-  const [emergencyAlert, setEmergencyAlert] = useState(false);
+  const [internalAlertFlag, setInternalAlertFlag] = useState(false);
+  const [escalationPromptVisible, setEscalationPromptVisible] = useState(false);
+  const [guardianCareRecommendation, setGuardianCareRecommendation] = useState<string[]>([]);
 
   // Mutable refs — no re-render needed
   const triageResultRef = useRef<Record<string, unknown> | null>(null);
   const scheduleResultRef = useRef<Record<string, unknown> | null>(null);
   const currentPetRef = useRef<Pet | null>(null);
-  const slotMapRef = useRef<Record<string, { date: string; time: string }>>({});
-  const followupSummaryRef = useRef<string | null>(null);
+  const slotMapRef = useRef<Record<string, { date: string; time: string; doctorid: number }>>({});
+  const emridRef = useRef<number | null>(null);
+  const lastRequestRef = useRef<number>(0);
 
   const appendBot = (content: string) => {
     setMessages((prev) => [
@@ -92,9 +96,11 @@ export const useAgentPipeline = ({
   const startSchedulePhase = async (
     pet: Pet,
     collectedInfo: Record<string, unknown>,
+    emrid?: number,
   ) => {
     triageResultRef.current = collectedInfo;
     currentPetRef.current = pet;
+    emridRef.current = emrid ?? null;
     setPhase("scheduling");
     setIsStreaming(true);
     appendBot("잠시만요, 예약 가능한 시간을 확인하고 있어요 ⏳");
@@ -126,7 +132,7 @@ export const useAgentPipeline = ({
 
       // Collect available slots
       const dates = getDatesForWindow(schedRes.slot_window);
-      const collected: { date: string; start_time: string }[] = [];
+      const collected: { date: string; start_time: string; doctorid?: number }[] = [];
 
       for (const date of dates) {
         if (collected.length >= 4) break;
@@ -137,7 +143,7 @@ export const useAgentPipeline = ({
           });
           if (resp.code === 200) {
             for (const slot of (resp.result ?? []).slice(0, 2)) {
-              collected.push({ date, start_time: slot.start_time });
+              collected.push({ date, start_time: slot.start_time, doctorid: slot.doctorid });
               if (collected.length >= 4) break;
             }
           }
@@ -146,14 +152,14 @@ export const useAgentPipeline = ({
         }
       }
 
-      const newSlotMap: Record<string, { date: string; time: string }> = {};
+      const newSlotMap: Record<string, { date: string; time: string; doctorid: number }> = {};
       const labels: string[] = [];
 
       for (const s of collected) {
         const time = s.start_time.slice(0, 5);
         const [, m, d] = s.date.split("-");
         const label = `${m}월 ${d}일 ${time}`;
-        newSlotMap[label] = { date: s.date, time };
+        newSlotMap[label] = { date: s.date, time, doctorid: s.doctorid || 1 };
         labels.push(label);
       }
 
@@ -191,7 +197,6 @@ export const useAgentPipeline = ({
   const handleSlotSelect = async (label: string, petId: number) => {
     const slot = slotMapRef.current[label];
     if (!slot) {
-      // not a slot label — fall through to normal chat
       return false;
     }
 
@@ -199,18 +204,23 @@ export const useAgentPipeline = ({
     setIsStreaming(true);
     appendBot("예약을 처리하고 있어요...");
 
+    const emrid = emridRef.current;
+    if (!emrid) {
+      appendBot("문진 예약 데이터가 존재하지 않습니다. 처음부터 상담을 진행해주세요.");
+      setPhase("chatting");
+      setIsStreaming(false);
+      return false;
+    }
+
     try {
       const triage = triageResultRef.current;
-      const memo =
-        (triage?.symptom_summary as string) ||
-        (triage?.chief_complaint as string) ||
-        "AI 문진 예약";
+      const duration = (scheduleResultRef.current?.estimated_duration_min as number) || 30;
 
-      const resp = await reserveCheckupSchedule({
-        pet_id: petId,
-        date: slot.date,
-        time: slot.time,
-        memo,
+      const resp = await confirmSchedule({
+        emrid: emrid,
+        doctorid: slot.doctorid,
+        confirmed_time: `${slot.date}T${slot.time}:00+09:00`,
+        duration_min: duration,
       });
 
       if (resp.code === 200 || resp.code === 201) {
@@ -228,9 +238,6 @@ export const useAgentPipeline = ({
         } else {
           setPhase("confirmed");
         }
-
-        // Background: chart + validation + judge
-        runBackgroundAgents();
       } else {
         appendBot(
           "예약 중 오류가 발생했어요. 예약 페이지에서 직접 예약해주세요.",
@@ -248,77 +255,62 @@ export const useAgentPipeline = ({
     return true;
   };
 
-  const runBackgroundAgents = () => {
-    const pet = currentPetRef.current;
-    const triage = triageResultRef.current;
-    const schedule = scheduleResultRef.current;
-    if (!pet || !triage) return;
-
-    const petPayload = toPetPayload(pet);
-
-    // Chart + Validation in parallel
-    void Promise.all([
-      runAgentTask("chart", {
-        pet: petPayload,
-        triage_result: triage,
-      }).then(({ task_id }) => streamAgentResult(task_id)),
-      runAgentTask("validation", {
-        pet: petPayload,
-        triage_result: triage,
-        schedule_result: schedule,
-      }).then(({ task_id }) => streamAgentResult(task_id)),
-    ]);
-
-    // Judge — fire-and-forget
-    void runAgentTask("judge", {
-      pet: petPayload,
-      triage_result: triage,
-      messages: [],
-    }).then(({ task_id }) => streamAgentResult(task_id));
-  };
-
   const handleFollowupMessage = async (content: string) => {
-    const pet = currentPetRef.current;
-    const triage = triageResultRef.current;
-    if (!pet || !triage || phase !== "followup") return;
+    const emrid = emridRef.current;
+    if (!emrid || phase !== "followup") return;
 
+    let messagesBackup: ChatMessage[] = [];
+    setMessages((prev) => {
+      messagesBackup = prev;
+      return prev;
+    });
+
+    const requestId = ++lastRequestRef.current;
     setIsStreaming(true);
 
     try {
-      const petPayload = toPetPayload(pet);
-      const { task_id } = await runAgentTask("followup", {
-        pet: petPayload,
-        triage_info: triage,
-        messages: [{ role: "user", content }],
-        accumulated_summary: followupSummaryRef.current,
-      });
+      const resp = await createFollowup({ emrid, message: content, images: [] });
+      
+      if (requestId !== lastRequestRef.current) {
+        return; // Stale request, ignore
+      }
 
-      const raw = await streamAgentResult(task_id);
-      const result = raw as {
-        message?: string;
-        emergency_alert?: boolean;
-        medical_summary?: string;
-      } | null;
-
-      if (result?.message) {
-        appendBot(result.message);
+      const followupRes = resp.result;
+      
+      if (followupRes?.guardian_message) {
+        appendBot(followupRes.guardian_message);
       } else {
-        appendBot("응답을 불러오지 못했어요. 다시 시도해주세요.");
+        appendBot("경과가 기록되었어요. 담당 수의사에게 전달됩니다.");
       }
 
-      if (result?.emergency_alert) {
-        setEmergencyAlert(true);
+      if (followupRes?.followup_recommended) {
+        setInternalAlertFlag(true);
+        setEscalationPromptVisible(true);
+        
+        const actions = followupRes.recommended_actions || [];
+        const actionLabels = actions.map((action: string) => {
+          if (action === "call_hospital") return "📞 병원 전화 연결";
+          if (action === "keep_schedule") return "📅 기존 예약 유지";
+          if (action === "fast_booking") return "🕒 빠른 예약 가능 시간 보기";
+          return action;
+        });
+        
+        setGuardianCareRecommendation(actionLabels);
+        setQuickReplies(actionLabels);
+      } else {
+        setInternalAlertFlag(false);
+        setEscalationPromptVisible(false);
+        setGuardianCareRecommendation([]);
       }
-
-      if (result?.medical_summary) {
-        followupSummaryRef.current = followupSummaryRef.current
-          ? `${followupSummaryRef.current}\n${result.medical_summary}`
-          : result.medical_summary;
+    } catch (err) {
+      if (requestId === lastRequestRef.current) {
+        setMessages(messagesBackup); // Rollback to backup state
+        appendBot("기록에 실패했어요. 다시 시도해주세요.");
       }
-    } catch {
-      appendBot("응답을 불러오지 못했어요. 다시 시도해주세요.");
     } finally {
-      setIsStreaming(false);
+      if (requestId === lastRequestRef.current) {
+        setIsStreaming(false);
+      }
     }
   };
 
@@ -328,17 +320,18 @@ export const useAgentPipeline = ({
 
   const resetPipeline = () => {
     setPhase("chatting");
-    setEmergencyAlert(false);
     triageResultRef.current = null;
     scheduleResultRef.current = null;
     currentPetRef.current = null;
     slotMapRef.current = {};
-    followupSummaryRef.current = null;
+    emridRef.current = null;
   };
 
   return {
     phase,
-    emergencyAlert,
+    internalAlertFlag,
+    escalationPromptVisible,
+    guardianCareRecommendation,
     isSlotLabel,
     getSlotLabels,
     startSchedulePhase,

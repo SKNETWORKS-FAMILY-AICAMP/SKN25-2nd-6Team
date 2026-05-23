@@ -1,0 +1,18 @@
+{
+  "name": "senior_anorexia",
+  "description": "노령견 식욕부진 — Level 4~5 예상, 과도한 응급 분류 금지",
+  "pet": { "species": "dog", "breed": "시츄", "age": 12, "gender": "female", "weight_kg": 5.8 },
+  "conversation": [
+    { "role": "user", "content": "요즘 며칠째 밥을 잘 안 먹어요. 12살인데 나이 때문인지 걱정돼요. 구토나 설사는 없어요." }
+  ],
+  "expected": {
+    "urgency_level_num_range": [3, 5],
+    "max_questions_per_turn": 1,
+    "max_symptom_keywords": 4,
+    "need_followup": false,
+    "forbidden_words": [
+      "응급입니다", "즉시 내원하세요", "생명이 위험합니다",
+      "Level 1입니다", "Level 2입니다"
+    ]
+  }
+}

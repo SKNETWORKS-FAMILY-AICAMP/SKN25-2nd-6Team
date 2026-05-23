@@ -31,6 +31,7 @@ interface UseChatConversationParams {
     sessionId: number,
     keywords: string[],
     collectedInfo: Record<string, unknown>,
+    emrid?: number,
   ) => void;
 }
 
@@ -84,7 +85,7 @@ export const useChatConversation = ({
     if (event.type === "triage_complete") {
       const keywords = event.data?.symptom_keywords ?? [];
       if (session && onTriageComplete) {
-        onTriageComplete(session.session_id, keywords, event.data);
+        onTriageComplete(session.session_id, keywords, event.data, event.emrid);
       }
       return;
     }
@@ -136,6 +137,7 @@ export const useChatConversation = ({
     setIsStreaming(true);
     setErrorMessage("");
 
+    let caughtError = false;
     try {
       await sendChatMessage(
         session.session_id,
@@ -146,11 +148,23 @@ export const useChatConversation = ({
         (event) => applyStreamEvent(event, assistantMessageId),
       );
     } catch (error) {
+      caughtError = true;
       setErrorMessage(getErrorMessage(error, "메시지를 전송하지 못했습니다."));
-      setIsStreaming(false);
       setMessages((currentMessages) =>
         currentMessages.filter((message) => message.id !== assistantMessageId),
       );
+    } finally {
+      if (!caughtError) {
+        // 서버가 "done" 없이 연결을 닫거나 timeout 발생 시 빈 말풍선 대신 안내 메시지 표시
+        setMessages((currentMessages) =>
+          currentMessages.map((message) =>
+            message.id === assistantMessageId && message.content.trim() === ""
+              ? { ...message, content: "응답이 지연되고 있어요. 잠시 후 다시 시도해 주세요." }
+              : message,
+          ),
+        );
+      }
+      setIsStreaming(false);
     }
   };
 

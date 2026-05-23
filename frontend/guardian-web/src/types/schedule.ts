@@ -94,3 +94,24 @@ export interface ApiErrorResponse {
   code?: number;
   message?: string;
 }
+
+export interface ConfirmSchedulePayload {
+  emrid: number;
+  doctorid: number;
+  confirmed_time: string;
+  duration_min: number;
+}
+
+export interface ConfirmScheduleResponse {
+  code: number;
+  message: string;
+  result?: {
+    schedule_id: number;
+    confirmed_time: string | null;
+    confirmed_end_time: string | null;
+    status: string;
+    chart_task_id: string;
+    validation_task_id: string;
+    judge_task_id: string;
+  };
+}

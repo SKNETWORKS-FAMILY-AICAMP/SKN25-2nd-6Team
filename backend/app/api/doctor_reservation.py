@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.utils.age import calculate_age
 from app.utils.timezone import to_kst
+
+logger = logging.getLogger(__name__)
 
 from app.crud.doctor_reservation import (
     get_reservations,
@@ -162,17 +166,46 @@ async def remove_reservation(
     schedule_id: int,
     db: AsyncSession = Depends(get_db)
 ):
-    deleted = await delete_reservation(db, schedule_id)
+    logger.info(f"[DELETE reservation] schedule_id={schedule_id}")
 
-    if not deleted:
-        raise HTTPException(
-            status_code=404,
-            detail="예약 정보를 찾을 수 없습니다."
+    # 존재 여부 선확인
+    from app.crud.doctor_reservation import get_schedule as _get_schedule
+    schedule = await _get_schedule(db, schedule_id)
+    if not schedule:
+        # 소프트 삭제된 경우도 포함해서 재조회
+        from sqlalchemy import select as _select
+        from app.models.schedule import Schedule as _Schedule
+        row = await db.execute(
+            _select(_Schedule).where(_Schedule.scheduleid == schedule_id)
         )
+        existing = row.scalar_one_or_none()
+        if existing and existing.deleted_at:
+            raise HTTPException(status_code=409, detail="이미 취소된 예약입니다.")
+        raise HTTPException(status_code=404, detail="예약 정보를 찾을 수 없습니다.")
+
+    if schedule.status == "CANCELLED":
+        raise HTTPException(status_code=409, detail="이미 취소된 예약입니다.")
+
+    try:
+        slot_restored = await delete_reservation(db, schedule_id)
+        logger.info(
+            f"[DELETE reservation] success schedule_id={schedule_id} "
+            f"slot_restored={slot_restored}"
+        )
+    except Exception:
+        logger.exception(
+            f"[DELETE reservation] failed schedule_id={schedule_id}"
+        )
+        raise HTTPException(status_code=500, detail="예약 취소 중 오류가 발생했습니다.")
 
     return {
         "code": 200,
         "message": "예약이 취소되었습니다.",
+        "result": {
+            "success": True,
+            "reservation_id": schedule_id,
+            "slot_restored": True,
+        },
     }
 
 

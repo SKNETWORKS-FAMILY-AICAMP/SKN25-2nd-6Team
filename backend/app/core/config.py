@@ -24,9 +24,16 @@ class Settings(BaseSettings):
 
     # 서버 설정
     DEBUG: bool = True
-    ALLOWED_ORIGINS: str = "http://localhost:3000"
+    # 콤마 구분 origins 문자열. docker-compose.yml 또는 .env에서 오버라이드 가능.
+    ALLOWED_ORIGINS: str = (
+        "http://localhost:5173,http://localhost:5174,"
+        "http://127.0.0.1:5173,"
+        "http://192.168.0.2:5173,http://192.168.0.32:5173,"
+        "http://192.168.0.11:5173,http://192.168.0.2:5174"
+    )
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 settings = Settings()

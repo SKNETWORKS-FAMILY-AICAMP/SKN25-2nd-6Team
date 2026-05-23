@@ -119,7 +119,7 @@ async def run_judge(
     result = await call_openai_once(
         "평가를 시작합니다.",
         system,
-        model="gpt-4o",
+        model="gpt-4o-mini",
         max_tokens=1500,
     )
 

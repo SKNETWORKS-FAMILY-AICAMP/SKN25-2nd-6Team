@@ -1,7 +1,7 @@
 from sqlalchemy import select, or_, and_, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.models.guardian import Guardian
 from app.models.schedule import Schedule
 from app.models.master import CategoryMaster
@@ -20,6 +20,21 @@ async def create_checkup_schedule(db: AsyncSession, pet_id: int, date: str, time
     )
     category = result.scalar_one_or_none()
 
+    # 예약 시간 설정 — 입력은 KST 기준, KST-aware datetime으로 만들어야 PostgreSQL이 UTC로 변환 저장
+    kst_dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M").replace(tzinfo=KST)
+
+    # 슬롯 충돌 체크 — Guardian 생성 전에 먼저 확인 (race condition 방지)
+    conflict_result = await db.execute(
+        select(Schedule).where(
+            Schedule.confirmed_time == kst_dt,
+            Schedule.doctorid == doctorid,
+            Schedule.status != "CANCELLED",
+            Schedule.deleted_at.is_(None),
+        )
+    )
+    if conflict_result.scalar_one_or_none():
+        return None, None  # 슬롯 충돌 — 호출부에서 409 처리
+
     # guardianDB 생성
     guardian = Guardian(
         petid=pet_id,
@@ -30,16 +45,14 @@ async def create_checkup_schedule(db: AsyncSession, pet_id: int, date: str, time
     db.add(guardian)
     await db.flush()
 
-    # 예약 시간 설정
-    confirmed_time = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
-    confirmed_end_time = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
+    confirmed_end_time = kst_dt + timedelta(minutes=30)
 
     # scheduleDB 생성
     schedule = Schedule(
         emrid=guardian.emrid,
         doctorid=doctorid,
         duration_min=30,
-        confirmed_time=confirmed_time,
+        confirmed_time=kst_dt,
         confirmed_end_time=confirmed_end_time,
         status="CONFIRMED"
     )
@@ -65,14 +78,14 @@ async def get_schedules_by_userid(db: AsyncSession, userid: int, page: int, size
 
     if filter == "upcoming":
         conditions.append(Schedule.status == "CONFIRMED")
-        conditions.append(Schedule.confirmed_time > datetime.now())
+        conditions.append(Schedule.confirmed_time > datetime.now(timezone.utc))
         conditions.append(Schedule.deleted_at.is_(None))
     elif filter == "past":
         conditions.append(Schedule.deleted_at.is_(None))
         conditions.append(
             or_(
                 Schedule.status == "COMPLETED",
-                and_(Schedule.status == "CONFIRMED", Schedule.confirmed_time <= datetime.now())
+                and_(Schedule.status == "CONFIRMED", Schedule.confirmed_time <= datetime.now(timezone.utc))
             )
         )
     elif filter == "cancelled":
@@ -86,7 +99,7 @@ async def get_schedules_by_userid(db: AsyncSession, userid: int, page: int, size
         (or_(
             Schedule.status == "CANCELLED",
             Schedule.deleted_at.isnot(None),
-            and_(Schedule.status == "CONFIRMED", Schedule.confirmed_time <= datetime.now())
+            and_(Schedule.status == "CONFIRMED", Schedule.confirmed_time <= datetime.now(timezone.utc))
         ), 1),
         else_=0
     )
@@ -250,6 +263,18 @@ async def confirm_schedule(db: AsyncSession, emrid: int, doctorid: int, confirme
     new_time = datetime.fromisoformat(confirmed_time)
     new_end_time = new_time + timedelta(minutes=duration_min)
 
+    # 슬롯 충돌 체크 — INSERT 전 검증 (챗봇 추천 후 confirm 직전 선점 방지)
+    conflict_result = await db.execute(
+        select(Schedule).where(
+            Schedule.confirmed_time == new_time,
+            Schedule.doctorid == doctorid,
+            Schedule.status != "CANCELLED",
+            Schedule.deleted_at.is_(None),
+        )
+    )
+    if conflict_result.scalar_one_or_none():
+        return None  # 슬롯 충돌 — 호출부에서 409 처리
+
     schedule = Schedule(
         emrid=emrid,
         doctorid=doctorid,
@@ -259,6 +284,22 @@ async def confirm_schedule(db: AsyncSession, emrid: int, doctorid: int, confirme
         status="CONFIRMED"
     )
     db.add(schedule)
+
+    # VetSchedule 슬롯 선점
+    new_kst = to_kst(new_time) if new_time.tzinfo else new_time.replace(tzinfo=KST)
+    new_end_kst = to_kst(new_end_time) if new_end_time.tzinfo else new_end_time.replace(tzinfo=KST)
+    
+    vet_result = await db.execute(
+        select(VetSchedule).where(
+            VetSchedule.doctorid == doctorid,
+            VetSchedule.date == new_kst.date(),
+            VetSchedule.start_time >= new_kst.time(),
+            VetSchedule.end_time <= new_end_kst.time()
+        )
+    )
+    for slot in vet_result.scalars().all():
+        slot.is_available = False
+
     await db.commit()
     await db.refresh(schedule)
     return schedule

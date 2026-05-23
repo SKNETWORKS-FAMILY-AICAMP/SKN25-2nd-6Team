@@ -8,6 +8,8 @@ import type {
   ScheduleListResponse,
   UpdateSchedulePayload,
   UpdateScheduleResponse,
+  ConfirmSchedulePayload,
+  ConfirmScheduleResponse,
 } from "../types/schedule";
 
 export interface GetSchedulesParams {
@@ -85,6 +87,17 @@ export const cancelSchedule = async (
 ): Promise<CancelScheduleResponse> => {
   const response = await apiClient.delete<CancelScheduleResponse>(
     `/schedules/${scheduleId}`,
+  );
+
+  return response.data;
+};
+
+export const confirmSchedule = async (
+  payload: ConfirmSchedulePayload,
+): Promise<ConfirmScheduleResponse> => {
+  const response = await apiClient.post<ConfirmScheduleResponse>(
+    "/schedules/confirm",
+    payload,
   );
 
   return response.data;

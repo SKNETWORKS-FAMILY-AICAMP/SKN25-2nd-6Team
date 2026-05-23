@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { AuthSession } from "../../api/authApi";
 import { AutoPrescriptionPanel } from "../../components/emr/AutoPrescriptionPanel";
 import {
@@ -17,10 +18,7 @@ import { ProfileEditModal } from "../../components/emr/ProfileEditModal";
 import { QueuePanel } from "../../components/emr/QueuePanel";
 import { useEmrData } from "../../hooks/useEmrData";
 import AppLayout, { AppMenuId } from "../../layouts/AppLayout";
-import {
-  createMockPrescriptionDocument,
-  mockAutoPrescriptions,
-} from "./emrMockData";
+import { createMockPrescriptionDocument } from "./emrMockData";
 
 interface EmrPageProps {
   session: AuthSession;
@@ -54,6 +52,9 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
     setIsPrescriptionPreviewOpen,
     setIsProfileEditOpen,
     setPreviewImage,
+    autoPrescriptions,
+    validationResult,
+    followupItems,
     handleRefreshQueue,
     handleCompleteVisit,
     handleApplyIntake,
@@ -63,6 +64,7 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
     handleRemovePrescription,
     openPreviewImage,
   } = useEmrData();
+  const [isChecksExpanded, setIsChecksExpanded] = useState(false);
   const isReadOnly = queueTab === "completed";
 
   return (
@@ -111,6 +113,84 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
                   isReadOnly={isReadOnly}
                 />
                 <HistoryPanel histories={currentEmr.emr_history} />
+                {validationResult && validationResult.overall !== "OK" && (
+                  <div
+                    className={`rounded-lg border text-sm font-bold ${
+                      validationResult.overall === "REVIEW_NEEDED"
+                        ? "border-red-200 bg-red-50 text-red-700"
+                        : "border-yellow-200 bg-yellow-50 text-yellow-700"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <span>
+                        <span className="mr-2">
+                          {validationResult.overall === "REVIEW_NEEDED" ? "⚠️ 검토 필요" : "⚠️ 검증 경고"}
+                        </span>
+                        {validationResult.summary ?? "AI 검증 결과를 확인하세요."}
+                      </span>
+                      {validationResult.checks && (
+                        <button
+                          type="button"
+                          onClick={() => setIsChecksExpanded((v) => !v)}
+                          className="ml-3 shrink-0 text-xs underline opacity-70 hover:opacity-100"
+                        >
+                          {isChecksExpanded ? "접기" : "상세보기"}
+                        </button>
+                      )}
+                    </div>
+                    {isChecksExpanded && Array.isArray(validationResult.checks) && (
+                      <ul className="border-t border-current/20 px-4 pb-3 pt-2 space-y-1">
+                        {(validationResult.checks as Array<{ item: string; status: string; detail: string }>).map(
+                          (c) => (
+                            <li key={c.item} className="flex gap-2 text-xs font-medium">
+                              <span>{c.status === "PASS" ? "✅" : "⚠️"}</span>
+                              <span>
+                                <span className="font-extrabold">{c.item}</span>
+                                {c.detail ? ` — ${c.detail}` : ""}
+                              </span>
+                            </li>
+                          ),
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                )}
+                {followupItems.length > 0 && (
+                  <div className="rounded-xl border border-[#e8edf4] bg-white p-5 shadow-sm">
+                    <h3 className="mb-3 text-sm font-extrabold text-[#151b28]">경과 보고</h3>
+                    <div className="space-y-3">
+                      {followupItems.map((item) => (
+                        <div key={item.followup_id} className={`border-l-2 pl-3 ${item.emergency_alert ? 'border-red-500 bg-red-50/50 pr-2 py-1' : 'border-[#4a89ff]'}`}>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-[#a8b0bf]">
+                              {item.created_at
+                                ? new Date(item.created_at).toLocaleString("ko-KR", {
+                                    month: "2-digit",
+                                    day: "2-digit",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : ""}
+                            </p>
+                            {item.emergency_alert && (
+                              <span className="text-[10px] font-black text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
+                                🚨 응급 신호 감지
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-sm text-[#151b28]">
+                            {item.message ?? "(내용 없음)"}
+                          </p>
+                          {item.ai_summary && (
+                            <div className="mt-1 bg-slate-50 p-2 rounded text-xs text-[#4e5968] border border-slate-100">
+                              <span className="font-extrabold text-blue-600">AI 요약:</span> {item.ai_summary}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <EmptyPatientPanel />
@@ -140,7 +220,7 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
           {isAutoPanelOpen && (
             <AutoPrescriptionPanel
               patient={currentEmr?.pet_info}
-              prescriptions={mockAutoPrescriptions}
+              prescriptions={autoPrescriptions}
               onClose={() => setIsAutoPanelOpen(false)}
               onLoad={handleLoadAutoPrescription}
               onOpenPreview={() => setIsPrescriptionPreviewOpen(true)}
@@ -167,7 +247,7 @@ export default function EmrPage({ session, onLogout, onNavigate }: EmrPageProps)
           <PrescriptionPreviewModal
             document={createMockPrescriptionDocument({
               pet: currentEmr.pet_info,
-              prescriptions: mockAutoPrescriptions,
+              prescriptions: autoPrescriptions,
             })}
             onClose={() => setIsPrescriptionPreviewOpen(false)}
           />

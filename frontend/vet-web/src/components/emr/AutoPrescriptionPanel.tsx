@@ -48,37 +48,45 @@ export function AutoPrescriptionPanel({
           </p>
         )}
 
-        <div className="overflow-hidden rounded-lg border border-[#e8edf4]">
-          <table className="w-full text-left">
-            <thead className="bg-[#f7f9fc] text-xs font-extrabold text-[#697386]">
-              <tr>
-                <th className="px-3 py-3">약제명</th>
-                <th className="px-2 py-3">형태</th>
-                <th className="px-2 py-3">투여 방법</th>
-                <th className="px-2 py-3">기간</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#edf1f6]">
-              {prescriptions.map((prescription) => (
-                <tr
-                  key={prescription.drug_name}
-                  className="text-xs font-bold text-[#4d5874]"
-                >
-                  <td className="px-3 py-3 font-extrabold text-[#20283a]">
-                    {prescription.drug_name}
-                  </td>
-                  <td className="px-2 py-3">{prescription.dosage}</td>
-                  <td className="px-2 py-3">
-                    {prescription.form} {prescription.frequency}
-                  </td>
-                  <td className="px-2 py-3">
-                    {prescription.duration_days}일
-                  </td>
+        {prescriptions.length === 0 ? (
+          <div className="rounded-lg border border-[#e8edf4] px-4 py-8 text-center text-sm text-[#a8b0bf]">
+            AI 처방 초안이 아직 생성되지 않았습니다.
+            <br />
+            <span className="text-xs">'불러오기'를 눌러 초안을 가져오세요.</span>
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-[#e8edf4]">
+            <table className="w-full text-left">
+              <thead className="bg-[#f7f9fc] text-xs font-extrabold text-[#697386]">
+                <tr>
+                  <th className="px-3 py-3">약제명</th>
+                  <th className="px-2 py-3">형태</th>
+                  <th className="px-2 py-3">투여 방법</th>
+                  <th className="px-2 py-3">기간</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-[#edf1f6]">
+                {prescriptions.map((prescription) => (
+                  <tr
+                    key={prescription.drug_name}
+                    className="text-xs font-bold text-[#4d5874]"
+                  >
+                    <td className="px-3 py-3 font-extrabold text-[#20283a]">
+                      {prescription.drug_name}
+                    </td>
+                    <td className="px-2 py-3">{prescription.dosage}</td>
+                    <td className="px-2 py-3">
+                      {prescription.form} {prescription.frequency}
+                    </td>
+                    <td className="px-2 py-3">
+                      {prescription.duration_days}일
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
       <div className="absolute inset-x-0 bottom-0 flex gap-2 border-t border-[#edf1f6] bg-white p-4">
         <button

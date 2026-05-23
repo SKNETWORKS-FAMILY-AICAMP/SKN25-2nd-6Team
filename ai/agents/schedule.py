@@ -14,15 +14,16 @@ from .base import call_openai_once
 logger = logging.getLogger(__name__)
 
 
-def build_schedule_prompt(pet: dict, triage_result: dict, emr_history: list | None = None) -> str:
+def build_schedule_prompt(pet: dict, triage_result: dict, patient_context: dict | None = None) -> str:
     is_initial = triage_result.get("is_initial_visit", True)
-    has_history = bool(emr_history)
-    species = "고양이" if pet.get("species") == "cat" else "개"
-
-    history_section = (
-        "재진 — 최근 2회 기록:\n" + json.dumps(emr_history[-2:], ensure_ascii=False, indent=2)
-        if has_history else "초진 — 이전 기록 없음"
-    )
+    if patient_context and patient_context.get("patient_context", {}).get("emr_history"):
+        history_section = (
+            "재진 — 과거 임상 컨텍스트:\n" + json.dumps(patient_context, ensure_ascii=False, indent=2)
+        )
+        has_history = True
+    else:
+        history_section = "초진 — 이전 기록 없음"
+        has_history = False
 
     return f"""당신은 MediPaw 수의학 예약 관리 AI입니다.
 트리아지 결과·반려동물 신체 조건·EMR 이력을 종합하여 임상적으로 최적의 진료 시간을 결정합니다.
@@ -105,8 +106,8 @@ async def run_schedule(
 ) -> dict:
     """Schedule Agent 실행."""
     pet = payload.get("pet", {})
-    triage_result = payload.get("triage_result", {})
-    emr_history = payload.get("emr_history")
+    triage_result = payload.get("triage_result") or payload.get("triage_info") or {}
+    patient_context = payload.get("patient_context")
 
     # fallback: LLM 실패 시 응급도 기반 기본값
     urgency_num = triage_result.get("urgency_level_num", 3)
@@ -127,7 +128,7 @@ async def run_schedule(
 
     update_step("진료 시간 계산 중...")
     try:
-        system = build_schedule_prompt(pet, triage_result, emr_history)
+        system = build_schedule_prompt(pet, triage_result, patient_context)
         result = await call_openai_once("최적 진료 일정을 결정해주세요.", system, max_tokens=800)
         if result.get("slot_window") and result.get("estimated_duration_min"):
             schedule_res = result

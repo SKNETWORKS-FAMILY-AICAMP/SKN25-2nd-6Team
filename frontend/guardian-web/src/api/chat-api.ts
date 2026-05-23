@@ -82,6 +82,7 @@ export type ChatStreamEvent =
     }
   | {
       type: "triage_complete";
+      emrid?: number;
       data: {
         is_triage_complete: boolean;
         symptom_keywords: string[];
@@ -233,6 +234,7 @@ export const sendChatMessage = async (
       headers: {
         Accept: "text/event-stream",
       },
+      timeout: 120_000, // OpenAI streaming max wait — axios throws after 2 min, caller catches
       onDownloadProgress: (progressEvent) => {
         const responseText = readStreamingResponseText(progressEvent.event);
         const chunk = responseText.slice(receivedLength);

@@ -1,6 +1,5 @@
 import { createContext, ReactNode, useContext, useEffect, useState } from "react";
 import { AlarmItem, fetchAlarmList, markAllAlarmsRead } from "../api/alarmApi";
-import { mockAlarms } from "../api/alarmMockData";
 import { AuthSession } from "../api/authApi";
 
 interface AlarmContextValue {
@@ -30,7 +29,7 @@ export function AlarmProvider({
   useEffect(() => {
     fetchAlarmList({ accessToken: session.accessToken })
       .then(setAlarms)
-      .catch(() => setAlarms([...mockAlarms]));
+      .catch((err) => { console.error("[Alarm] fetch failed:", err); setAlarms([]); });
   }, [session.accessToken]);
 
   const markAllRead = async () => {

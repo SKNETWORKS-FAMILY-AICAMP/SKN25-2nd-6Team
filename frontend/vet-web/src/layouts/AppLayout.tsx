@@ -75,6 +75,13 @@ const alarmTypeMeta: Record<
     iconCls: "text-[#f59e0b]",
     labelCls: "text-[#d97706]",
   },
+  chart_ready: {
+    label: "차트 준비",
+    Icon: ClipboardList,
+    bgCls: "bg-[#eff6ff]",
+    iconCls: "text-[#3b82f6]",
+    labelCls: "text-[#1d4ed8]",
+  },
 };
 
 const dayLabels = ["일", "월", "화", "수", "목", "금", "토"];

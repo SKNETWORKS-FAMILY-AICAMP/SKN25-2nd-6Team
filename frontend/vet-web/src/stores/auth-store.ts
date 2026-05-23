@@ -10,7 +10,7 @@ interface SetSessionOptions {
   persist?: boolean;
 }
 
-interface AuthState {
+export interface AuthState {
   session: AuthSession | null;
   isAuthenticated: boolean;
   setSession: (session: AuthSession, options?: SetSessionOptions) => void;

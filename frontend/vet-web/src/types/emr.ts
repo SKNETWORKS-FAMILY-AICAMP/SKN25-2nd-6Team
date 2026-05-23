@@ -11,6 +11,7 @@ export type TriageStatus = "emergency" | "semiEmergency" | "normal";
 
 export interface QueuePatient {
   schedule_id: number;
+  emrid?: number;
   time: string;
   guardian_name: string;
   pet_name: string;

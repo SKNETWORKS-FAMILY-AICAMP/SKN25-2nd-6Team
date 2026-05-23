@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
@@ -15,32 +16,129 @@ logger = logging.getLogger(__name__)
 #       교체 시: redis-py / aioredis + task_id 기반 key expiry 적용.
 _task_store: dict[str, dict] = {}
 
+_TASK_TTL_SEC = 300  # 5분: SSE 미접속 task 자동 정리
 
+
+async def cleanup_task_after_ttl(task_id: str, ttl: int = _TASK_TTL_SEC) -> None:
+    """완료/에러 task를 TTL 후 자동 삭제.
+
+    SSE 핸들러가 먼저 pop하면 이 호출은 no-op이 된다.
+    SSE가 절대 접속하지 않거나 연결이 끊겨도 메모리 누수 방지.
+    """
+    await asyncio.sleep(ttl)
+    _task_store.pop(task_id, None)
+
+
+import time
+import uuid
+
+def monitor_agent(agent_name: str):
+    def decorator(func):
+        async def wrapper(payload: dict, update_step, emrid: int | None, scheduleid: int | None, *args, **kwargs):
+            request_id = str(uuid.uuid4())
+            start_time = time.perf_counter()
+            success = False
+            failure_reason = None
+            
+            # Extract metadata from payload
+            pet_id = None
+            session_id = None
+            reservation_id = scheduleid
+            
+            if isinstance(payload, dict):
+                pet_id = payload.get("pet_id") or payload.get("pet", {}).get("pet_id") or payload.get("pet", {}).get("id")
+                if not pet_id:
+                    p_ctx = payload.get("patient_context", {})
+                    if isinstance(p_ctx, dict) and "patient_context" in p_ctx:
+                        p_ctx = p_ctx["patient_context"]
+                    if isinstance(p_ctx, dict):
+                        pet_id = p_ctx.get("patient_profile", {}).get("pet_id")
+                
+                session_id = payload.get("session_id") or payload.get("chat_session_id")
+                if not reservation_id:
+                    reservation_id = payload.get("schedule_id") or payload.get("schedule_result", {}).get("scheduleid") or payload.get("schedule_slot", {}).get("scheduleid")
+
+            # Database fallback if emrid is available and metadata is missing
+            if emrid and (not pet_id or not session_id):
+                from app.db.session import AsyncSessionLocal
+                from sqlalchemy import select
+                from app.models.guardian import Guardian
+                from app.models.chat_history import ChatHistory
+                
+                async with AsyncSessionLocal() as db:
+                    try:
+                        g_res = await db.execute(select(Guardian).where(Guardian.emrid == emrid))
+                        guardian = g_res.scalar_one_or_none()
+                        if guardian:
+                            if not pet_id:
+                                pet_id = guardian.petid
+                            
+                            c_res = await db.execute(
+                                select(ChatHistory)
+                                .where(ChatHistory.emrid == emrid)
+                                .order_by(ChatHistory.created_at.desc())
+                            )
+                            chat = c_res.scalars().first()
+                            if chat and not session_id:
+                                session_id = chat.id
+                    except Exception as db_exc:
+                        logger.warning(f"[monitor_agent] DB lookup failed: {db_exc}")
+
+            try:
+                result = await func(payload, update_step, emrid, scheduleid, *args, **kwargs)
+                success = True
+                return result
+            except Exception as e:
+                failure_reason = str(e)
+                raise e
+            finally:
+                latency_ms = (time.perf_counter() - start_time) * 1000.0
+                log_data = {
+                    "request_id": request_id,
+                    "session_id": session_id,
+                    "pet_id": pet_id,
+                    "reservation_id": reservation_id,
+                    "agent_name": agent_name,
+                    "latency_ms": round(latency_ms, 2),
+                    "success": success,
+                    "failure_reason": failure_reason,
+                }
+                logger.info(f"[AGENT_MONITOR] {json.dumps(log_data, ensure_ascii=False)}")
+        return wrapper
+    return decorator
+
+
+@monitor_agent("triage")
 async def run_triage(payload: dict, update_step, emrid: int | None, scheduleid: int | None) -> dict:
     from ai.agents.triage import run_triage as _run
     return await _run(payload, update_step, emrid, scheduleid)
 
 
+@monitor_agent("schedule")
 async def run_schedule(payload: dict, update_step, emrid: int | None, scheduleid: int | None) -> dict:
     from ai.agents.schedule import run_schedule as _run
     return await _run(payload, update_step, emrid, scheduleid)
 
 
+@monitor_agent("chart")
 async def run_chart(payload: dict, update_step, emrid: int | None, scheduleid: int | None) -> dict:
     from ai.agents.chart import run_chart as _run
     return await _run(payload, update_step, emrid, scheduleid)
 
 
+@monitor_agent("validation")
 async def run_validation(payload: dict, update_step, emrid: int | None, scheduleid: int | None) -> dict:
     from ai.agents.validation import run_validation as _run
     return await _run(payload, update_step, emrid, scheduleid)
 
 
+@monitor_agent("judge")
 async def run_judge(payload: dict, update_step, emrid: int | None, scheduleid: int | None) -> dict:
     from ai.agents.judge import run_judge as _run
     return await _run(payload, update_step, emrid, scheduleid)
 
 
+@monitor_agent("followup")
 async def run_followup(payload: dict, update_step, emrid: int | None, scheduleid: int | None) -> dict:
     from ai.agents.followup import run_followup as _run
     return await _run(payload, update_step, emrid, scheduleid)
@@ -105,12 +203,21 @@ async def save_result(
                 )
                 sched = sched_row.scalar_one_or_none()
                 if sched:
-                    db.add(DoctorAlarm(
-                        doctorid=sched.doctorid,
-                        scheduleid=scheduleid,
-                        type="chart_ready",
-                        contents="새 환자의 AI 차트 초안이 준비되었습니다.",
-                    ))
+                    # 동일 schedule + type + unread 알람 중복 방지 (application-level 체크)
+                    dup = await db.execute(
+                        select(DoctorAlarm).where(
+                            DoctorAlarm.scheduleid == scheduleid,
+                            DoctorAlarm.type == "chart_ready",
+                            DoctorAlarm.is_read.is_(False),
+                        )
+                    )
+                    if not dup.scalar_one_or_none():
+                        db.add(DoctorAlarm(
+                            doctorid=sched.doctorid,
+                            scheduleid=scheduleid,
+                            type="chart_ready",
+                            contents="새 환자의 AI 차트 초안이 준비되었습니다.",
+                        ))
 
                 await db.commit()
                 logger.info(f"[SaveResult] chart → reportDB emrid={emrid}")
@@ -134,6 +241,10 @@ async def save_result(
                     accuracy_score=scores.get("accuracy"),
                     consistency_score=scores.get("consistency"),
                     summary=result.get("summary"),
+                    raw_llm_output=json.dumps(result, ensure_ascii=False),
+                    score_breakdown=scores,
+                    emr_alignment_reason=result.get("emr_alignment_reason"),
+                    prescription_risk_reason=result.get("prescription_risk_reason"),
                 ))
                 await db.commit()
                 logger.info(f"[SaveResult] validation → validation_resultDB emrid={emrid}")

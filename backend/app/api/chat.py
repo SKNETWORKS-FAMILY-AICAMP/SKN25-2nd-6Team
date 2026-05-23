@@ -19,16 +19,11 @@ from app.core.dependencies import get_current_user
 from app.core.config import settings
 from app.models.pet import Pet
 from app.models.triage_result import TriageResult
-from ai.tasks import RUNNERS, _task_store
+from app.prompts.triage_prompt import _build_triage_system_prompt
+from ai.tasks import RUNNERS, _task_store, cleanup_task_after_ttl
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 logger = logging.getLogger(__name__)
-
-FORCE_COMPLETE_SUFFIX = """
-
-[완료 요청]
-충분한 턴이 진행되었습니다. 지금까지 수집된 정보로 즉시 완료 형식(is_triage_complete: true, collected_info 포함)으로 응답하세요.
-추론으로 정보를 채우지 마세요. 정보가 부족한 경우: urgency_level_num을 보수적으로 설정하고, 수집되지 않은 문자열 필드는 ""로, 배열 필드는 []로 두세요. 추가 질문은 하지 마세요."""
 
 
 async def _run_schedule_background(
@@ -36,6 +31,7 @@ async def _run_schedule_background(
     emrid: int,
     pet_payload: dict,
     triage_info: dict,
+    patient_context: dict,
 ) -> None:
     """triage_complete 직후 asyncio.create_task로 실행되는 Schedule Agent 백그라운드 러너."""
     logger.info(f"[Schedule BG] start task_id={task_id} emrid={emrid}")
@@ -48,7 +44,8 @@ async def _run_schedule_background(
         payload = {
             "pet": pet_payload,
             "triage_info": triage_info,
-            "emr_history": [],
+            "triage_result": triage_info,
+            "patient_context": patient_context,
             "existing_bookings": [],
         }
         result = await RUNNERS["schedule"](payload, update_step, emrid, None)
@@ -57,118 +54,8 @@ async def _run_schedule_background(
     except Exception as exc:
         logger.error(f"[Schedule BG] failed task_id={task_id}: {exc}", exc_info=True)
         _task_store[task_id] = {"status": "error", "detail": str(exc)}
-
-
-def _build_triage_system_prompt(pet: Pet, force_complete: bool = False) -> str:
-    age = None
-    if pet.birth_date:
-        age = date.today().year - pet.birth_date.year
-
-    gender_str = "미상"
-    if pet.gender == "male":
-        gender_str = "수컷"
-    elif pet.gender == "female":
-        gender_str = "암컷"
-
-    pet_info = "\n".join([
-        f"이름: {pet.petname}",
-        f"종/품종: {'고양이' if pet.species == 'cat' else '개'} / {pet.breed or '알 수 없음'}",
-        f"나이: {age if age else '?'}세",
-        f"성별: {gender_str}",
-        f"체중: {float(pet.weight_kg) if pet.weight_kg else '?'}kg",
-    ])
-
-    prompt = f"""당신은 MediPaw 수의학 AI 트리아지 전문가입니다.
-아래 두 논문에 기반하여 반려동물을 평가합니다:
-1) "Basic triage in dogs and cats" - 생리학적 파라미터 기반
-2) "Evaluation of a veterinary triage list modified from a human five-point triage system in 485 dogs and cats" - 5단계 Modified VTL
-
-[반려동물 정보]
-{pet_info}
-[과거 EMR 없음 - 초진으로 간주]
-
-[Modified VTL 5단계 분류 기준]
-Level 1 즉시(0분): 심폐정지, 무의식, 심한 호흡곤란(고양이 개구호흡/역설호흡), 조절불가 출혈, 활동성 경련, 체온<36°C 또는 >41°C, 아나필락시스
-Level 2 응급(<15분): 중증 통증(NRS 7-10), 다발성 외상(교통사고/추락), 급성 복부(GDV/장중첩), 고양이 요도폐색, 독성물질 섭취+증상, 급성 허탈
-Level 3 긴급(<30분): 중등도 통증(NRS 4-6), 혈변/혈구토, 안구손상(각막궤양/포도막염), 중등도 탈수, 보행가능 골절 의심, 증상없는 독성물질 섭취
-Level 4 준긴급(<60분): 경증 통증(NRS 1-3), 혈액없는 구토/설사, 경미한 피부병변, 24시간 이내 기침, 경미한 무기력
-Level 5 비긴급(<120분): 정기검진, 예방접종, 안정적 만성질환, 행동문제, 기생충 예방
-
-[생리학적 Red Flag 파라미터]
-개 정상범위: 심박수 60-180bpm, 호흡수 18-34bpm, 체온 38-39.2°C, CRT 2초 미만, 점막 분홍색
-고양이 정상범위: 심박수 140-220bpm, 호흡수 16-40bpm, 체온 38-39.2°C, CRT 2초 미만, 점막 분홍색
-
-[Chain-of-Thought 추론 지침]
-매 응답은 반드시 다음 5단계 추론을 거친다. thinking 필드는 각 STEP을 한 문장으로 간결하게 작성:
-STEP 1: 보호자 발화에서 증상 키워드 추출 (증상명, 발생시점, 빈도, 동반증상)
-STEP 2: 추출한 증상을 알려진 질환 패턴과 매핑 (감별진단 가설 생성)
-STEP 3: Red Flag 파라미터 위반 여부 확인
-STEP 4: 재진/초진 판단 및 진행 추이 평가
-STEP 5: STEP 1-4를 종합하여 Modified VTL Level 결정 및 근거 명시
-
-[언어 규칙 — 최우선]
-message 필드는 반드시 순수 한국어로만 작성하세요. 영어 단어, 영어 의학 용어, 알파벳을 절대 사용하지 마세요.
-예시: pill→알약, vomiting→구토, cough→기침, respiratory→호흡, symptom→증상
-
-[응답 형식 - JSON만 출력, 다른 텍스트 절대 금지]
-
-대화 진행 중:
-{{
-  "thinking": "STEP 1: ... STEP 2: ... STEP 3: ... STEP 4: ... STEP 5: ...",
-  "message": "공감 한 마디 + 구체적인 질문 한 개",
-  "suggestions": ["답변 선택지1", "선택지2", "선택지3"],
-  "need_photo": false,
-  "collected_info": null
-}}
-
-문진 완료 시 (핵심 정보가 충분히 수집되면 즉시 완료):
-{{
-  "thinking": "STEP 1~5 실제 추론",
-  "message": "증상을 잘 알려주셨어요. 잠시만 기다려 주세요.",
-  "suggestions": [],
-  "need_photo": false,
-  "collected_info": {{
-    "is_triage_complete": true,
-    "urgency_level": "<즉시|응급|긴급|준긴급|비긴급 중 하나>",
-    "urgency_level_num": 3,
-    "vtl_basis": "<실제 증상 기반 VTL 판단 근거>",
-    "red_flags": [],
-    "is_initial_visit": true,
-    "chief_complaint": "<보호자가 말한 주증상>",
-    "symptom_onset": "<보호자가 말한 발생시점>",
-    "symptom_keywords": ["<실제 증상 키워드들>"],
-    "suspected_diseases": ["<실제 감별진단 2~3개>"],
-    "symptom_summary": "<보호자 발화 기반 실제 증상 요약>",
-    "recommended_action": "내원 권장",
-    "need_followup": false,
-    "followup_reason": null
-  }}
-}}
-
-[경과 모니터링 필요 여부 — need_followup]
-need_followup=true 조건: 발작·경련, 당일 반복 구토·설사(3회 이상), 혈변·혈구토, 외상·출혈 진행, 호흡 이상, 의식·활동성 급격 저하, 중독·이물 섭취
-need_followup=false 조건: 정기 검진, 예방접종, 안정적 만성 질환, 경미한 가려움
-
-[보호자 message 금지 사항]
-- 질환명/진단 언급, 내원·행동 권유, 증상 원인 추정, 예후 평가, 긴급도 표현 금지
-- 수치 기반 통증 점수(NRS 1~10) 직접 질문 금지 — 보호자가 정확히 평가할 수 없음. 대신 행동·상태로 간접 평가: "밥을 잘 먹나요?", "평소보다 덜 움직이나요?", "안거나 만지면 아파하나요?" 등
-- 허용 공감: "많이 걱정되시겠어요", "잘 알려주셨어요", "조금 더 여쭤볼게요"
-- 공감 표현 뒤에는 반드시 구체적인 질문 한 개를 이어서 작성
-
-[조기 완료 원칙]
-다음 6가지 항목 충족 시 즉시 is_triage_complete: true:
-① 주증상 ② 발생시점 ③ 빈도/강도 ④ 동반증상(식욕/활동성) ⑤ 배변상태 ⑥ 환경요인
-응급 징후(Red Flag)가 명확한 경우 1-2턴 이내 완료 가능.
-
-[사진 첨부 시 분석 지침]
-① 사진에서 보이는 모든 소견을 먼저 독립적으로 기술
-② 사진에서 이미 확인된 소견은 절대 다시 묻지 않음
-③ 측정 불가 항목 질문 금지: 심박수, 호흡수, 점막색, 주관적 통증 강도"""
-
-    if force_complete:
-        prompt += FORCE_COMPLETE_SUFFIX
-
-    return prompt
+    finally:
+        asyncio.create_task(cleanup_task_after_ttl(task_id))
 
 
 # 챗봇 세션 시작
@@ -218,6 +105,11 @@ async def send_message(
 
     await add_message(db, session, "user", request.content, request.image_url)
 
+    from app.crud.patient import build_patient_context
+    
+    patient_context_data = await build_patient_context(db, session.petid)
+    emr_history = patient_context_data["patient_context"]["emr_history"] # For backward compatibility with Triage prompt until we update it
+
     openai_messages = [
         {"role": m["role"], "content": m["content"]}
         for m in (session.messages or [])
@@ -225,9 +117,9 @@ async def send_message(
     ]
 
     turn_count = sum(1 for m in openai_messages if m["role"] == "assistant")
-    force_complete = turn_count >= 7
+    force_complete = turn_count >= 5
 
-    system_prompt = _build_triage_system_prompt(pet, force_complete=force_complete)
+    system_prompt = _build_triage_system_prompt(pet, patient_context=patient_context_data, force_complete=force_complete)
 
     # event_stream 클로저에서 사용할 반려동물 정보 딕셔너리
     pet_age = (date.today().year - pet.birth_date.year) if pet.birth_date else None
@@ -321,7 +213,7 @@ async def send_message(
                 schedule_task_id = str(uuid.uuid4())
                 _task_store[schedule_task_id] = {"status": "queued", "step": ""}
                 asyncio.create_task(
-                    _run_schedule_background(schedule_task_id, emrid, pet_payload, collected_info)
+                    _run_schedule_background(schedule_task_id, emrid, pet_payload, collected_info, patient_context_data)
                 )
                 logger.info(f"[Schedule BG] queued task_id={schedule_task_id} emrid={emrid}")
 

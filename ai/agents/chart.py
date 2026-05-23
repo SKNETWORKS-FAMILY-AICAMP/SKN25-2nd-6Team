@@ -13,7 +13,7 @@ from .base import call_openai_once
 logger = logging.getLogger(__name__)
 
 
-def build_chart_prompt(pet: dict, triage_result: dict, emr_history: list | None = None) -> str:
+def build_chart_prompt(pet: dict, triage_result: dict, patient_context: dict | None = None) -> str:
     preds = triage_result.get("photo_predictions") or []
     skin_preds = [p["prediction"] for p in preds if p.get("model_type") != "eye" and p.get("prediction")]
     eye_preds = [p["prediction"] for p in preds if p.get("model_type") == "eye" and p.get("prediction")]
@@ -24,11 +24,14 @@ def build_chart_prompt(pet: dict, triage_result: dict, emr_history: list | None 
         cnn_parts.append(f"안구[{'/'.join(eye_preds)}]")
     cnn_section = " / ".join(cnn_parts) if cnn_parts else "없음"
 
-    history_section = (
-        f"[과거 진료 기록]\n" + __import__("json").dumps(
-            (emr_history or [])[-3:], ensure_ascii=False, indent=2
-        ) if emr_history else "[과거 진료 기록 없음]"
-    )
+    if patient_context and patient_context.get("patient_context", {}).get("emr_history"):
+        history_section = (
+            f"[과거 임상 컨텍스트 및 병력]\n" + __import__("json").dumps(
+                patient_context, ensure_ascii=False, indent=2
+            )
+        )
+    else:
+        history_section = "[과거 진료 기록 없음 - 초진으로 간주]"
 
     return f"""당신은 MediPaw 수의학 차트 생성 AI입니다.
 문진 결과를 기반으로 SOAP 형식 EMR 차트 초안을 생성합니다.
@@ -94,11 +97,11 @@ async def run_chart(
     """Chart Agent 실행 — gpt-4o 사용 (추론 부담이 큰 작업)."""
     pet = payload.get("pet", {})
     triage_result = payload.get("triage_result", {})
-    emr_history = payload.get("emr_history")
+    patient_context = payload.get("patient_context")
     chat_history = payload.get("chat_history", [])
 
     update_step("증상 엔티티 추출 중...")
-    system = build_chart_prompt(pet, triage_result, emr_history)
+    system = build_chart_prompt(pet, triage_result, patient_context)
 
     update_step("SOAP 차트 초안 작성 중...")
     result = await call_openai_once(

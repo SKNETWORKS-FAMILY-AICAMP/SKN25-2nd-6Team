@@ -12,6 +12,9 @@ from app.api.dashboard import router as dashboard_router
 from app.api.patient import router as patient_router
 from app.api.doctor_reservation import router as doctor_reservation_router
 from app.api.followup import router as followup_router
+from app.api.emr import router as emr_router
+from app.api.alarm import router as alarm_router
+from app.core.config import settings
 from ai.router import router as agent_router
 
 
@@ -25,17 +28,11 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content={"code": exc.status_code, "message": exc.detail}
     )
 
+_allowed_origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://192.168.0.2:5173",  # 민서 IP
-        "http://192.168.0.32:5173",  # 프론트 팀원 IP 
-        "http://192.168.0.11:5173",
-        "http://localhost:5174",
-        "http://192.168.0.2:5174", 
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,4 +49,6 @@ app.include_router(dashboard_router)
 app.include_router(patient_router)
 app.include_router(doctor_reservation_router)
 app.include_router(followup_router)
+app.include_router(emr_router)
+app.include_router(alarm_router)
 app.include_router(agent_router)

@@ -8,6 +8,32 @@ import {
 import { isAxiosError } from "axios";
 import { useSearchParams } from "react-router-dom";
 
+const SYMPTOM_PILLS = [
+  "구토",
+  "설사",
+  "피부",
+  "기침",
+  "식욕저하",
+  "눈물",
+  "절뚝거림",
+] as const;
+
+const INITIAL_BOT_MESSAGE = "어떤 증상 때문에 예약을 원하시나요?";
+
+// chatPhase: UI 레이어에서 사용하는 상태 머신
+// IDLE / SYMPTOM_COLLECTING → pipeline.phase === "chatting"
+// TRIAGE_RUNNING           → pipeline.phase === "scheduling"
+// SLOT_RECOMMENDING        → pipeline.phase === "slot-selection"
+// BOOKING_CONFIRMED        → pipeline.phase === "confirmed"
+// FOLLOWUP_ACTIVE          → pipeline.phase === "followup"
+type ChatPhase =
+  | "IDLE"
+  | "SYMPTOM_COLLECTING"
+  | "TRIAGE_RUNNING"
+  | "SLOT_RECOMMENDING"
+  | "BOOKING_CONFIRMED"
+  | "FOLLOWUP_ACTIVE";
+
 import { type ChatSessionHistory } from "../../api/chat-api";
 import { getPets, type Pet } from "../../api/pets-api";
 import ChatInputBox from "../../components/chatbot/chat-input-box";
@@ -116,6 +142,7 @@ const ChatbotPage = () => {
         sessionId: number,
         keywords: string[],
         collectedInfo: Record<string, unknown>,
+        emrid?: number,
       ) => void)
     | undefined
   >(undefined);
@@ -140,8 +167,8 @@ const ChatbotPage = () => {
     isUploadingAttachment,
     setErrorMessage,
     getErrorMessage,
-    onTriageComplete: (sessionId, keywords, collectedInfo) =>
-      onTriageCompleteRef.current?.(sessionId, keywords, collectedInfo),
+    onTriageComplete: (sessionId, keywords, collectedInfo, emrid) =>
+      onTriageCompleteRef.current?.(sessionId, keywords, collectedInfo, emrid),
   });
 
   const pipeline = useAgentPipeline({
@@ -178,10 +205,10 @@ const ChatbotPage = () => {
   });
 
   // pipeline이 정의된 후 ref를 최신 값으로 동기화
-  onTriageCompleteRef.current = (sessionId, keywords, collectedInfo) => {
+  onTriageCompleteRef.current = (_sessionId, _keywords, collectedInfo, emrid) => {
     if (selectedPet) {
       refreshChatHistories(selectedPet.pet_id);
-      void pipeline.startSchedulePhase(selectedPet, collectedInfo);
+      void pipeline.startSchedulePhase(selectedPet, collectedInfo, emrid);
     }
   };
 
@@ -191,6 +218,27 @@ const ChatbotPage = () => {
       pipeline.resetPipeline();
     }
   }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 새 세션 시작 시 초기 증상 질문 + symptom pills 자동 출력
+  useEffect(() => {
+    if (session && messages.length === 0) {
+      setMessages([{ id: Date.now(), role: "assistant", content: INITIAL_BOT_MESSAGE }]);
+      setQuickReplies([...SYMPTOM_PILLS]);
+    }
+  }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // pipeline.phase → chatPhase 매핑 (UI 상태 제어용)
+  const chatPhase = useMemo((): ChatPhase => {
+    switch (pipeline.phase) {
+      case "scheduling": return "TRIAGE_RUNNING";
+      case "slot-selection": return "SLOT_RECOMMENDING";
+      case "booking": return "SLOT_RECOMMENDING";
+      case "confirmed": return "BOOKING_CONFIRMED";
+      case "followup": return "FOLLOWUP_ACTIVE";
+      default:
+        return messages.length === 0 ? "IDLE" : "SYMPTOM_COLLECTING";
+    }
+  }, [pipeline.phase, messages.length]);
 
   const todayChatTitle = useMemo(() => formatDateToYyyyMmDd(new Date()), []);
 
@@ -298,10 +346,25 @@ const ChatbotPage = () => {
       <main className="mx-auto flex h-[calc(100vh-4rem)] min-h-0 w-full max-w-6xl flex-col px-4 py-4 sm:px-6">
         <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xl shadow-blue-100/50">
 
-          {/* 응급 알림 배너 (followup에서 emergency_alert=true 시) */}
-          {pipeline.emergencyAlert ? (
-            <div className="border-b border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700 sm:px-7">
-              ⚠️ 증상이 악화되고 있어요. 즉시 동물병원에 내원해주세요!
+          {/* 상태 확인 안내 배너 (followup에서 escalationPromptVisible=true 시) */}
+          {pipeline.escalationPromptVisible ? (
+            <div className="border-b border-blue-200 bg-blue-50 px-5 py-3 text-sm font-bold text-blue-700 sm:px-7 flex justify-between items-center flex-wrap gap-2">
+              <span>🩺 병원에 증상 변화를 문의하거나 일정을 조정하는 것을 권장해 드립니다.</span>
+              <div className="flex gap-2">
+                {pipeline.guardianCareRecommendation.map((actionLabel, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      if (actionLabel.includes("전화")) {
+                        window.location.href = "tel:02-0000-0001";
+                      }
+                    }}
+                    className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-xl text-xs font-black transition"
+                  >
+                    {actionLabel}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -336,20 +399,34 @@ const ChatbotPage = () => {
               {session ? (
                 <>
                   <div className="flex h-14 shrink-0 items-center gap-3 border-b border-slate-100 px-5 sm:px-7">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h2 className="truncate text-base font-black text-slate-950">
                         {todayChatTitle} 새 상담
                       </h2>
-                      {pipeline.phase === "followup" ? (
-                        <p className="text-xs font-semibold text-blue-500">
-                          경과 모니터링 중
-                        </p>
-                      ) : pipeline.phase === "confirmed" ? (
-                        <p className="text-xs font-semibold text-green-600">
-                          예약 완료
-                        </p>
+                      {chatPhase === "FOLLOWUP_ACTIVE" ? (
+                        <p className="text-xs font-semibold text-blue-500">경과 모니터링 중</p>
+                      ) : chatPhase === "BOOKING_CONFIRMED" ? (
+                        <p className="text-xs font-semibold text-green-600">예약 완료</p>
+                      ) : chatPhase === "TRIAGE_RUNNING" ? (
+                        <p className="text-xs font-semibold text-amber-500">증상 분석 중...</p>
+                      ) : chatPhase === "SLOT_RECOMMENDING" ? (
+                        <p className="text-xs font-semibold text-blue-600">예약 슬롯 선택</p>
                       ) : null}
                     </div>
+                    {/* 상태 배지 */}
+                    {chatPhase !== "IDLE" && chatPhase !== "SYMPTOM_COLLECTING" && (
+                      <span className={[
+                        "shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase",
+                        chatPhase === "BOOKING_CONFIRMED" ? "bg-green-100 text-green-700" :
+                        chatPhase === "FOLLOWUP_ACTIVE" ? "bg-blue-100 text-blue-700" :
+                        "bg-amber-100 text-amber-700",
+                      ].join(" ")}>
+                        {chatPhase === "TRIAGE_RUNNING" ? "분석중" :
+                         chatPhase === "SLOT_RECOMMENDING" ? "슬롯선택" :
+                         chatPhase === "BOOKING_CONFIRMED" ? "예약완료" :
+                         chatPhase === "FOLLOWUP_ACTIVE" ? "모니터링" : ""}
+                      </span>
+                    )}
                   </div>
 
                   <ChatMessageList
@@ -361,22 +438,27 @@ const ChatbotPage = () => {
                     }}
                   />
 
-                  {pipeline.phase !== "confirmed" ? (
+                  {/* 상태별 입력 영역 */}
+                  {chatPhase === "BOOKING_CONFIRMED" ? (
+                    <div className="border-t border-slate-100 px-5 py-4 text-center text-sm font-semibold text-slate-400">
+                      상담이 완료되었습니다. 새 상담을 시작하려면 왼쪽에서 선택해주세요.
+                    </div>
+                  ) : chatPhase === "SLOT_RECOMMENDING" ? (
+                    <div className="border-t border-slate-100 px-5 py-3 text-center text-xs font-semibold text-slate-400">
+                      위 시간 카드를 선택해주세요
+                    </div>
+                  ) : (
                     <ChatInputBox
                       fileInputRef={fileInputRef}
                       pendingAttachment={pendingAttachment}
                       messageInput={messageInput}
-                      isStreaming={isStreaming}
+                      isStreaming={isStreaming || chatPhase === "TRIAGE_RUNNING"}
                       isUploadingAttachment={isUploadingAttachment}
                       onClearPendingAttachment={clearPendingAttachment}
                       onSelectAttachment={handleSelectAttachment}
                       onSubmitMessage={handleSubmitCombined}
                       onChangeMessageInput={setMessageInput}
                     />
-                  ) : (
-                    <div className="border-t border-slate-100 px-5 py-4 text-center text-sm font-semibold text-slate-400">
-                      상담이 완료되었습니다. 새 상담을 시작하려면 왼쪽에서 선택해주세요.
-                    </div>
                   )}
                 </>
               ) : selectedHistory && selectedPet ? (

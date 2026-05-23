@@ -1,0 +1,18 @@
+{
+  "name": "routine_checkup",
+  "description": "정기 건강검진 — Level 5 비긴급, 1턴 이내 완료 예상",
+  "pet": { "species": "dog", "breed": "비숑 프리제", "age": 3, "gender": "female", "weight_kg": 6.0 },
+  "conversation": [
+    { "role": "user", "content": "특별한 이상은 없고 정기 건강검진 받으러 가려고요." }
+  ],
+  "expected": {
+    "urgency_level_num_range": [5, 5],
+    "max_questions_per_turn": 1,
+    "max_symptom_keywords": 4,
+    "need_followup": false,
+    "is_triage_complete_by_turn": 1,
+    "forbidden_words": [
+      "응급입니다", "즉시 내원하세요", "생명이 위험합니다"
+    ]
+  }
+}

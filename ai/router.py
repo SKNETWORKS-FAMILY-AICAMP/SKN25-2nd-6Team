@@ -32,7 +32,7 @@ ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 # chat.py와 공유하는 태스크 스토어 (ai.tasks에서 단일 관리)
-from ai.tasks import _task_store
+from ai.tasks import _task_store, cleanup_task_after_ttl
 
 
 # ── OpenAI 프록시 ─────────────────────────────────────────────────
@@ -125,6 +125,9 @@ async def _execute_agent(
     except Exception as exc:
         logger.error(f"[Task] {agent_type} 실패 task_id={task_id}: {exc}", exc_info=True)
         _task_store[task_id] = {"status": "error", "detail": str(exc)}
+    finally:
+        # SSE가 미접속해도 5분 후 자동 정리 (SSE가 먼저 pop하면 no-op)
+        asyncio.create_task(cleanup_task_after_ttl(task_id))
 
 
 # ── SSE 실시간 스트리밍 ───────────────────────────────────────────

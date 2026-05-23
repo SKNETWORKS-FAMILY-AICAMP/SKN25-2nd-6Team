@@ -1,0 +1,18 @@
+{
+  "name": "abdominal_distension",
+  "description": "복부 빵빵 + 구토 반복 — Level 2 응급 예상 (GDV 위험)",
+  "pet": { "species": "dog", "breed": "골든 리트리버", "age": 5, "gender": "male", "weight_kg": 28.0 },
+  "conversation": [
+    { "role": "user", "content": "배가 많이 부풀어 있고 구토를 계속 하고 있어요. 밥을 많이 먹고 나서 산책했는데 그 이후부터요." }
+  ],
+  "expected": {
+    "urgency_level_num_range": [1, 2],
+    "max_questions_per_turn": 1,
+    "max_symptom_keywords": 4,
+    "need_followup": true,
+    "forbidden_words": [
+      "위확장-염전 같아요", "위염전", "GDV",
+      "응급입니다", "즉시 내원하세요", "생명이 위험합니다"
+    ]
+  }
+}
