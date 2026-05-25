@@ -20,9 +20,9 @@ from app.utils.timezone import KST, to_kst
 
 
 def _urgency_to_triage_status(urgency_num: Optional[int]) -> str:
-    if urgency_num in (1, 2):
+    if urgency_num == 1:
         return "emergency"
-    if urgency_num == 3:
+    if urgency_num == 2:
         return "semiEmergency"
     return "normal"
 
@@ -34,6 +34,9 @@ def _calc_age(birth_date) -> int:
     return today.year - birth_date.year - (
         (today.month, today.day) < (birth_date.month, birth_date.day)
     )
+
+
+COMPLETED_STATUSES = {"진료완료", "COMPLETED"}
 
 
 async def get_emr_queue(
@@ -48,7 +51,6 @@ async def get_emr_queue(
     # KST 기준 하루 범위를 UTC로 변환
     kst_start = datetime.combine(target_date, time.min).replace(tzinfo=KST)
     kst_end = kst_start + timedelta(days=1)
-
     result = await db.execute(
         select(Schedule, Guardian, Pet, User, TriageResult)
         .join(Guardian, Schedule.emrid == Guardian.emrid)
@@ -69,6 +71,8 @@ async def get_emr_queue(
 
     for schedule, guardian, pet, user, triage in rows:
         ct = to_kst(schedule.confirmed_time)
+        is_completed = schedule.status in COMPLETED_STATUSES
+
         item = {
             "schedule_id": schedule.scheduleid,
             "emrid": guardian.emrid,
@@ -82,7 +86,7 @@ async def get_emr_queue(
             ),
             "source": "reservation",
         }
-        if schedule.status == "진료완료":
+        if is_completed:
             completed.append(item)
         else:
             waiting.append(item)
@@ -166,7 +170,7 @@ async def get_emr_detail(db: AsyncSession, schedule_id: int):
             "emr_id": emr.doctor_emrid,
             "date": visit_dt.date().isoformat() if visit_dt else "",
             "doctor_name": doctor.doctor_name,
-            "vet_memo": "",
+            "vet_memo": emr.vet_memo or "",
             "prescriptions": [
                 {
                     "drug_name": drug.name,

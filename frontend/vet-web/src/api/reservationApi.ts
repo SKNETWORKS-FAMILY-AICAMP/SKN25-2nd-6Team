@@ -10,12 +10,16 @@ export const getReservations = async () => {
 
 export const updateReservationStatus = async (
   scheduleId: number,
-  status: string
+  status: string,
+  payload?: {
+    vet_memo?: string;
+    attachments?: Array<{ id?: number; url: string; label: string }>;
+  },
 ) => {
 
   const response = await apiClient.patch(
     `/doctor/reservations/${scheduleId}`,
-    { status }
+    { status, ...payload }
   )
 
   return response.data

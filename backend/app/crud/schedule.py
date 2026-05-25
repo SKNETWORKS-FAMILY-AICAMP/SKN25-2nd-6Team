@@ -37,17 +37,14 @@ def _is_clinic_closed(d: _date_type) -> bool:
 # 정기검진 예약 생성
 async def create_checkup_schedule(db: AsyncSession, pet_id: int, date: str, time: str, memo: str, doctorid: int):
 
-    # code=9 = 예방접종/정기검진 (code=1은 소화기 증상)
+    # code=1 = 정기검진
     result = await db.execute(
-        select(CategoryMaster).where(CategoryMaster.code == 9)
+        select(CategoryMaster).where(CategoryMaster.code == 1)
     )
     category = result.scalar_one_or_none()
     if not category:
-        # fallback: 기타(code=10)
-        result = await db.execute(
-            select(CategoryMaster).where(CategoryMaster.code == 10)
-        )
-        category = result.scalar_one_or_none()
+        result = await db.execute(select(CategoryMaster))
+        category = result.scalars().first()
 
     # 예약 시간 설정 — 입력은 KST 기준, KST-aware datetime으로 만들어야 PostgreSQL이 UTC로 변환 저장
     kst_dt = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M").replace(tzinfo=KST)

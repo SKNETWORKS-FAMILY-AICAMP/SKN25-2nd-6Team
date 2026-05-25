@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.sql import func
 from app.db.base import Base
 
@@ -9,5 +9,7 @@ class EMR(Base):
     petid = Column(Integer, ForeignKey("petDB.petid"), nullable=False)
     doctorid = Column(Integer, ForeignKey("doctorDB.doctorid"), nullable=False)
     scheduleid = Column(Integer, ForeignKey("scheduleDB.scheduleid"), nullable=False)
+    vet_memo = Column(Text, nullable=True)
+    attachments = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

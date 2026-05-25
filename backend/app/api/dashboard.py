@@ -20,12 +20,8 @@ router = APIRouter(
     tags=["dashboard"]
 )
 
-# triage label(한국어) -> 프론트 VisitType
-TRIAGE_TO_TYPE = {
-    "응급": "emergency",
-    "준응급": "semiEmergency",
-    "일반": "normal",
-}
+COMPLETED_STATUSES = {"진료완료", "COMPLETED"}
+WAITING_STATUSES = {"예약대기", "대기", "예약확정", "CONFIRMED", "PENDING"}
 
 
 def _age_label(birth: date | None) -> str:
@@ -49,6 +45,27 @@ def _hhmm(dt: datetime | None) -> str:
     return kst.strftime("%H:%M") if kst else "-"
 
 
+def _visit_type(urgency_num: int | None) -> str:
+    if urgency_num == 1:
+        return "emergency"
+    if urgency_num == 2:
+        return "semiEmergency"
+    return "normal"
+
+
+def _reason(guardian, triage) -> str:
+    if guardian.memo:
+        return guardian.memo
+    if triage:
+        if triage.chief_complaint:
+            return triage.chief_complaint
+        if triage.symptom_summary:
+            return triage.symptom_summary
+        if isinstance(triage.symptom_keywords, list) and triage.symptom_keywords:
+            return ", ".join(triage.symptom_keywords)
+    return "-"
+
+
 @router.get("/today", status_code=200)
 async def get_today_dashboard(
     target_date: date = Query(default_factory=date.today, alias="date"),
@@ -70,14 +87,13 @@ async def get_today_dashboard(
     now = datetime.now(KST)
 
     for schedule, guardian, pet, triage in rows:
-        triage_label = triage.label if triage else None
-        visit_type = TRIAGE_TO_TYPE.get(triage_label or "", "normal")
+        visit_type = _visit_type(triage.urgency_level_num if triage else None)
 
         if visit_type == "emergency":
             emergency_count += 1
-        if schedule.status == "진료완료":
+        if schedule.status in COMPLETED_STATUSES:
             completed_count += 1
-        elif schedule.status in ("예약대기", "대기", "예약확정"):
+        elif schedule.status in WAITING_STATUSES:
             # 예약 시간이 이미 지난 건은 '대기중'으로 세지 않는다.
             confirmed = to_kst(schedule.confirmed_time)
             if confirmed and confirmed >= now:
@@ -92,7 +108,7 @@ async def get_today_dashboard(
             breed=pet.breed or "-",
             age=_age_label(pet.birth_date),
             weight=_weight_label(pet.weight_kg),
-            reason=guardian.memo or (triage_label or "-"),
+            reason=_reason(guardian, triage),
             type=visit_type,
             status=schedule.status,
         ))

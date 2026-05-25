@@ -58,9 +58,10 @@ export default function ReservationPage({
   const [selectedReservationId, setSelectedReservationId] = useState(0);
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [activeStatus, setActiveStatus] = useState<ReservationStatus | null>(null);
 
   const dayKey = getDateKey(selectedDate);
-  const visibleReservations = useMemo(
+  const dayReservations = useMemo(
     () =>
       reservations
         .filter(
@@ -69,6 +70,20 @@ export default function ReservationPage({
         )
         .sort((a, b) => a.start.localeCompare(b.start)),
     [reservations, dayKey]
+  );
+  const filteredReservations = useMemo(
+    () =>
+      activeStatus
+        ? reservations.filter((reservation) => reservation.status === activeStatus)
+        : reservations,
+    [activeStatus, reservations]
+  );
+  const visibleReservations = useMemo(
+    () =>
+      dayReservations.filter(
+        (reservation) => !activeStatus || reservation.status === activeStatus
+      ),
+    [activeStatus, dayReservations]
   );
 
   const selectedReservation =
@@ -87,12 +102,12 @@ export default function ReservationPage({
   const statusCounts = useMemo(
     () =>
       statusOrder.reduce<Record<ReservationStatus, number>>((acc, status) => {
-        acc[status] = visibleReservations.filter(
+        acc[status] = dayReservations.filter(
           (reservation) => reservation.status === status
         ).length;
         return acc;
       }, {} as Record<ReservationStatus, number>),
-    [visibleReservations]
+    [dayReservations]
   );
 
   const handlePrev = () => {
@@ -200,7 +215,11 @@ export default function ReservationPage({
                 selectedDate={selectedDate}
                 onSelectDate={setSelectedDate}
               />
-              <StatusFilter counts={statusCounts} />
+              <StatusFilter
+                counts={statusCounts}
+                activeStatus={activeStatus}
+                onChangeStatus={setActiveStatus}
+              />
             </aside>
 
             <DailyTimeline
@@ -225,7 +244,7 @@ export default function ReservationPage({
           <div className="h-[calc(100vh-140px)] overflow-y-auto px-4 pb-4">
             <WeeklySchedule
               selectedDate={selectedDate}
-              reservations={reservations}
+              reservations={filteredReservations}
               patientsById={patientsById}
               onSelectReservation={(reservation, reservationDate) => {
                 setSelectedDate(reservationDate);
@@ -239,7 +258,7 @@ export default function ReservationPage({
         {viewMode === "month" && (
           <MonthlyCalendar
             selectedDate={selectedDate}
-            reservations={reservations}
+            reservations={filteredReservations}
             onSelectDate={(date) => {
               setSelectedDate(date);
               setViewMode("day");

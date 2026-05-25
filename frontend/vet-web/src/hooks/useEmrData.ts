@@ -142,7 +142,10 @@ export function useEmrData() {
 
     // API: 상태 업데이트
     try {
-      await updateReservationStatus(selectedScheduleId, "진료완료");
+      await updateReservationStatus(selectedScheduleId, "진료완료", {
+        vet_memo: editorValue,
+        attachments: uploadedFiles,
+      });
     } catch (err) {
       console.error("[CompleteVisit] status update failed:", err);
     }
@@ -157,7 +160,7 @@ export function useEmrData() {
     setEditorValue("");
     setPrescriptions([]);
     setUploadedFiles([]);
-  }, [selectedScheduleId, waitingQueue]);
+  }, [editorValue, selectedScheduleId, uploadedFiles, waitingQueue]);
 
   const handleApplyIntake = useCallback((target: IntakeApplyTarget) => {
     const summary = currentEmr?.triage_summary.summary ?? [];
@@ -165,9 +168,9 @@ export function useEmrData() {
 
     const selectedTexts = [
       target !== "memo" && summary.length > 0
-        ? ["AI 사전 문진", ...summary.map((b: string) => `- ${b}`)].join("\n")
+        ? summary.map((b: string) => `- ${b}`).join("\n")
         : "",
-      target !== "summary" && memo ? ["메모", `- ${memo}`].join("\n") : "",
+      target !== "summary" && memo ? memo : "",
     ].filter(Boolean);
 
     setEditorValue((prev: string) =>

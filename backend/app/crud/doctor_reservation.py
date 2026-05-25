@@ -12,7 +12,9 @@ from app.models.guardian import Guardian
 from app.models.pet import Pet
 from app.models.user import User
 from app.models.doctor import Doctor
+from app.models.emr import EMR
 from app.models.master import TriageMaster, CategoryMaster
+from app.models.triage_result import TriageResult
 from app.models.vet_schedule import VetSchedule
 from app.utils.timezone import to_kst
 
@@ -27,8 +29,8 @@ class DuplicatePetReservation(Exception):
     pass
 
 
-# 수의사 대시보드 수동 예약 기본 카테고리: 기타(code=10)
-DEFAULT_CATEGORY_CODE = 10
+# 수의사 대시보드 수동 예약 기본 카테고리: 정기검진(code=1)
+DEFAULT_CATEGORY_CODE = 1
 # 예약 추가 시 기본 응급도(일반, code=3)
 DEFAULT_TRIAGE_CODE = 3
 DEFAULT_DURATION_MIN = 30
@@ -79,13 +81,23 @@ async def has_time_conflict(
 async def get_reservations(db: AsyncSession):
     """예약 목록 조회용 조인 쿼리. 소프트 삭제된 예약/진료기록은 제외한다."""
     result = await db.execute(
-        select(Schedule, Guardian, Pet, User, Doctor, TriageMaster, CategoryMaster)
+        select(
+            Schedule,
+            Guardian,
+            Pet,
+            User,
+            Doctor,
+            TriageMaster,
+            CategoryMaster,
+            TriageResult,
+        )
         .join(Guardian, Schedule.emrid == Guardian.emrid)
         .join(Pet, Guardian.petid == Pet.petid)
         .join(User, Pet.userid == User.userid)
         .join(Doctor, Schedule.doctorid == Doctor.doctorid)
         .outerjoin(TriageMaster, Guardian.triage_id == TriageMaster.id)
         .outerjoin(CategoryMaster, Guardian.category_id == CategoryMaster.id)
+        .outerjoin(TriageResult, Guardian.emrid == TriageResult.emrid)
         .where(Schedule.deleted_at.is_(None))
         .where(Guardian.deleted_at.is_(None))
         .where(Schedule.status != "CANCELLED")
@@ -133,12 +145,37 @@ async def get_default_triage(db: AsyncSession) -> TriageMaster | None:
     return result.scalars().first()
 
 
-async def update_reservation_status(db: AsyncSession, schedule_id: int, status: str):
+async def update_reservation_status(
+    db: AsyncSession,
+    schedule_id: int,
+    status: str,
+    vet_memo: str | None = None,
+    attachments: list[dict] | None = None,
+):
     schedule = await get_schedule(db, schedule_id)
     if not schedule:
         return None
 
     schedule.status = status
+
+    if status in ("진료완료", "COMPLETED"):
+        guardian = await get_guardian_by_emrid(db, schedule.emrid)
+        if guardian:
+            result = await db.execute(
+                select(EMR).where(EMR.scheduleid == schedule.scheduleid)
+            )
+            emr = result.scalar_one_or_none()
+            if not emr:
+                emr = EMR(
+                    petid=guardian.petid,
+                    doctorid=schedule.doctorid,
+                    scheduleid=schedule.scheduleid,
+                )
+                db.add(emr)
+
+            emr.vet_memo = vet_memo
+            emr.attachments = attachments or []
+
     await db.commit()
     await db.refresh(schedule)
     return schedule

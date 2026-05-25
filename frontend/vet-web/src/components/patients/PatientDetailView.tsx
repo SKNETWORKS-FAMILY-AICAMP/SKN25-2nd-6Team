@@ -194,6 +194,12 @@ function EmrHistoryRow({ record }: { record: EmrHistoryRecord }) {
     ["A", "평가", record.soap.assessment],
     ["P", "계획", record.soap.plan],
   ].filter(([, , value]) => Boolean(value));
+  const onlyMemo =
+    soapRows.length === 1 &&
+    soapRows[0][0] === "S" &&
+    !record.soap.objective &&
+    !record.soap.assessment &&
+    !record.soap.plan;
 
   return (
     <article className="grid grid-cols-[150px_minmax(360px,1fr)_minmax(300px,0.9fr)] gap-6 px-6 py-5">
@@ -212,15 +218,21 @@ function EmrHistoryRow({ record }: { record: EmrHistoryRecord }) {
       <div>
         <p className="text-xs font-extrabold text-[#7a8599]">의사 소견</p>
         <h3 className="mt-1 text-lg font-extrabold text-[#151b28]">{record.title}</h3>
-        <dl className="mt-3 space-y-2 text-sm">
-          {soapRows.map(([key, label, value]) => (
-            <div key={key} className="grid grid-cols-[26px_58px_1fr] gap-2">
-              <dt className="font-extrabold text-[#1d2a57]">{key}</dt>
-              <dd className="font-extrabold text-[#52607a]">({label})</dd>
-              <dd className="font-bold leading-6 text-[#344055]">{value}</dd>
-            </div>
-          ))}
-        </dl>
+        {onlyMemo ? (
+          <p className="mt-3 whitespace-pre-line text-sm font-bold leading-6 text-[#344055]">
+            {record.soap.subjective}
+          </p>
+        ) : (
+          <dl className="mt-3 space-y-2 text-sm">
+            {soapRows.map(([key, label, value]) => (
+              <div key={key} className="grid grid-cols-[26px_58px_1fr] gap-2">
+                <dt className="font-extrabold text-[#1d2a57]">{key}</dt>
+                <dd className="font-extrabold text-[#52607a]">({label})</dd>
+                <dd className="whitespace-pre-line font-bold leading-6 text-[#344055]">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
       </div>
 
       <div className="border-l border-[#edf1f6] pl-6">

@@ -32,17 +32,36 @@ router = APIRouter(
 )
 
 
-# triage_masterDB.code -> 프론트 응급도 키
-TRIAGE_CODE_TO_KEY = {
-    1: "emergency",
-    2: "semiEmergency",
-    3: "normal",
-}
+def _triage_key(triage, triage_result) -> str:
+    """챗봇 문진 결과가 있으면 그 응급도를 우선 사용한다."""
+    if triage_result:
+        urgency_num = triage_result.urgency_level_num
+        if urgency_num == 1:
+            return "emergency"
+        if urgency_num == 2:
+            return "semiEmergency"
+        return "normal"
+
+    if triage:
+        if triage.code == 1:
+            return "emergency"
+        if triage.code == 2:
+            return "semiEmergency"
+
+    return "normal"
+
+
+def _visit_reason(category, triage_result) -> str:
+    """진료 항목은 예약 경로 기준으로 단순하게 보여준다."""
+    if triage_result:
+        return "일반"
+
+    return category.label if category else ""
 
 
 def _serialize_reservation(row) -> dict:
     """get_reservations 조인 결과 한 행을 응답 형태로 변환한다."""
-    schedule, guardian, pet, user, doctor, triage, category = row
+    schedule, guardian, pet, user, doctor, triage, category, triage_result = row
     confirmed = to_kst(schedule.confirmed_time)
     end = to_kst(schedule.confirmed_end_time)
 
@@ -64,10 +83,8 @@ def _serialize_reservation(row) -> dict:
         "owner_name": user.name,
         "phone": user.phone,
         "doctor_name": doctor.doctor_name,
-        "visit_reason": category.label if category else "",
-        "triage": (
-            TRIAGE_CODE_TO_KEY.get(triage.code, "normal") if triage else "normal"
-        ),
+        "visit_reason": _visit_reason(category, triage_result),
+        "triage": _triage_key(triage, triage_result),
         "date": confirmed.date().isoformat() if confirmed else "",
         "start": confirmed.strftime("%H:%M") if confirmed else "",
         "end": end.strftime("%H:%M") if end else "",
@@ -218,7 +235,9 @@ async def change_reservation_status(
     updated = await update_reservation_status(
         db,
         schedule_id,
-        request.status
+        request.status,
+        vet_memo=request.vet_memo,
+        attachments=request.attachments,
     )
 
     if not updated:

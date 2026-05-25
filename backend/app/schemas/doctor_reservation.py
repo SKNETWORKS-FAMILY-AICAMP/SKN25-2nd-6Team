@@ -22,6 +22,8 @@ class ReservationUpdate(BaseModel):
 # 예약 상태 변경 요청
 class ReservationStatusUpdate(BaseModel):
     status: str
+    vet_memo: Optional[str] = None
+    attachments: Optional[list[dict]] = None
 
 
 # 예약 목록 항목 응답

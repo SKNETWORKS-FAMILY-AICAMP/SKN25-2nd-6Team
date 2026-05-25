@@ -104,14 +104,13 @@ async def patient_detail(
         confirmed_time = schedule.confirmed_time if schedule else None
         visit_dt = to_kst(confirmed_time or emr.created_at)
 
-        # Removed vet_note JSON/String parsing since it is deleted from DB schema
         soap_data = {
-            "subjective": "",
+            "subjective": emr.vet_memo or "",
             "objective": "",
             "assessment": "",
             "plan": "",
         }
-        chief_complaint = ""
+        chief_complaint = "의사 작성 메모" if emr.vet_memo else "진료 기록"
 
         emr_history.append({
             "doctor_emrid": emr.doctor_emrid,
