@@ -1,0 +1,25 @@
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.user import User
+from app.schemas.user import UserCreate
+from app.core.security import hash_password
+
+# loginid 중복 확인
+async def get_user_by_loginid(db: AsyncSession, loginid: str):
+    result = await db.execute(select(User).where(User.loginid == loginid))
+    return result.scalar_one_or_none()
+
+
+# 회원가입
+async def create_user(db: AsyncSession, user: UserCreate):
+    hashed_pw = hash_password(user.password)
+    db_user = User(
+        loginid=user.loginid,
+        password=hashed_pw,
+        name=user.name,
+        phone=user.phone,
+    )
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+    return db_user

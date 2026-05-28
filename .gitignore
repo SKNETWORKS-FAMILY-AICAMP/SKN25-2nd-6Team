@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment (절대 커밋 금지)
+.env
+.env.*
+!.env.example
+backend/.env
+ai/docker/.env
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/**/node_modules/
+frontend/**/dist/
+frontend/**/.env
+
+# Python virtual env
+venv/
+.venv/
+
+# Local agent instructions
+AGENTS.md
+
+# Claude Code AI 메모리 (로컬 전용)
+.claude/
+
+
+*.log
+frontend/guardian-web/*.log

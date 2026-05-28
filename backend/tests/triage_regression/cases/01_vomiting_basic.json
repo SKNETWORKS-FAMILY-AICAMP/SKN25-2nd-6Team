@@ -1,0 +1,21 @@
+{
+  "name": "vomiting_basic",
+  "description": "구토 2회 1일째 — Level 4 준긴급 예상",
+  "pet": { "species": "dog", "breed": "말티즈", "age": 3, "gender": "female", "weight_kg": 3.5 },
+  "conversation": [
+    { "role": "user", "content": "어제부터 구토를 두 번 했어요. 밥은 조금 먹었고 활동은 보통이에요." }
+  ],
+  "expected": {
+    "urgency_level_num_range": [3, 5],
+    "max_questions_per_turn": 1,
+    "max_symptom_keywords": 4,
+    "need_followup": false,
+    "forbidden_words": [
+      "응급입니다", "응급 상황입니다", "응급으로 가세요", "응급실로 가세요",
+      "즉시 내원하세요", "당장 병원으로 가세요", "빨리 병원 가세요", "지금 바로 가세요",
+      "생명이 위험합니다", "매우 위험한 상태입니다", "심각한 상태입니다",
+      "Level 2입니다", "응급도가 높습니다", "긴급 분류입니다",
+      "탈수 여부를 확인", "심박수는", "통증이 몇 점", "점막색을 확인", "각막에 문제"
+    ]
+  }
+}

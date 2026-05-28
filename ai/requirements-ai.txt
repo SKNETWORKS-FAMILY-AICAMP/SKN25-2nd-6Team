@@ -1,0 +1,8 @@
+# AI 전용 추가 의존성 — backend/requirements.txt 에 병합하거나 별도 설치
+# pip install -r ai/requirements-ai.txt
+
+# CNN 비전 모델 (EfficientNet-B0)
+torch>=2.1.0
+torchvision>=0.16.0
+timm>=0.9.12
+Pillow>=10.0.0

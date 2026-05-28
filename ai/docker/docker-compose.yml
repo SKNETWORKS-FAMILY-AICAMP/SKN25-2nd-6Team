@@ -1,0 +1,126 @@
+version: "3.9"
+
+# MediPaw 전체 스택
+# 사용법:
+#   1. 프로젝트 루트에 .env 파일 준비 (backend/.env.example 참고)
+#   2. docker compose -f ai/docker/docker-compose.yml up --build
+
+services:
+  # ── PostgreSQL ───────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: medipaw
+      POSTGRES_USER: medipaw
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medipaw_secret}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medipaw"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - medipaw_net
+
+  # ── FastAPI Backend (AI 포함) ─────────────────────────────────────
+  backend:
+    build:
+      context: ../..
+      dockerfile: ai/docker/Dockerfile.backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://medipaw:${POSTGRES_PASSWORD:-medipaw_secret}@db:5432/medipaw
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 120
+      REFRESH_TOKEN_EXPIRE_DAYS: 14
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-medipaw-bucket}
+      CLOUDFRONT_URL: ${CLOUDFRONT_URL:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o}
+      DEBUG: false
+      ALLOWED_ORIGINS: http://localhost:5173,http://localhost:5174
+    ports:
+      - "8000:8000"
+    volumes:
+      - uploads_data:/app/backend/uploads
+      - ../../backend/models:/app/backend/models:ro
+      - ../../backend/data:/app/backend/data:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - medipaw_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── DB 마이그레이션 (1회성) ──────────────────────────────────────
+  migrate:
+    build:
+      context: ../..
+      dockerfile: ai/docker/Dockerfile.backend
+    command: >
+      bash -c "cd /app/backend && alembic upgrade head"
+    environment:
+      DATABASE_URL: postgresql://medipaw:${POSTGRES_PASSWORD:-medipaw_secret}@db:5432/medipaw
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-dummy}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-dummy}
+      AWS_REGION: ${AWS_REGION:-ap-northeast-2}
+      S3_BUCKET_NAME: ${S3_BUCKET_NAME:-medipaw-bucket}
+      CLOUDFRONT_URL: ${CLOUDFRONT_URL:-http://localhost}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-dummy}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - medipaw_net
+    restart: "no"
+
+  # ── Guardian Frontend (보호자 앱) ─────────────────────────────────
+  guardian:
+    build:
+      context: ../..
+      dockerfile: ai/docker/Dockerfile.guardian
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - medipaw_net
+
+  # ── Vet Frontend (수의사 대시보드) ────────────────────────────────
+  vet:
+    build:
+      context: ../..
+      dockerfile: ai/docker/Dockerfile.vet
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    restart: unless-stopped
+    ports:
+      - "5174:5174"
+    depends_on:
+      - backend
+    networks:
+      - medipaw_net
+
+volumes:
+  postgres_data:
+  uploads_data:
+
+networks:
+  medipaw_net:
+    driver: bridge
